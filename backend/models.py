@@ -411,15 +411,54 @@ class IndividualRates(Base):
         Index('IND_STAW_TZAJ_FK_I', 'TZAJ_KOD')
     )
 
-class Pracownicy(Base):
+class Employee(Base):
     __tablename__ = 'DZ_PRACOWNICY'
-    # Define columns here...
+
+    ID = Column(Integer, primary_key=True, index=True)
+    OS_ID = Column(Integer, ForeignKey('DZ_OSOBY.ID'), nullable=False)
+    PIERWSZE_ZATR = Column(String(1), nullable=False)
+    NR_AKT = Column(String(20), nullable=True, unique=True)
+    NR_KARTY = Column(String(100), nullable=True)
+    TELEFON1 = Column(String(30), nullable=True)
+    TELEFON2 = Column(String(30), nullable=True)
+    BADANIA_OKRESOWE = Column(Date, nullable=True)
+    KONS_DO_ZMIANY = Column(String(1), nullable=True)
+    KONSULTACJE = Column(String(1000), nullable=True)
+    ZAINTERESOWANIA = Column(String(1000), nullable=True)
+    ZAINTERESOWANIA_ANG = Column(String(1000), nullable=True)
+    UTW_ID = Column(String(30), nullable=False, default=func.user())
+    UTW_DATA = Column(Date, nullable=False, default=func.sysdate())
+    MOD_ID = Column(String(30), nullable=False, default=func.user())
+    MOD_DATA = Column(Date, nullable=False, default=func.sysdate())
+    EMERYTURA_DATA = Column(Date, nullable=True)
+    DATA_NADANIA_TYTULU = Column(Date, nullable=True)
+    AKTYWNY = Column(String(1), nullable=False, default='T')
+    DATA_PRZESWIETLENIA = Column(Date, nullable=True)
+    SL_ID = Column(Integer, ForeignKey('DZ_SALE.ID'), nullable=True)
+    TYTUL_DDZ_ID = Column(Integer, ForeignKey('DZ_DZIEDZINY.ID'), nullable=True)
+    DATA_SZKOLENIA_BHP = Column(Date, nullable=True)
+    TYTUL_SZK_ID = Column(Integer, ForeignKey('DZ_SZKOLY.ID'), nullable=True)
+
     individual_rates = relationship("IndividualRates", back_populates="pracownik")
-    employee_pensum = relationship("EmployeePensum", back_populates="pracownik")
-    employment = relationship("Employment", back_populates="pracownik")
-    group_instructors = relationship("GroupInstructor", back_populates="pracownik")
-    external_pensum = relationship("ExternalPensum", back_populates="pracownik")
-    discounts = relationship("Discount", back_populates="pracownik")
+    thesis_supervisors = relationship("ThesisSupervisors", back_populates="pracownik")
+    reviewers = relationship("Reviewer", back_populates="pracownik")
+    pensum_prac = relationship("PensumPrac", back_populates="pracownik")
+    znizki_pensum = relationship("ZnizkiPensum", back_populates="pracownik")
+    prac_zatr = relationship("PracZatr", back_populates="pracownik")
+    rozl_pensum_zewn = relationship("RozlPensumZewn", back_populates="pracownik")
+    prowadzacy_grup = relationship("ProwadzacyGrup", back_populates="pracownik")
+
+    __table_args__ = (
+        CheckConstraint("PIERWSZE_ZATR IN ('T', 'N')", name='check_pierwsze_zatr'),
+        CheckConstraint("KONS_DO_ZMIANY IN ('N', 'T')", name='check_kons_do_zmiany'),
+        CheckConstraint("AKTYWNY IN ('N', 'T')", name='check_aktywny'),
+        Index('PRAC_DDZ_FK_I', 'TYTUL_DDZ_ID'),
+        Index('PRAC_NR_AKT_UK', 'NR_AKT', unique=True),
+        Index('PRAC_OS_ID_UK', 'OS_ID', unique=True),
+        Index('PRAC_PK', 'ID', unique=True),
+        Index('PRAC_SL_FK_I', 'SL_ID'),
+        Index('PRAC_TYTUL_SZK_FK_I', 'TYTUL_SZK_ID')
+    )
 
 class EmployeePensum(Base):
     __tablename__ = 'DZ_PENSUM_PRAC'

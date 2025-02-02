@@ -3,22 +3,13 @@ from pydantic import BaseModel
 from typing import List
 from formulas import calculate_workload
 from sqlalchemy.orm import Session
-from database import SessionLocal, engine
-from models import Base, TeachingLoad
+from database import SessionLocal, engine, get_db, Base
+from models import Base, Employee, TeachingLoad, ThesisSupervisors, Reviewer, IndividualRates
 
 app = FastAPI(title="System Rozliczania Obciążeń Dydaktycznych")
 
 Base.metadata.create_all(bind=engine)
 
-# Dependency to get DB session
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
-
-# Model danych wejściowych
 class WorkloadInput(BaseModel):
     hours: float
     group_type: str  # Typ grupy np. wykład, ćwiczenia
@@ -28,7 +19,6 @@ class WorkloadInput(BaseModel):
     committee_member: bool = False
     university_function: bool = False
 
-# Model danych wyjściowych
 class WorkloadOutput(BaseModel):
     total_workload: float
 
@@ -39,22 +29,44 @@ def read_root():
 @app.post("/calculate", response_model=WorkloadOutput)
 def calculate_endpoint(input_data: WorkloadInput, db: Session = Depends(get_db)):
     try:
-        # Fetch additional data from the database
-        teaching_loads = db.query(TeachingLoad).all()
+        # Fetch all relevant data for each employee
+        employees = db.query(Employee).all()
         
-        # Process each teaching load and add to respective classes
-        for load in teaching_loads:
-            result = calculate_workload(
-                hours=load.hours,
-                group_type=load.group_type,
-                employee_level=load.employee_level,
-                discounts=input_data.discounts,
-                practice_supervisor=input_data.practice_supervisor,
-                committee_member=input_data.committee_member,
-                university_function=input_data.university_function
-            )
-            load.total_workload = result
-            db.add(load)
+        for employee in employees:
+            teaching_loads = db.query(TeachingLoad).filter_by(employee_id=employee.ID).all()
+            thesis_supervisions = db.query(ThesisSupervisors).filter_by(OS_ID=employee.ID).all()
+            reviews = db.query(Reviewer).filter_by(OS_ID=employee.ID).all()
+            individual_rates = db.query(IndividualRates).filter_by(PRAC_ID=employee.ID).all()
+            
+            total_workload = 0.0
+            
+            # Calculate workload for teaching loads
+            for load in teaching_loads:
+                result = calculate_workload(
+                    hours=load.hours,
+                    group_type=load.group_type,
+                    employee_level=employee.level,
+                    discounts=input_data.discounts,
+                    practice_supervisor=input_data.practice_supervisor,
+                    committee_member=input_data.committee_member,
+                    university_function=input_data.university_function
+                )
+                total_workload += result
+            
+            # Calculate workload for thesis supervisions
+            for supervision in thesis_supervisions:
+                total_workload += supervision.LICZBA_GODZ_DO_PENSUM  # Adjust as needed
+            
+            # Calculate workload for reviews
+            for review in reviews:
+                total_workload += review.LICZBA_GODZ_DO_PENSUM  # Adjust as needed
+            
+            # Apply individual rates
+            for rate in individual_rates:
+                total_workload *= rate.STAWKA  # Adjust as needed
+            
+            employee.total_workload = total_workload
+            db.add(employee)
         
         db.commit()
         
@@ -72,5 +84,3 @@ def calculate_endpoint(input_data: WorkloadInput, db: Session = Depends(get_db))
         return {"total_workload": result}
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
-
-
