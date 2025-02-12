@@ -3,3 +3,6 @@ uvicorn
 pydantic
 sqlalchemy
 cx_Oracle
+PyQt5
+pandas
+openpyxl

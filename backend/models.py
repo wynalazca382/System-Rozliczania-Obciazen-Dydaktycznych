@@ -415,7 +415,7 @@ class Employee(Base):
     __tablename__ = 'DZ_PRACOWNICY'
 
     ID = Column(Integer, primary_key=True, index=True)
-    OS_ID = Column(Integer, ForeignKey('DZ_OSOBY.ID'), nullable=False)
+    OS_ID = Column(Integer, ForeignKey('DZ_OSOBY.ID'), nullable=False, unique=True)
     PIERWSZE_ZATR = Column(String(1), nullable=False)
     NR_AKT = Column(String(20), nullable=True, unique=True)
     NR_KARTY = Column(String(100), nullable=True)
@@ -439,14 +439,11 @@ class Employee(Base):
     DATA_SZKOLENIA_BHP = Column(Date, nullable=True)
     TYTUL_SZK_ID = Column(Integer, ForeignKey('DZ_SZKOLY.ID'), nullable=True)
 
-    individual_rates = relationship("IndividualRates", back_populates="pracownik")
-    thesis_supervisors = relationship("ThesisSupervisors", back_populates="pracownik")
-    reviewers = relationship("Reviewer", back_populates="pracownik")
-    pensum_prac = relationship("PensumPrac", back_populates="pracownik")
-    znizki_pensum = relationship("ZnizkiPensum", back_populates="pracownik")
-    prac_zatr = relationship("PracZatr", back_populates="pracownik")
-    rozl_pensum_zewn = relationship("RozlPensumZewn", back_populates="pracownik")
-    prowadzacy_grup = relationship("ProwadzacyGrup", back_populates="pracownik")
+    organizational_unit = relationship("OrganizationalUnits", back_populates="employees")
+    teaching_loads = relationship("GroupInstructor", back_populates="employee")
+    thesis_supervisions = relationship("ThesisSupervisors", back_populates="employee")
+    reviews = relationship("Reviewer", back_populates="employee")
+    individual_rates = relationship("IndividualRates", back_populates="employee")
 
     __table_args__ = (
         CheckConstraint("PIERWSZE_ZATR IN ('T', 'N')", name='check_pierwsze_zatr'),
@@ -890,11 +887,34 @@ class Discount(Base):
         Index('ZPENS_PK', 'ID', unique=True),
         Index('ZNIZ_PRAC_FK_I', 'PRAC_ID')
     )
-
 class Reviewer(Base):
     __tablename__ = 'DZ_RECENZENCI_PRAC'
-    # Define columns here...
-    pensum_settlement = relationship("PensumSettlement", back_populates="reviewers")
+
+    ID = Column(Integer, primary_key=True, index=True)
+    OS_ID = Column(Integer, ForeignKey('DZ_OSOBY.ID'), nullable=False)
+    PRC_CERT_ID = Column(Integer, ForeignKey('DZ_PRACE_CERT.ID'), nullable=False)
+    AUTOR_OS_ID = Column(Integer, ForeignKey('DZ_OSOBY.ID'), nullable=False)
+    UTW_ID = Column(String(30), nullable=False, default=func.user())
+    UTW_DATA = Column(Date, nullable=False, default=func.sysdate())
+    MOD_ID = Column(String(30), nullable=False, default=func.user())
+    MOD_DATA = Column(Date, nullable=False, default=func.sysdate())
+    LICZBA_GODZ_ZA_PRACE = Column(Float, nullable=True)
+    LICZBA_GODZ_DO_PENSUM = Column(Float, nullable=True)
+    RPENS_KOD = Column(String(20), ForeignKey('DZ_ROZLICZENIA_PENSUM.KOD'), nullable=True)
+    PRZEL_KOD = Column(String(20), ForeignKey('DZ_PRZELICZNIKI.PRZEL_KOD'), nullable=True)
+    LICZBA_GODZ_PRZEN = Column(Float, nullable=True)
+
+    employee = relationship("Employee", back_populates="reviews")
+
+    __table_args__ = (
+        Index('REC_PRAC_AUTOR_OS_FK_I', 'AUTOR_OS_ID'),
+        Index('REC_PRAC_OS_FK_I', 'OS_ID'),
+        Index('REC_PRAC_PK', 'ID', unique=True),
+        Index('REC_PRAC_PRC_CERT_FK_I', 'PRC_CERT_ID'),
+        Index('REC_PRAC_PRZEL_FK_I', 'RPENS_KOD', 'PRZEL_KOD'),
+        Index('REC_PRAC_RPENS_FK_I', 'RPENS_KOD'),
+        Index('REC_PRAC_UK', 'OS_ID', 'PRC_CERT_ID', 'AUTOR_OS_ID', unique=True)
+    )
 
 class ConversionValue(Base):
     __tablename__ = 'DZ_WARTOSCI_PRZELICZNIKOW'
