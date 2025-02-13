@@ -4,7 +4,7 @@ import pandas as pd
 from formulas import calculate_workload
 from sqlalchemy.orm import sessionmaker
 from database import engine
-from models import Employee, GroupInstructor, ThesisSupervisors, Reviewer, IndividualRates, OrganizationalUnits
+from models import Employee, GroupInstructor, ThesisSupervisors, Reviewer, IndividualRates, OrganizationalUnits, CommitteeFunctionPensum, DidacticCycles
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
@@ -51,7 +51,7 @@ class MainWindow(QMainWindow):
         query = db.query(Employee)
         
         if selected_unit:
-            query = query.filter(Employee.JED_ORG_KOD == selected_unit)
+            query = query.join(Employee.organizational_unit).filter(OrganizationalUnits.KOD == selected_unit)
         
         employees = query.all()
         
@@ -65,16 +65,12 @@ class MainWindow(QMainWindow):
             total_workload = 0.0
             
             for load in teaching_loads:
-                result = calculate_workload(
-                        hours=load.LICZBA_GODZ,
-                        group_type=load.group_type,
-                        employee_level=employee.level,
-                        discounts=0.0,
-                        practice_supervisor=False,
-                        committee_member=False,
-                        university_function=False
-                    )
-                total_workload += result
+                total_workload += load.LICZBA_GODZ_DO_PENSUM
+                teaching_cycle = db.query(DidacticCycles).filter_by(ID=load.PRAC_ID).first()
+                if teaching_cycle:
+                    pensum = db.query(CommitteeFunctionPensum).filter_by(CDYD_KON=teaching_cycle.KOD).first()
+                    if pensum:
+                        total_workload += pensum.PENSUM
             
             for supervision in thesis_supervisions:
                 total_workload += supervision.LICZBA_GODZ_DO_PENSUM

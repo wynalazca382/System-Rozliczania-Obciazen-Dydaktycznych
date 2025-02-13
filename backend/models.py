@@ -413,7 +413,6 @@ class IndividualRates(Base):
 
 class Employee(Base):
     __tablename__ = 'DZ_PRACOWNICY'
-
     ID = Column(Integer, primary_key=True, index=True)
     OS_ID = Column(Integer, ForeignKey('DZ_OSOBY.ID'), nullable=False, unique=True)
     PIERWSZE_ZATR = Column(String(1), nullable=False)
