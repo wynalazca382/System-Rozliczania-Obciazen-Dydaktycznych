@@ -29,7 +29,6 @@ def read_root():
 @app.post("/calculate", response_model=WorkloadOutput)
 def calculate_endpoint(input_data: WorkloadInput, db: Session = Depends(get_db)):
     try:
-        # Fetch all relevant data for each employee
         employees = db.query(Employee).all()
         
         for employee in employees:

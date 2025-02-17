@@ -1,7 +1,7 @@
 import sys
 from PyQt5.QtWidgets import QApplication, QMainWindow, QVBoxLayout, QWidget, QPushButton, QLabel, QComboBox, QFileDialog
 import pandas as pd
-from formulas import calculate_workload
+from formulas import calculate_workload_for_employee
 from sqlalchemy.orm import sessionmaker
 from database import engine
 from models import Employee, GroupInstructor, ThesisSupervisors, Reviewer, IndividualRates, OrganizationalUnits, CommitteeFunctionPensum, DidacticCycles

@@ -1,40 +1,28 @@
-def calculate_workload(hours: float, group_type: str, employee_level: str, discounts: float = 0.0, practice_supervisor: bool = False, committee_member: bool = False, university_function: bool = False) -> float:
-    """
-    Funkcja obliczająca obciążenie dydaktyczne.
-    - hours: liczba godzin zajęć
-    - group_type: typ grupy (np. wykład, ćwiczenia)
-    - employee_level: stanowisko pracownika
-    - discounts: zniżki w obciążeniu
-    - practice_supervisor: czy jest opiekunem praktyk
-    - committee_member: czy jest członkiem komisji
-    - university_function: czy pełni funkcję na uczelni
-    """
-    # Przykładowa logika (do zastąpienia prawdziwą formułą)
-    group_multiplier = {
-        "wykład": 1.5,
-        "ćwiczenia": 1.2,
-        "laboratorium": 1.3
-    }
-    level_multiplier = {
-        "profesor": 1.0,
-        "adiunkt": 0.9,
-        "asystent": 0.8
-    }
+from models import Employee, GroupInstructor, ThesisSupervisors, Reviewer, IndividualRates, OrganizationalUnits, CommitteeFunctionPensum, DidacticCycles
+
+def calculate_workload_for_employee(db, employee):
+    teaching_loads = db.query(GroupInstructor).filter_by(PRAC_ID=employee.ID).all()
+    thesis_supervisions = db.query(ThesisSupervisors).filter_by(OS_ID=employee.ID).all()
+    reviews = db.query(Reviewer).filter_by(OS_ID=employee.ID).all()
+    individual_rates = db.query(IndividualRates).filter_by(PRAC_ID=employee.ID).all()
     
-    group_factor = group_multiplier.get(group_type, 1.0)
-    level_factor = level_multiplier.get(employee_level, 1.0)
-
-    workload = hours * group_factor * level_factor
-
-    # Apply discounts
-    workload -= discounts
-
-    # Apply additional factors
-    if practice_supervisor:
-        workload *= 0.9  # Example factor
-    if committee_member:
-        workload *= 0.95  # Example factor
-    if university_function:
-        workload *= 0.85  # Example factor
-
-    return workload
+    total_workload = 0.0
+    
+    for load in teaching_loads:
+        total_workload += load.LICZBA_GODZ_DO_PENSUM
+        teaching_cycle = db.query(DidacticCycles).filter_by(ID=load.ZAJ_CYK_ID).first()
+        if teaching_cycle:
+            pensum = db.query(CommitteeFunctionPensum).filter_by(CDYD_KON=teaching_cycle.KOD).first()
+            if pensum:
+                total_workload += pensum.PENSUM
+    
+    for supervision in thesis_supervisions:
+        total_workload += supervision.LICZBA_GODZ_DO_PENSUM
+    
+    for review in reviews:
+        total_workload += review.LICZBA_GODZ_DO_PENSUM
+    
+    for rate in individual_rates:
+        total_workload *= rate.STAWKA
+    
+    return total_workload
