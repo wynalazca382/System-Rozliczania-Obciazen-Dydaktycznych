@@ -1,10 +1,10 @@
 import sys
-from PyQt5.QtWidgets import QApplication, QMainWindow, QVBoxLayout, QWidget, QPushButton, QLabel, QComboBox, QFileDialog
+from PyQt5.QtWidgets import QApplication, QMainWindow, QVBoxLayout, QWidget, QPushButton, QLabel, QComboBox, QFileDialog, QListWidget, QListWidgetItem, QHBoxLayout, QTabWidget, QCheckBox
 import pandas as pd
 from formulas import calculate_workload_for_employee
 from sqlalchemy.orm import sessionmaker
 from database import engine
-from models import Employee, GroupInstructor, ThesisSupervisors, Reviewer, IndividualRates, OrganizationalUnits, CommitteeFunctionPensum, DidacticCycles
+from models import Employee, GroupInstructor, ThesisSupervisors, Reviewer, IndividualRates, OrganizationalUnits, CommitteeFunctionPensum, DidacticCycles, Group, Person, Position
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
@@ -12,19 +12,60 @@ class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("System Rozliczania Obciążeń Dydaktycznych")
-        self.setGeometry(100, 100, 600, 400)
+        self.setGeometry(100, 100, 800, 600)
         
         layout = QVBoxLayout()
+        
+        self.year_filter = QComboBox(self)
+        self.year_filter.addItem("2023/2024")
+        self.year_filter.addItem("2024/2025")
+        self.year_filter.currentIndexChanged.connect(self.populate_semesters)
+        layout.addWidget(self.year_filter)
         
         self.unit_filter = QComboBox(self)
         self.unit_filter.addItem("Wszystkie jednostki")
         self.populate_units()
+        self.unit_filter.currentIndexChanged.connect(self.populate_groups)
         layout.addWidget(self.unit_filter)
         
         self.semester_filter = QComboBox(self)
         self.semester_filter.addItem("Wszystkie semestry")
         self.populate_semesters()
         layout.addWidget(self.semester_filter)
+        
+        self.edit_mode_checkbox = QCheckBox("Tryb edycji", self)
+        self.edit_mode_checkbox.stateChanged.connect(self.toggle_edit_mode)
+        layout.addWidget(self.edit_mode_checkbox)
+        
+        self.tab_widget = QTabWidget(self)
+        self.groups_tab = QWidget()
+        self.instructors_tab = QWidget()
+        
+        self.tab_widget.addTab(self.groups_tab, "Grupy")
+        self.tab_widget.addTab(self.instructors_tab, "Wykładowcy")
+        
+        layout.addWidget(self.tab_widget)
+        
+        self.groups_layout = QVBoxLayout()
+        self.groups_tab.setLayout(self.groups_layout)
+        
+        self.group_list = QListWidget(self)
+        self.group_list.setDragEnabled(False)
+        self.groups_layout.addWidget(self.group_list)
+        
+        self.employee_list = QListWidget(self)
+        self.employee_list.setAcceptDrops(False)
+        self.employee_list.setDragDropMode(QListWidget.InternalMove)
+        self.groups_layout.addWidget(self.employee_list)
+        
+        self.instructors_layout = QVBoxLayout()
+        self.instructors_tab.setLayout(self.instructors_layout)
+        
+        self.instructor_list = QListWidget(self)
+        self.instructors_layout.addWidget(self.instructor_list)
+        
+        self.populate_groups()
+        self.populate_employees()
         
         self.generate_report_button = QPushButton("Generuj raport Excel", self)
         self.generate_report_button.clicked.connect(self.generate_report)
@@ -44,6 +85,52 @@ class MainWindow(QMainWindow):
             self.unit_filter.addItem(unit.OPIS, unit.KOD)
         db.close()
     
+    def populate_semesters(self):
+        self.semester_filter.clear()
+        self.semester_filter.addItem("Wszystkie semestry")
+        selected_year = self.year_filter.currentText()
+        db = SessionLocal()
+        semesters = db.query(DidacticCycles).filter(DidacticCycles.OPIS.like(f"%{selected_year}%")).all()
+        for semester in semesters:
+            self.semester_filter.addItem(semester.CYKL, semester.ID)
+        db.close()
+    
+    def populate_groups(self):
+        self.group_list.clear()
+        selected_unit = self.unit_filter.currentData()
+        selected_semester = self.semester_filter.currentData()
+        db = SessionLocal()
+        query = db.query(Group)
+        if selected_unit:
+            query = query.filter_by(JEDN_KOD=selected_unit)
+        if selected_semester:
+            query = query.filter_by(CYKL_ID=selected_semester)
+        groups = query.all()
+        for group in groups:
+            item = QListWidgetItem(f"{group.OPIS} - {group.ZAJ_CYK_ID}")
+            item.setData(1, group.ZAJ_CYK_ID)
+            self.group_list.addItem(item)
+        db.close()
+    
+    def populate_employees(self):
+        self.employee_list.clear()
+        db = SessionLocal()
+        employees = db.query(Employee).all()
+        for employee in employees:
+            person = db.query(Person).filter_by(ID=employee.OS_ID).first()
+            item = QListWidgetItem(f"{person.NAZWISKO} {person.IMIE}")
+            item.setData(1, employee.ID)
+            self.employee_list.addItem(item)
+        db.close()
+    
+    def toggle_edit_mode(self, state):
+        if state == 2:  # Checked
+            self.group_list.setDragEnabled(True)
+            self.employee_list.setAcceptDrops(True)
+        else:
+            self.group_list.setDragEnabled(False)
+            self.employee_list.setAcceptDrops(False)
+    
     def generate_report(self):
         db = SessionLocal()
         selected_unit = self.unit_filter.currentData()
@@ -57,10 +144,28 @@ class MainWindow(QMainWindow):
         
         data = []
         for employee in employees:
-            total_workload = calculate_workload_for_employee(db, employee)
+            person = db.query(Person).filter_by(ID=employee.OS_ID).first()
+            position = db.query(Position).filter_by(ID=employee.position_id).first()
+            total_workload, godziny_dydaktyczne_z, godziny_dydaktyczne_l = calculate_workload_for_employee(db, employee)
+            
             data.append({
-                "Employee ID": employee.ID,
-                "Total Workload": total_workload
+                "Tytuły": person.TYTUL_PRZED,
+                "Nazwisko i imię": f"{person.NAZWISKO} {person.IMIE}",
+                "J.O.": employee.organizational_unit.OPIS,
+                "Stanowisko": position.NAZWA if position else "N/A",
+                "Forma": "etat",
+                "Godziny dydaktyczne Z": godziny_dydaktyczne_z,
+                "Godziny dydaktyczne L": godziny_dydaktyczne_l,
+                "SUMA": total_workload,
+                "Pensum": employee.pensum if employee.pensum else 0,
+                "Etat": employee.etat if employee.etat else 1.0,
+                "Nadgodziny": total_workload - (employee.pensum if employee.pensum else 0),
+                "Stawka": employee.stawka if employee.stawka else 0,
+                "Kwota nadgodzin": (total_workload - (employee.pensum if employee.pensum else 0)) * (employee.stawka if employee.stawka else 0),
+                "Zw. Godz. Z": 0,
+                "Zw. Godz. L": 0,
+                "Zw. kwota Z": 0,
+                "Zw. kwota L": 0 
             })
         
         df = pd.DataFrame(data)
