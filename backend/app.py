@@ -92,7 +92,7 @@ class MainWindow(QMainWindow):
         db = SessionLocal()
         semesters = db.query(DidacticCycles).filter(DidacticCycles.OPIS.like(f"%{selected_year}%")).all()
         for semester in semesters:
-            self.semester_filter.addItem(semester.CYKL, semester.ID)
+            self.semester_filter.addItem(semester.KOD)
         db.close()
     
     def populate_groups(self):
@@ -146,26 +146,26 @@ class MainWindow(QMainWindow):
         for employee in employees:
             person = db.query(Person).filter_by(ID=employee.OS_ID).first()
             position = db.query(Position).filter_by(ID=employee.position_id).first()
-            total_workload, godziny_dydaktyczne_z, godziny_dydaktyczne_l = calculate_workload_for_employee(db, employee)
+            workload_data = calculate_workload_for_employee(db, employee)
             
             data.append({
-                "Tytuły": person.TYTUL_PRZED,
+                "Tytuły": person.TYTUL_PO,
                 "Nazwisko i imię": f"{person.NAZWISKO} {person.IMIE}",
                 "J.O.": employee.organizational_unit.OPIS,
                 "Stanowisko": position.NAZWA if position else "N/A",
                 "Forma": "etat",
-                "Godziny dydaktyczne Z": godziny_dydaktyczne_z,
-                "Godziny dydaktyczne L": godziny_dydaktyczne_l,
-                "SUMA": total_workload,
-                "Pensum": employee.pensum if employee.pensum else 0,
-                "Etat": employee.etat if employee.etat else 1.0,
-                "Nadgodziny": total_workload - (employee.pensum if employee.pensum else 0),
-                "Stawka": employee.stawka if employee.stawka else 0,
-                "Kwota nadgodzin": (total_workload - (employee.pensum if employee.pensum else 0)) * (employee.stawka if employee.stawka else 0),
-                "Zw. Godz. Z": 0,
-                "Zw. Godz. L": 0,
-                "Zw. kwota Z": 0,
-                "Zw. kwota L": 0 
+                "Godziny dydaktyczne Z": workload_data["godziny_dydaktyczne_z"],
+                "Godziny dydaktyczne L": workload_data["godziny_dydaktyczne_l"],
+                "SUMA": workload_data["total_workload"],
+                "Pensum": workload_data["pensum"],
+                "Etat": workload_data["etat"],
+                "Nadgodziny": workload_data["nadgodziny"],
+                "Stawka": workload_data["stawka"],
+                "Kwota nadgodzin": workload_data["kwota_nadgodzin"],
+                "Zw. Godz. Z": workload_data["zw_godz_z"],
+                "Zw. Godz. L": workload_data["zw_godz_l"],
+                "Zw. kwota Z": workload_data["zw_kwota_z"],
+                "Zw. kwota L": workload_data["zw_kwota_l"]
             })
         
         df = pd.DataFrame(data)
