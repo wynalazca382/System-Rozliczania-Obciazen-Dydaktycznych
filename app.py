@@ -113,16 +113,19 @@ class MainWindow(QMainWindow):
         selected_unit = self.unit_filter.currentData()
         selected_year = self.year_filter.currentText()
         db = SessionLocal()
+        
         query = db.query(Group).join(DidacticCycles).filter(DidacticCycles.OPIS.like(f"%{selected_year}%"))
+        
         if selected_unit:
-            query = query.filter(Group.JEDN_KOD == selected_unit)
+            query = query.join(GroupInstructor).filter(GroupInstructor.JEDN_KOD == selected_unit)
+        
         groups = query.all()
         for group in groups:
             item = QListWidgetItem(f"{group.OPIS} - {group.ZAJ_CYK_ID}")
             item.setData(1, group.ZAJ_CYK_ID)
-            self.group_list.addItem(item)
+            self.group_list.addItem(item)   
         db.close()
-    
+        
     def populate_employees(self):
         """Populate the employee list with all employees."""
         self.employee_list.clear()
