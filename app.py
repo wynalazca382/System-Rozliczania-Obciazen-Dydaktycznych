@@ -1,5 +1,5 @@
 import sys
-from PyQt5.QtWidgets import QApplication, QMainWindow, QVBoxLayout, QWidget, QPushButton, QLabel, QComboBox, QFileDialog, QListWidget, QListWidgetItem, QHBoxLayout, QTabWidget, QCheckBox
+from PyQt5.QtWidgets import QApplication, QMainWindow, QVBoxLayout, QHBoxLayout, QWidget, QPushButton, QLabel, QComboBox, QFileDialog, QListWidget, QListWidgetItem, QTabWidget, QCheckBox, QSpacerItem, QSizePolicy
 import pandas as pd
 from formulas import calculate_workload_for_employee
 from sqlalchemy.orm import sessionmaker
@@ -14,97 +14,108 @@ class MainWindow(QMainWindow):
         self.setWindowTitle("System Rozliczania Obciążeń Dydaktycznych")
         self.setGeometry(100, 100, 800, 600)
         
-        layout = QVBoxLayout()
+        main_layout = QVBoxLayout()
         
+        # Filters layout
+        filters_layout = QHBoxLayout()
+        
+        # Year filter
         self.year_filter = QComboBox(self)
-        self.year_filter.addItem("2023/2024")
-        self.year_filter.addItem("2024/2025")
-        self.year_filter.currentIndexChanged.connect(self.populate_semesters)
-        layout.addWidget(self.year_filter)
+        self.populate_years()
+        self.year_filter.currentIndexChanged.connect(self.populate_groups)
+        filters_layout.addWidget(QLabel("Rok akademicki:"))
+        filters_layout.addWidget(self.year_filter)
         
+        # Unit filter
         self.unit_filter = QComboBox(self)
         self.unit_filter.addItem("Wszystkie jednostki")
         self.populate_units()
         self.unit_filter.currentIndexChanged.connect(self.populate_groups)
-        layout.addWidget(self.unit_filter)
+        filters_layout.addWidget(QLabel("Jednostka organizacyjna:"))
+        filters_layout.addWidget(self.unit_filter)
         
-        self.semester_filter = QComboBox(self)
-        self.semester_filter.addItem("Wszystkie semestry")
-        self.populate_semesters()
-        layout.addWidget(self.semester_filter)
+        main_layout.addLayout(filters_layout)
         
+        # Edit mode checkbox
         self.edit_mode_checkbox = QCheckBox("Tryb edycji", self)
         self.edit_mode_checkbox.stateChanged.connect(self.toggle_edit_mode)
-        layout.addWidget(self.edit_mode_checkbox)
+        main_layout.addWidget(self.edit_mode_checkbox)
         
+        # Tab widget
         self.tab_widget = QTabWidget(self)
         self.groups_tab = QWidget()
         self.instructors_tab = QWidget()
         
         self.tab_widget.addTab(self.groups_tab, "Grupy")
         self.tab_widget.addTab(self.instructors_tab, "Wykładowcy")
+        main_layout.addWidget(self.tab_widget)
         
-        layout.addWidget(self.tab_widget)
-        
+        # Groups layout
         self.groups_layout = QVBoxLayout()
         self.groups_tab.setLayout(self.groups_layout)
         
         self.group_list = QListWidget(self)
         self.group_list.setDragEnabled(False)
+        self.groups_layout.addWidget(QLabel("Grupy:"))
         self.groups_layout.addWidget(self.group_list)
         
         self.employee_list = QListWidget(self)
         self.employee_list.setAcceptDrops(False)
         self.employee_list.setDragDropMode(QListWidget.InternalMove)
+        self.groups_layout.addWidget(QLabel("Wykładowcy:"))
         self.groups_layout.addWidget(self.employee_list)
         
+        # Instructors layout
         self.instructors_layout = QVBoxLayout()
         self.instructors_tab.setLayout(self.instructors_layout)
         
         self.instructor_list = QListWidget(self)
+        self.instructors_layout.addWidget(QLabel("Wykładowcy:"))
         self.instructors_layout.addWidget(self.instructor_list)
         
+        # Populate initial data
         self.populate_groups()
         self.populate_employees()
         
+        # Generate report button
         self.generate_report_button = QPushButton("Generuj raport Excel", self)
         self.generate_report_button.clicked.connect(self.generate_report)
-        layout.addWidget(self.generate_report_button)
+        main_layout.addWidget(self.generate_report_button)
         
+        # Status label
         self.status_label = QLabel("Status: Oczekiwanie na akcję", self)
-        layout.addWidget(self.status_label)
+        main_layout.addWidget(self.status_label)
         
+        # Set central widget
         container = QWidget()
-        container.setLayout(layout)
+        container.setLayout(main_layout)
         self.setCentralWidget(container)
     
+    def populate_years(self):
+        """Populate the year filter with distinct years from DidacticCycles."""
+        db = SessionLocal()
+        years = db.query(DidacticCycles.OPIS).distinct().all()
+        for year in years:
+            self.year_filter.addItem(year[0])
+        db.close()
+    
     def populate_units(self):
+        """Populate the unit filter with all organizational units."""
         db = SessionLocal()
         units = db.query(OrganizationalUnits).all()
         for unit in units:
             self.unit_filter.addItem(unit.OPIS, unit.KOD)
         db.close()
     
-    def populate_semesters(self):
-        self.semester_filter.clear()
-        self.semester_filter.addItem("Wszystkie semestry")
-        selected_year = self.year_filter.currentText()
-        db = SessionLocal()
-        semesters = db.query(DidacticCycles).filter(DidacticCycles.OPIS.like(f"%{selected_year}%")).all()
-        for semester in semesters:
-            self.semester_filter.addItem(semester.KOD)
-        db.close()
-    
     def populate_groups(self):
+        """Populate the group list based on the selected year and unit."""
         self.group_list.clear()
         selected_unit = self.unit_filter.currentData()
-        selected_semester = self.semester_filter.currentData()
+        selected_year = self.year_filter.currentText()
         db = SessionLocal()
-        query = db.query(Group)
+        query = db.query(Group).join(DidacticCycles).filter(DidacticCycles.OPIS.like(f"%{selected_year}%"))
         if selected_unit:
-            query = query.filter_by(JEDN_KOD=selected_unit)
-        if selected_semester:
-            query = query.filter_by(CYKL_ID=selected_semester)
+            query = query.filter(Group.JEDN_KOD == selected_unit)
         groups = query.all()
         for group in groups:
             item = QListWidgetItem(f"{group.OPIS} - {group.ZAJ_CYK_ID}")
@@ -113,6 +124,7 @@ class MainWindow(QMainWindow):
         db.close()
     
     def populate_employees(self):
+        """Populate the employee list with all employees."""
         self.employee_list.clear()
         db = SessionLocal()
         employees = db.query(Employee).all()
@@ -124,6 +136,7 @@ class MainWindow(QMainWindow):
         db.close()
     
     def toggle_edit_mode(self, state):
+        """Toggle edit mode to enable or disable drag-and-drop functionality."""
         if state == 2:  # Checked
             self.group_list.setDragEnabled(True)
             self.employee_list.setAcceptDrops(True)
@@ -132,6 +145,7 @@ class MainWindow(QMainWindow):
             self.employee_list.setAcceptDrops(False)
     
     def generate_report(self):
+        """Generate an Excel report based on the current data."""
         db = SessionLocal()
         selected_unit = self.unit_filter.currentData()
         
