@@ -158,17 +158,19 @@ class MainWindow(QMainWindow):
             query = query.join(Employee.organizational_unit).filter(OrganizationalUnits.KOD == selected_unit)
         
         employees = query.all()
-        
+        lp = 1
         data = []
         for employee in employees:
+            organizational_unit = db.query(OrganizationalUnits).filter_by(KOD=employee.organizational_unit).first()
             person = db.query(Person).filter_by(ID=employee.OS_ID).first()
             position = db.query(Position).filter_by(ID=employee.position_id).first()
-            workload_data = calculate_workload_for_employee(db, employee)
+            workload_data = calculate_workload_for_employee(employee.ID)
             
             data.append({
+                "Lp.": lp,
                 "Tytuły": person.TYTUL_PO,
                 "Nazwisko i imię": f"{person.NAZWISKO} {person.IMIE}",
-                "J.O.": employee.organizational_unit.OPIS,
+                "J.O.": organizational_unit.OPIS,
                 "Stanowisko": position.NAZWA if position else "N/A",
                 "Forma": "etat",
                 "Godziny dydaktyczne Z": workload_data["godziny_dydaktyczne_z"],
@@ -184,11 +186,60 @@ class MainWindow(QMainWindow):
                 "Zw. kwota Z": workload_data["zw_kwota_z"],
                 "Zw. kwota L": workload_data["zw_kwota_l"]
             })
+            lp += 1
+
+        # Tworzenie DataFrame z danych dla pierwszej karty
+        df1 = pd.DataFrame(data)
         
-        df = pd.DataFrame(data)
+        # Dane dla drugiej karty
+        groups = db.query(Group).all()
+        data2 = []
+        for group in groups:
+            group_data = {
+                "Symbol grupy": group.OPIS,
+                "Studia": group.STUDIA,
+                "Rok": group.ROK,
+                "Instytut": group.INSTYTUT,
+                "Specjalność": group.SPECJALNOSC,
+                "p.d.": group.PD,
+                "Semestr": group.SEMESTR,
+                "Lstud": group.LSTUD,
+                "Wykonanie": group.WYKONANIE,
+                "Przedmiot": group.PRZEDMIOT,
+                "Nazwisko i imię": group.PROWADZACY,
+                "stan.": group.STAN,
+                "Inst.": group.INST,
+                "Do Inst.": group.DO_INST,
+                "Zespół": group.ZESPOL,
+                "Z/E": group.ZE,
+                "Godz.wg siatki W": group.GODZ_WG_SIATKI_W,
+                "Godz.wg siatki C": group.GODZ_WG_SIATKI_C,
+                "Godz.wg siatki L": group.GODZ_WG_SIATKI_L,
+                "Godz.wg siatki P": group.GODZ_WG_SIATKI_P,
+                "Godz.wg siatki S": group.GODZ_WG_SIATKI_S,
+                "Liczba grup W": group.LICZBA_GRUP_W,
+                "Liczba grup C": group.LICZBA_GRUP_C,
+                "Liczba grup L": group.LICZBA_GRUP_L,
+                "Liczba grup P": group.LICZBA_GRUP_P,
+                "Liczba grup S": group.LICZBA_GRUP_S,
+                "Łącznie liczba godz. W": group.LACZNIE_LICZBA_GODZ_W,
+                "Łącznie liczba godz. C": group.LACZNIE_LICZBA_GODZ_C,
+                "Łącznie liczba godz. L": group.LACZNIE_LICZBA_GODZ_L,
+                "Łącznie liczba godz. P": group.LACZNIE_LICZBA_GODZ_P,
+                "Łącznie liczba godz. S": group.LACZNIE_LICZBA_GODZ_S,
+                "Łącznie liczba godz. SUMA": group.LACZNIE_LICZBA_GODZ_SUMA
+            }
+            data2.append(group_data)
+        
+        # Tworzenie DataFrame z danych dla drugiej karty
+        df2 = pd.DataFrame(data2)
+        
+        # Zapis do pliku Excel z dwiema kartami
         file_path, _ = QFileDialog.getSaveFileName(self, "Save File", "", "Excel Files (*.xlsx)")
         if file_path:
-            df.to_excel(file_path, index=False)
+            with pd.ExcelWriter(file_path, engine='openpyxl') as writer:
+                df1.to_excel(writer, sheet_name='Raport 1', index=False)
+                df2.to_excel(writer, sheet_name='Raport 2', index=False)
             self.status_label.setText(f"Status: Raport zapisany do {file_path}")
         else:
             self.status_label.setText("Status: Anulowano zapis raportu")
