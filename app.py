@@ -1,10 +1,10 @@
 import sys
 from PyQt5.QtWidgets import QApplication, QMainWindow, QVBoxLayout, QHBoxLayout, QWidget, QPushButton, QLabel, QComboBox, QFileDialog, QListWidget, QListWidgetItem, QTabWidget, QCheckBox, QSpacerItem, QSizePolicy
 import pandas as pd
-from formulas import calculate_workload_for_employee
+from formulas import calculate_workload_for_employee, get_group_data
 from sqlalchemy.orm import sessionmaker
 from database import engine
-from models import Employee, GroupInstructor, ThesisSupervisors, Reviewer, IndividualRates, OrganizationalUnits, CommitteeFunctionPensum, DidacticCycles, Group, Person, Position
+from models import Employee, GroupInstructor, ThesisSupervisors, Reviewer, IndividualRates, OrganizationalUnits, CommitteeFunctionPensum, DidacticCycles, Group, Person, StanowiskaZatr, Employment
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
@@ -147,6 +147,8 @@ class MainWindow(QMainWindow):
             self.group_list.setDragEnabled(False)
             self.employee_list.setAcceptDrops(False)
     
+    from formulas import calculate_workload_for_employee, get_group_data
+
     def generate_report(self):
         """Generate an Excel report based on the current data."""
         db = SessionLocal()
@@ -163,7 +165,9 @@ class MainWindow(QMainWindow):
         for employee in employees:
             organizational_unit = db.query(OrganizationalUnits).filter_by(KOD=employee.organizational_unit).first()
             person = db.query(Person).filter_by(ID=employee.OS_ID).first()
-            position = db.query(Position).filter_by(ID=employee.position_id).first()
+            prac_zatr = db.query(Employment).filter_by(PRAC_ID=employee.ID).first()
+            position = db.query(StanowiskaZatr).filter_by(ID=prac_zatr.STAN_ID).first() if prac_zatr else None
+            stanowisko = position.NAZWA if position else "N/A"
             workload_data = calculate_workload_for_employee(employee.ID)
             
             data.append({
@@ -171,7 +175,7 @@ class MainWindow(QMainWindow):
                 "Tytuły": person.TYTUL_PO,
                 "Nazwisko i imię": f"{person.NAZWISKO} {person.IMIE}",
                 "J.O.": organizational_unit.OPIS,
-                "Stanowisko": position.NAZWA if position else "N/A",
+                "Stanowisko": stanowisko,
                 "Forma": "etat",
                 "Godziny dydaktyczne Z": workload_data["godziny_dydaktyczne_z"],
                 "Godziny dydaktyczne L": workload_data["godziny_dydaktyczne_l"],
@@ -192,44 +196,7 @@ class MainWindow(QMainWindow):
         df1 = pd.DataFrame(data)
         
         # Dane dla drugiej karty
-        groups = db.query(Group).all()
-        data2 = []
-        for group in groups:
-            group_data = {
-                "Symbol grupy": group.OPIS,
-                "Studia": group.STUDIA,
-                "Rok": group.ROK,
-                "Instytut": group.INSTYTUT,
-                "Specjalność": group.SPECJALNOSC,
-                "p.d.": group.PD,
-                "Semestr": group.SEMESTR,
-                "Lstud": group.LSTUD,
-                "Wykonanie": group.WYKONANIE,
-                "Przedmiot": group.PRZEDMIOT,
-                "Nazwisko i imię": group.PROWADZACY,
-                "stan.": group.STAN,
-                "Inst.": group.INST,
-                "Do Inst.": group.DO_INST,
-                "Zespół": group.ZESPOL,
-                "Z/E": group.ZE,
-                "Godz.wg siatki W": group.GODZ_WG_SIATKI_W,
-                "Godz.wg siatki C": group.GODZ_WG_SIATKI_C,
-                "Godz.wg siatki L": group.GODZ_WG_SIATKI_L,
-                "Godz.wg siatki P": group.GODZ_WG_SIATKI_P,
-                "Godz.wg siatki S": group.GODZ_WG_SIATKI_S,
-                "Liczba grup W": group.LICZBA_GRUP_W,
-                "Liczba grup C": group.LICZBA_GRUP_C,
-                "Liczba grup L": group.LICZBA_GRUP_L,
-                "Liczba grup P": group.LICZBA_GRUP_P,
-                "Liczba grup S": group.LICZBA_GRUP_S,
-                "Łącznie liczba godz. W": group.LACZNIE_LICZBA_GODZ_W,
-                "Łącznie liczba godz. C": group.LACZNIE_LICZBA_GODZ_C,
-                "Łącznie liczba godz. L": group.LACZNIE_LICZBA_GODZ_L,
-                "Łącznie liczba godz. P": group.LACZNIE_LICZBA_GODZ_P,
-                "Łącznie liczba godz. S": group.LACZNIE_LICZBA_GODZ_S,
-                "Łącznie liczba godz. SUMA": group.LACZNIE_LICZBA_GODZ_SUMA
-            }
-            data2.append(group_data)
+        data2 = get_group_data()
         
         # Tworzenie DataFrame z danych dla drugiej karty
         df2 = pd.DataFrame(data2)
