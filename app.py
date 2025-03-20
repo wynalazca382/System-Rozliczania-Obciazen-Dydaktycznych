@@ -179,7 +179,7 @@ class MainWindow(QMainWindow):
                 "Forma": "etat",
                 "Godziny dydaktyczne Z": workload_data["godziny_dydaktyczne_z"],
                 "Godziny dydaktyczne L": workload_data["godziny_dydaktyczne_l"],
-                "SUMA": workload_data["total_workload"],
+                "Pensum realne": workload_data["total_workload"],
                 "Pensum": workload_data["pensum"],
                 "Etat": workload_data["etat"],
                 "Nadgodziny": workload_data["nadgodziny"],

@@ -459,51 +459,23 @@ class Employee(Base):
 class EmployeePensum(Base):
     __tablename__ = 'DZ_PENSUM_PRAC'
 
-    ID = Column(Integer, primary_key=True, index=True)
-    OS_ID = Column(Integer, ForeignKey('DZ_OSOBY.ID'), nullable=False)
-    PIERWSZE_ZATR = Column(String(1), nullable=False)
-    NR_AKT = Column(String(20), nullable=True, unique=True)
-    NR_KARTY = Column(String(100), nullable=True)
-    TELEFON1 = Column(String(30), nullable=True)
-    TELEFON2 = Column(String(30), nullable=True)
-    BADANIA_OKRESOWE = Column(Date, nullable=True)
-    KONS_DO_ZMIANY = Column(String(1), nullable=True)
-    KONSULTACJE = Column(String(1000), nullable=True)
-    ZAINTERESOWANIA = Column(String(1000), nullable=True)
-    ZAINTERESOWANIA_ANG = Column(String(1000), nullable=True)
-    UTW_ID = Column(String(30), nullable=False, default=func.user())
-    UTW_DATA = Column(Date, nullable=False, default=func.sysdate())
-    MOD_ID = Column(String(30), nullable=False, default=func.user())
-    MOD_DATA = Column(Date, nullable=False, default=func.sysdate())
-    EMERYTURA_DATA = Column(Date, nullable=True)
-    DATA_NADANIA_TYTULU = Column(Date, nullable=True)
-    AKTYWNY = Column(String(1), nullable=False, default='T')
-    DATA_PRZESWIETLENIA = Column(Date, nullable=True)
-    SL_ID = Column(Integer, ForeignKey('DZ_SALE.ID'), nullable=True)
-    TYTUL_DDZ_ID = Column(Integer, ForeignKey('DZ_DZIEDZINY.ID'), nullable=True)
-    DATA_SZKOLENIA_BHP = Column(Date, nullable=True)
-    TYTUL_SZK_ID = Column(Integer, ForeignKey('DZ_SZKOLY.ID'), nullable=True)
+    PRAC_ID = Column(Integer, ForeignKey('DZ_PRACOWNICY.ID'), primary_key=True, index=True)  # Identyfikator pracownika
+    RPENS_KOD = Column(String(20), ForeignKey('DZ_ROZLICZENIA_PENSUM.KOD'), primary_key=True, index=True)  # Kod rozliczenia pensum
+    PENSUM = Column(Integer, nullable=False)  # Pensum
+    UTW_ID = Column(String(30), nullable=False, default=func.user())  # Id użytkownika, który utworzył rekord
+    UTW_DATA = Column(Date, nullable=False, default=func.sysdate())  # Data utworzenia rekordu
+    MOD_ID = Column(String(30), nullable=False, default=func.user())  # Id użytkownika, który zmodyfikował rekord
+    MOD_DATA = Column(Date, nullable=False, default=func.sysdate())  # Data modyfikacji rekordu
+    KOMENTARZ = Column(String(200), nullable=True)  # Komentarz do wprowadzonego pensum
+    STATUS = Column(String(1), nullable=False, default='P')  # Status pensum: P - w przygotowaniu, Z - zatwierdzony, X - archiwalny
 
-    osoba = relationship("Person", back_populates="pracownicy")
-    pensum_prac = relationship("PensumPrac", back_populates="pracownik")
-    znizki_pensum = relationship("ZnizkiPensum", back_populates="pracownik")
-    prac_zatr = relationship("PracZatr", back_populates="pracownik")
-    rozl_pensum_zewn = relationship("RozlPensumZewn", back_populates="pracownik")
-    prowadzacy_grup = relationship("ProwadzacyGrup", back_populates="pracownik")
-    indywidualne_stawki = relationship("IndividualRates", back_populates="pracownik")
-    pracownik_id = Column(Integer, ForeignKey('DZ_PRACOWNICY.ID'))
-    pracownik = relationship("Employee", back_populates="pensum_prac")
+    # Relacje
+    pracownik = relationship("Employee", back_populates="pensum_prac")  # Relacja do tabeli DZ_PRACOWNICY
+    rozliczenie_pensum = relationship("PensumSettlement", back_populates="employee_pensum")  # Relacja do tabeli DZ_ROZLICZENIA_PENSUM
 
     __table_args__ = (
-        CheckConstraint("PIERWSZE_ZATR IN ('T', 'N')", name='check_pierwsze_zatr'),
-        CheckConstraint("KONS_DO_ZMIANY IN ('N', 'T')", name='check_kons_do_zmiany'),
-        CheckConstraint("AKTYWNY IN ('N', 'T')", name='check_aktywny'),
-        Index('PRAC_DDZ_FK_I', 'TYTUL_DDZ_ID'),
-        Index('PRAC_NR_AKT_UK', 'NR_AKT', unique=True),
-        Index('PRAC_OS_ID_UK', 'OS_ID', unique=True),
-        Index('PRAC_PK', 'ID', unique=True),
-        Index('PRAC_SL_FK_I', 'SL_ID'),
-        Index('PRAC_TYTUL_SZK_FK_I', 'TYTUL_SZK_ID')
+        CheckConstraint("STATUS IN ('P', 'Z', 'X')", name='check_status'),  # Walidacja statusu
+        Index('PENSP_PK', 'PRAC_ID', 'RPENS_KOD', unique=True),  # Unikalny indeks na PRAC_ID i RPENS_KOD
     )
 
 class TypyZajec(Base):

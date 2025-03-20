@@ -1,5 +1,4 @@
-from models import Employee, GroupInstructor, ThesisSupervisors, Reviewer, IndividualRates, OrganizationalUnits, CommitteeFunctionPensum, DidacticCycles, Group, Person, StanowiskaZatr, Employment
-from database import SessionLocal
+from models import Employee, GroupInstructor, ThesisSupervisors, Reviewer, IndividualRates, OrganizationalUnits, CommitteeFunctionPensum, DidacticCycles, Group, Person, StanowiskaZatr, Employment, EmployeePensum
 from database import SessionLocal
 
 STAWKI_NADGODZIN = {
@@ -45,8 +44,11 @@ def calculate_workload_for_employee(employee_id):
         prac_zatr = db.query(Employment).filter_by(PRAC_ID=employee_id).first()
         position = db.query(StanowiskaZatr).filter_by(ID=prac_zatr.STAN_ID).first() if prac_zatr else None
         stanowisko = position.NAZWA if position else "N/A"
+        pensum_employee = db.query(EmployeePensum).filter_by(PRAC_ID=employee_id).first()
         
-        # Ustalanie stawki na podstawie stanowiska
+        if pensum_employee:
+            pensum = EmployeePensum.PENSUM
+
         stawka = STAWKI_NADGODZIN.get(stanowisko, 0)
         
         for load in teaching_loads:
@@ -57,9 +59,9 @@ def calculate_workload_for_employee(employee_id):
             total_workload += load.LICZBA_GODZ_DO_PENSUM
             teaching_cycle = db.query(DidacticCycles).filter_by(ID=load.ZAJ_CYK_ID).first()
             if teaching_cycle:
-                pensum_record = db.query(CommitteeFunctionPensum).filter_by(CDYD_KON=teaching_cycle.KOD).first()
-                if pensum_record:
-                    pensum += pensum_record.PENSUM
+                committee_record = db.query(CommitteeFunctionPensum).filter_by(CDYD_KON=teaching_cycle.KOD).first()
+                if committee_record:
+                    total_workload += committee_record.PENSUM
         
         for supervision in thesis_supervisions:
             total_workload += supervision.LICZBA_GODZ_DO_PENSUM
@@ -67,9 +69,10 @@ def calculate_workload_for_employee(employee_id):
         for review in reviews:
             total_workload += review.LICZBA_GODZ_DO_PENSUM
         
+
+
         for rate in individual_rates:
             stawka = rate.STAWKA
-            total_workload *= rate.STAWKA
         
         nadgodziny = total_workload - pensum if total_workload > pensum else 0
         kwota_nadgodzin = nadgodziny * stawka
