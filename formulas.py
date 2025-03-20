@@ -1,4 +1,4 @@
-from models import Employee, GroupInstructor, ThesisSupervisors, Reviewer, IndividualRates, OrganizationalUnits, CommitteeFunctionPensum, DidacticCycles, Group, Person, StanowiskaZatr, Employment, EmployeePensum
+from models import Employee, GroupInstructor, ThesisSupervisors, Reviewer, IndividualRates, OrganizationalUnits, CommitteeFunctionPensum, DidacticCycles, Group, Person, StanowiskaZatr, Employment, EmployeePensum, Discount
 from database import SessionLocal
 
 STAWKI_NADGODZIN = {
@@ -40,7 +40,7 @@ def calculate_workload_for_employee(employee_id):
         zw_kwota_l = 0.0
         
         # Pobieranie stanowiska pracownika
-        employee = db.query(Employee).filter_by(ID=employee_id).first()
+        discounts = db.query(Discount).filter_by(PRAC_ID=employee_id).all()
         prac_zatr = db.query(Employment).filter_by(PRAC_ID=employee_id).first()
         position = db.query(StanowiskaZatr).filter_by(ID=prac_zatr.STAN_ID).first() if prac_zatr else None
         stanowisko = position.NAZWA if position else "N/A"
@@ -61,7 +61,7 @@ def calculate_workload_for_employee(employee_id):
             if teaching_cycle:
                 committee_record = db.query(CommitteeFunctionPensum).filter_by(CDYD_KON=teaching_cycle.KOD).first()
                 if committee_record:
-                    total_workload += committee_record.PENSUM
+                    pensum -= committee_record.PENSUM
         
         for supervision in thesis_supervisions:
             total_workload += supervision.LICZBA_GODZ_DO_PENSUM
@@ -69,7 +69,9 @@ def calculate_workload_for_employee(employee_id):
         for review in reviews:
             total_workload += review.LICZBA_GODZ_DO_PENSUM
         
-
+        for discount in discounts:
+            if discount.ZNIZKA:
+                pensum -= discount.ZNIZKA
 
         for rate in individual_rates:
             stawka = rate.STAWKA
