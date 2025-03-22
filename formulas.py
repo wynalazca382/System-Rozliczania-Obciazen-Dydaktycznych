@@ -49,10 +49,12 @@ def calculate_workload_for_employee(employee_id):
         stawka = STAWKI_NADGODZIN.get(stanowisko, 0)
         
         for load in teaching_loads:
-            if load.SEMESTER == 'Z':
-                godziny_dydaktyczne_z += load.LICZBA_GODZ_DO_PENSUM
-            elif load.SEMESTER == 'L':
-                godziny_dydaktyczne_l += load.LICZBA_GODZ_DO_PENSUM
+            organizational_unit = db.query(OrganizationalUnits).filter_by(ID=load.JEDN_KOD).first()
+            if organizational_unit and organizational_unit.OPIS:
+                if "Semestr zimowy" in organizational_unit.OPIS:
+                    godziny_dydaktyczne_z += load.LICZBA_GODZ_DO_PENSUM
+                elif "Semestr letni" in organizational_unit.OPIS:
+                    godziny_dydaktyczne_l += load.LICZBA_GODZ_DO_PENSUM
             total_workload += load.LICZBA_GODZ_DO_PENSUM
             teaching_cycle = db.query(DidacticCycles).filter_by(ID=load.ZAJ_CYK_ID).first()
             if teaching_cycle:
