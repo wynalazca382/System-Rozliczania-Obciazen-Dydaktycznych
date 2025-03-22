@@ -185,10 +185,6 @@ class MainWindow(QMainWindow):
                 "Nadgodziny": workload_data["nadgodziny"],
                 "Stawka": workload_data["stawka"],
                 "Kwota nadgodzin": workload_data["kwota_nadgodzin"],
-                "Zw. Godz. Z": workload_data["zw_godz_z"],
-                "Zw. Godz. L": workload_data["zw_godz_l"],
-                "Zw. kwota Z": workload_data["zw_kwota_z"],
-                "Zw. kwota L": workload_data["zw_kwota_l"]
             })
             lp += 1
 

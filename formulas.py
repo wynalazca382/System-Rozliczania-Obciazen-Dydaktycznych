@@ -30,14 +30,11 @@ def calculate_workload_for_employee(employee_id):
         godziny_dydaktyczne_z = 0.0
         godziny_dydaktyczne_l = 0.0
         pensum = 0.0
-        etat = 1.0  # Assuming full-time by default
+        etat = 1.0
         nadgodziny = 0.0
         stawka = 0.0
         kwota_nadgodzin = 0.0
-        zw_godz_z = 0.0
-        zw_godz_l = 0.0
-        zw_kwota_z = 0.0
-        zw_kwota_l = 0.0
+
         
         # Pobieranie stanowiska pracownika
         discounts = db.query(Discount).filter_by(PRAC_ID=employee_id).all()
@@ -88,10 +85,6 @@ def calculate_workload_for_employee(employee_id):
             "nadgodziny": nadgodziny,
             "stawka": stawka,
             "kwota_nadgodzin": kwota_nadgodzin,
-            "zw_godz_z": zw_godz_z,
-            "zw_godz_l": zw_godz_l,
-            "zw_kwota_z": zw_kwota_z,
-            "zw_kwota_l": zw_kwota_l
         }
     finally:
         db.close()
