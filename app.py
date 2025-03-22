@@ -157,7 +157,7 @@ class MainWindow(QMainWindow):
         query = db.query(Employee)
         
         if selected_unit:
-            query = query.join(Employee.organizational_unit).filter(OrganizationalUnits.KOD == selected_unit)
+            query = query.join(Employee.organizational_unit).filter(Person.JED_ORG_KOD == selected_unit)
         
         employees = query.all()
         lp = 1

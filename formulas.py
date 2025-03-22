@@ -36,7 +36,6 @@ def calculate_workload_for_employee(employee_id):
         kwota_nadgodzin = 0.0
 
         
-        # Pobieranie stanowiska pracownika
         discounts = db.query(Discount).filter_by(PRAC_ID=employee_id).all()
         prac_zatr = db.query(Employment).filter_by(PRAC_ID=employee_id).first()
         position = db.query(StanowiskaZatr).filter_by(ID=prac_zatr.STAN_ID).first() if prac_zatr else None
