@@ -246,16 +246,25 @@ class CommitteeFunctionPensum(Base):
 
     ID = Column(Integer, primary_key=True, index=True)
     FUNKK_ID = Column(Integer, ForeignKey('DZ_FUNKCJE_W_KOMISJI.ID'), nullable=False)
-    CDYD_POCZ = Column(String(20), nullable=False)
+    CDYD_POCZ = Column(String(20), ForeignKey('DZ_CYKLE_DYDAKTYCZNE.KOD'), nullable=False)
     PENSUM = Column(Integer, nullable=False)
     UTW_ID = Column(String(30), nullable=False, default=func.user())
     UTW_DATA = Column(Date, nullable=False, default=func.sysdate())
     MOD_ID = Column(String(30), nullable=False, default=func.user())
     MOD_DATA = Column(Date, nullable=False, default=func.sysdate())
-    JED_ORG_KOD = Column(String(20), nullable=True)
-    CDYD_KON = Column(String(20), nullable=True)
+    JED_ORG_KOD = Column(String(20), ForeignKey('DZ_JEDNOSTKI_ORGANIZACYJNE.KOD'), nullable=False)
+    CDYD_KON = Column(String(20), ForeignKey('DZ_CYKLE_DYDAKTYCZNE.KOD'), nullable=False)
 
-    cycle_pocz = relationship("DidacticCycles", foreign_keys=[CDYD_POCZ], back_populates="funkcje_w_komisji_pensum_pocz")
+    cycle_pocz = relationship(
+        "DidacticCycles",
+        foreign_keys=[CDYD_POCZ],
+        back_populates="stanowiska_zatr_pensum_pocz"
+    )
+    cycle_koniec = relationship(
+        "DidacticCycles",
+        foreign_keys=[CDYD_KON],
+        back_populates="stanowiska_zatr_pensum_kon"
+    )
     cycle_kon = relationship("DidacticCycles", foreign_keys=[CDYD_KON], back_populates="funkcje_w_komisji_pensum_kon")
     funkcja = relationship(
         "CommitteeFunction",
