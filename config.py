@@ -1,1 +1,0 @@
-DATABASE_URL = "oracle+cx_oracle://username:password@hostname:port/service_name"
