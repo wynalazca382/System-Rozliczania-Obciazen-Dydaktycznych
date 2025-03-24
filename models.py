@@ -26,6 +26,11 @@ class DidacticCycles(Base):
     DATA_MOD_ARCH_ETP = Column(Date, nullable=False, default=func.sysdate())
     KOLEJNOSC = Column(Integer, nullable=True, default=0)
 
+    committee_functions_pensum_end = relationship(
+        "CommitteeFunctionPensum",
+        back_populates="cycle_end",
+        foreign_keys="[CommitteeFunctionPensum.CDYD_KON]"
+    )
     __table_args__ = (
         CheckConstraint("regexp_instr(KOD, '\\||''|&|%') = 0", name='check_kod'),
         CheckConstraint("CZY_WYSWIETLAC IN ('N', 'T')", name='check_czy_wyswietlac'),
@@ -36,11 +41,11 @@ class DidacticCycles(Base):
         Index('CDYD_TCDYD_FK_I', 'TCDYD_KOD')
     )
 
-    stanowiska_zatr_pensum_pocz = relationship("StanowiskaZatrPensum", foreign_keys="[StanowiskaZatrPensum.CDYD_POCZ]", back_populates="cycle_pocz")
-    stanowiska_zatr_pensum_kon = relationship("StanowiskaZatrPensum", foreign_keys="[StanowiskaZatrPensum.CDYD_KON]", back_populates="cycle_kon")
-    subject_cycles = relationship("SubjectCycle", back_populates="cycle", overlaps="przedmioty_cykli")
-    external_pensum = relationship("ExternalPensum", back_populates="cycle")
-    zajecia_cykli = relationship("DidacticCycleClasses", back_populates="cycle")
+    cycles_pensum = relationship(
+            "DidacticCyclesPensum",
+            back_populates="cycle",
+            foreign_keys="[DidacticCyclesPensum.CDYD_KOD]"
+        )
 
 class PensumSettlement(Base):
     __tablename__ = 'DZ_ROZLICZENIA_PENSUM'
@@ -54,16 +59,16 @@ class PensumSettlement(Base):
     MOD_ID = Column(String(30), nullable=False, default=func.user())
     STATUS = Column(String(1), nullable=False, default='P')
 
-    organizational_unit = relationship("OrganizationalUnits", back_populates="pensum_settlements")
-    employee_pensum = relationship("EmployeePensum", back_populates="rozliczenia_pensum")
-    discounts = relationship("Discount", back_populates="pensum_settlement")
-    external_pensum = relationship("ExternalPensum", back_populates="rozliczenia_pensum")
-    conversion_rates = relationship("ConversionRate", back_populates="rozliczenia_pensum")
-    thesis_supervisors = relationship("ThesisSupervisors", back_populates="rozliczenia_pensum")
-    reviewers = relationship("Reviewer", back_populates="pensum_settlement")
-    individual_rates = relationship("IndividualRates", back_populates="rozliczenia_pensum")
-    committee_members = relationship("CommitteeMember", back_populates="rozliczenia_pensum")
-    cycles_pensum = relationship("DidacticCyclesPensum", back_populates="rozliczenia_pensum")
+    cycles_pensum = relationship(
+        "DidacticCyclesPensum",
+        back_populates="pensum_settlement",
+        foreign_keys="[DidacticCyclesPensum.RPENS_KOD]"
+    )
+    committee_members = relationship(
+        "CommitteeMember",
+        back_populates="pensum_settlement",
+        foreign_keys="[CommitteeMember.RPENS_KOD]"
+    )
 
     __table_args__ = (
         Index('RPENS_PK', 'KOD', unique=True),
@@ -79,7 +84,16 @@ class DidacticCyclesPensum(Base):
     MOD_DATA = Column(Date, nullable=False, default=func.sysdate())
     MOD_ID = Column(String(30), nullable=False, default=func.user())
 
-    rozliczenia_pensum = relationship("PensumSettlement", back_populates="cycles_pensum")
+    cycle = relationship(
+        "DidacticCycles",
+        back_populates="cycles_pensum",
+        foreign_keys=[CDYD_KOD]
+    )
+    pensum_settlement = relationship(
+        "PensumSettlement",
+        back_populates="cycles_pensum",
+        foreign_keys=[RPENS_KOD]
+    )
 
     __table_args__ = (
         Index('CPENS_PK', 'CDYD_KOD', 'RPENS_KOD', unique=True),
@@ -104,11 +118,31 @@ class CommitteeMember(Base):
     PRZEL_KOD = Column(String(20), ForeignKey('DZ_PRZELICZNIKI.PRZEL_KOD'), nullable=True)
     LICZBA_GODZ_PRZEN = Column(Float, nullable=True)
 
-    person = relationship("Person", back_populates="committee_members")
-    rozliczenia_pensum = relationship("PensumSettlement", back_populates="committee_members")
-    przeliczniki = relationship("ConversionRate", back_populates="committee_members")
-    funkcje_w_komisji = relationship("CommitteeFunction", back_populates="committee_members")
-    komisje = relationship("Committee", back_populates="committee_members")
+    committee = relationship(
+        "Committee",
+        back_populates="committee_members",
+        foreign_keys=[KOMI_ID]
+    )
+    function = relationship(
+        "CommitteeFunction",
+        back_populates="committee_members",
+        foreign_keys=[FUNKK_ID]
+    )
+    conversion_rate = relationship(
+        "ConversionRate",
+        back_populates="committee_members",
+        foreign_keys=[RPENS_KOD, PRZEL_KOD]
+    )
+    pensum_settlement = relationship(
+        "PensumSettlement",
+        back_populates="committee_members",
+        foreign_keys=[RPENS_KOD]
+    )
+    person = relationship(
+        "Person",
+        back_populates="committee_members",
+        foreign_keys=[OS_ID]
+    )
 
     __table_args__ = (
         Index('CZLO_INNI_PK', 'OS_ID', 'KOMI_ID', unique=True),
@@ -175,21 +209,12 @@ class Person(Base):
     KWALIFIKACJE_WOJSKOWE = Column(String(300), nullable=True)
     KRAJ_SZKOLY_SREDNIEJ_KOD = Column(String(20), ForeignKey('DZ_OBYWATELSTWA.KOD'), nullable=True)
 
-    pracownicy = relationship("Employee", back_populates="osoba")
-    committee_members = relationship("CommitteeMember", back_populates="person")
-    organizational_unit = relationship(
-        "OrganizationalUnits",
-        foreign_keys=[JED_ORG_KOD],
-        back_populates="persons"
+    committee_members = relationship(
+        "CommitteeMember",
+        back_populates="person",
+        foreign_keys="[CommitteeMember.OS_ID]"
     )
-    thesis_supervisors = relationship(
-        "ThesisSupervisors",
-        foreign_keys="ThesisSupervisors.OS_ID",
-        back_populates="person"
-    )
-    tytul_przed = relationship("Title", foreign_keys="[Person.TYTUL_PRZED]", back_populates="osoby_przed")
-    tytul_po = relationship("Title", foreign_keys="[Person.TYTUL_PO]", back_populates="osoby_po")
-
+    
     __table_args__ = (
         Index('NIP_UK', 'NIP', unique=True),
         Index('OS_DOK_UK', 'PESEL', 'NIP', unique=True),
@@ -223,16 +248,10 @@ class CommitteeFunction(Base):
     PENSUM_UCZELNIANE = Column(Integer, nullable=True)
     NAZWA_ANG = Column(String(100), nullable=True)
 
-    committee_members = relationship("CommitteeMember", back_populates="funkcje_w_komisji")
-    funkcje_w_komisji_pensum = relationship(
-        "CommitteeFunctionPensum",
-        foreign_keys="CommitteeFunctionPensum.FUNKK_ID",
-        back_populates="funkcja"
-    )
-    typy_komisji = relationship(
-        "CommitteeType",
-        foreign_keys=[TYPK_KOD],
-        back_populates="funkcje_w_komisji"
+    committee_members = relationship(
+        "CommitteeMember",
+        back_populates="function",
+        foreign_keys="[CommitteeMember.FUNKK_ID]"
     )
 
     __table_args__ = (
@@ -255,23 +274,12 @@ class CommitteeFunctionPensum(Base):
     JED_ORG_KOD = Column(String(20), ForeignKey('DZ_JEDNOSTKI_ORGANIZACYJNE.KOD'), nullable=False)
     CDYD_KON = Column(String(20), ForeignKey('DZ_CYKLE_DYDAKTYCZNE.KOD'), nullable=False)
 
-    cycle_pocz = relationship(
+    cycle_end = relationship(
         "DidacticCycles",
-        foreign_keys=[CDYD_POCZ],
-        back_populates="stanowiska_zatr_pensum_pocz"
+        back_populates="committee_functions_pensum_end",
+        foreign_keys=[CDYD_KON]
     )
-    cycle_koniec = relationship(
-        "DidacticCycles",
-        foreign_keys=[CDYD_KON],
-        back_populates="stanowiska_zatr_pensum_kon"
-    )
-    cycle_kon = relationship("DidacticCycles", foreign_keys=[CDYD_KON], back_populates="funkcje_w_komisji_pensum_kon")
-    funkcja = relationship(
-        "CommitteeFunction",
-        foreign_keys=[FUNKK_ID],
-        back_populates="funkcje_w_komisji_pensum"
-    )
-    organizational_unit = relationship("OrganizationalUnits", back_populates="funkcje_w_komisji_pensum")
+    
 
 class Group(Base):
     __tablename__ = 'DZ_GRUPY'
@@ -299,12 +307,7 @@ class Group(Base):
     KRYTERIA_OCENIANIA = Column(Text, nullable=True)
     KRYTERIA_OCENIANIA_ANG = Column(Text, nullable=True)
 
-    prowadzacy_grup = relationship("GroupInstructor", back_populates="grupa")
-    zajecia_cykli = relationship("DidacticCycleClasses", back_populates="groups")
-    related_groups = relationship("Group", back_populates="parent_group", remote_side="[ZAJ_CYK_ID, NR]")
-    parent_group = relationship("Group", back_populates="related_groups", foreign_keys="[GR_ZAJ_CYK_ID, GR_NR]")
-    instructors = relationship("GroupInstructor", back_populates="grupa")
-
+    
     __table_args__ = (
         Index('GR_GR_FK_I', 'GR_ZAJ_CYK_ID', 'GR_NR'),
         Index('GR_PK', 'ZAJ_CYK_ID', 'NR', unique=True),
@@ -332,11 +335,7 @@ class GroupInstructor(Base):
     PLAN_LICZBA_GODZ = Column(Float, nullable=True)
     PLAN_LICZBA_GODZ_DO_PENSUM = Column(Float, nullable=True)
 
-    pracownik = relationship("Employee", back_populates="teaching_loads")
-    grupa = relationship("Group", back_populates="instructors")
-    jednostka_organizacyjna = relationship("OrganizationalUnits", back_populates="group_instructors")
-    zatrudnienia_prowadzacych = relationship("InstructorEmployment", back_populates="pracownik")
-
+    
     __table_args__ = (
         Index('PRW_GR_GR_FK_I', 'ZAJ_CYK_ID', 'GR_NR'),
         Index('PRW_GR_PK', 'PRAC_ID', 'ZAJ_CYK_ID', 'GR_NR', unique=True),
@@ -357,10 +356,7 @@ class StanowiskaZatrPensum(Base):
     MOD_ID = Column(String(30), nullable=False, default=func.user())
     MOD_DATA = Column(Date, nullable=False, default=func.sysdate())
 
-    cycle_pocz = relationship("DidacticCycles", foreign_keys=[CDYD_POCZ], back_populates="stanowiska_zatr_pensum_pocz")
-    cycle_kon = relationship("DidacticCycles", foreign_keys=[CDYD_KON], back_populates="stanowiska_zatr_pensum_kon")
-    organizational_unit = relationship("OrganizationalUnits", back_populates="stanowiska_zatr_pensum")
-    position = relationship("Position", back_populates="stanowiska_zatr_pensum")
+    
 
     __table_args__ = (
         Index('STAN_PENS_PK', 'ID', unique=True),
@@ -389,9 +385,11 @@ class Committee(Base):
     CZY_PUBLICZNA = Column(String(1), nullable=False)
     NAZWA_ANG = Column(String(200), nullable=True)
 
-    organizational_unit = relationship("OrganizationalUnits", back_populates="komisje")
-    typy_komisji = relationship("CommitteeType", back_populates="komisje")
-    committee_members = relationship("CommitteeMember", back_populates="komisje")
+    committee_members = relationship(
+        "CommitteeMember",
+        back_populates="committee",
+        foreign_keys="[CommitteeMember.KOMI_ID]"
+    )
 
     __table_args__ = (
         Index('KOMI_JED_ORG_FK_I', 'JED_ORG_KOD'),
@@ -416,10 +414,7 @@ class IndividualRates(Base):
     TZAJ_KOD = Column(String(20), ForeignKey('DZ_TYPY_ZAJEC.KOD'), nullable=True)
     UWAGI = Column(String(500), nullable=True)
 
-    pracownik = relationship("Pracownicy", back_populates="individual_rates")
-    rozliczenia_pensum = relationship("PensumSettlement", back_populates="individual_rates")
-    przedmioty = relationship("Przedmioty", back_populates="individual_rates")
-    typy_zajec = relationship("TypyZajec", back_populates="individual_rates")
+    
 
     __table_args__ = (
         Index('IND_STAW_PK', 'ID', unique=True),
@@ -456,12 +451,7 @@ class Employee(Base):
     DATA_SZKOLENIA_BHP = Column(Date, nullable=True)
     TYTUL_SZK_ID = Column(Integer, ForeignKey('DZ_SZKOLY.ID'), nullable=True)
 
-    organizational_unit = relationship("OrganizationalUnits", back_populates="employees")
-    teaching_loads = relationship("GroupInstructor", back_populates="employee")
-    thesis_supervisions = relationship("ThesisSupervisors", back_populates="employee")
-    reviews = relationship("Reviewer", back_populates="employee")
-    individual_rates = relationship("IndividualRates", back_populates="employee")
-    osoba = relationship("Person", back_populates="pracownicy")
+    
 
     __table_args__ = (
         CheckConstraint("PIERWSZE_ZATR IN ('T', 'N')", name='check_pierwsze_zatr'),
@@ -488,9 +478,6 @@ class EmployeePensum(Base):
     KOMENTARZ = Column(String(200), nullable=True)  # Komentarz do wprowadzonego pensum
     STATUS = Column(String(1), nullable=False, default='P')  # Status pensum: P - w przygotowaniu, Z - zatwierdzony, X - archiwalny
 
-    # Relacje
-    pracownik = relationship("Employee", back_populates="pensum_prac")  # Relacja do tabeli DZ_PRACOWNICY
-    rozliczenia_pensum = relationship("PensumSettlement", back_populates="employee_pensum")  # Relacja do tabeli DZ_ROZLICZENIA_PENSUM
     
     __table_args__ = (
         CheckConstraint("STATUS IN ('P', 'Z', 'X')", name='check_status'),  # Walidacja statusu
@@ -508,9 +495,7 @@ class TypyZajec(Base):
     UTW_DATA = Column(Date, nullable=False, default=func.sysdate())
     UTW_ID = Column(String(30), nullable=False, default=func.user())
 
-    wartosci_przelicznikow = relationship("ConversionValue", back_populates="typ_zajec")
-    zajecia_cykli = relationship("DidacticCycleClasses", back_populates="typ_zajec")
-    indywidualne_stawki = relationship("IndividualRates", back_populates="typ_zajec")
+    
 
     __table_args__ = (
         Index('TZAJ_PK', 'KOD', unique=True),
@@ -564,28 +549,7 @@ class OrganizationalUnits(Base):
     UUID_POLON = Column(String(128), nullable=True)
     KOD_HR = Column(String(50), nullable=True)
 
-    parent_unit = relationship("OrganizationalUnits", remote_side=[KOD], back_populates="child_units")
-    child_units = relationship("OrganizationalUnits", back_populates="parent_unit")
-    persons = relationship(
-        "Person",
-        foreign_keys="Person.JED_ORG_KOD",
-        back_populates="organizational_unit"
-    )
-    rozliczenia_pensum = relationship("RozliczeniaPensum", back_populates="organizational_unit")
-    prac_zatr = relationship("PracZatr", back_populates="organizational_unit")
-    employment = relationship("Employment", back_populates="jednostka_organizacyjna")
-    prowadzacy_grup = relationship("ProwadzacyGrup", back_populates="organizational_unit")
-    przedmioty = relationship("Przedmioty", back_populates="organizational_unit")
-    stanowiska_zatr_pensum = relationship("StanowiskaZatrPensum", back_populates="organizational_unit")
-    funkcje_w_komisji_pensum = relationship("CommitteeFunctionPensum", back_populates="organizational_unit")
-    komisje = relationship("Committee", back_populates="organizational_unit")
-    uprawnienia_do_kierunkow = relationship("FieldOfStudyAuthorization", back_populates="organizational_unit")
-    zatrudnienia_prowadzacych = relationship("InstructorEmployment", back_populates="organizational_unit")
-    group_instructors = relationship("GroupInstructor", back_populates="jednostka_organizacyjna")
-    subjects = relationship("Subject", foreign_keys="[Subject.JED_ORG_KOD]", back_populates="organizational_unit")
-    subjects_biorca = relationship("Subject", foreign_keys="[Subject.JED_ORG_KOD_BIORCA]", back_populates="organizational_unit_biorca")
-    pensum_settlements = relationship("PensumSettlement", back_populates="organizational_unit")
-    stanowiska_zatr_pensum = relationship("PositionPensum", back_populates="organizational_unit")
+    
 
     __table_args__ = (
         CheckConstraint("regexp_instr(KOD, '\\||''|&|%') = 0", name='check_kod'),
@@ -627,14 +591,6 @@ class Employment(Base):
     STATUS = Column(String(1), nullable=True)
     UID_POLON = Column(String(128), nullable=True)
 
-    organizational_unit = relationship("OrganizationalUnits", back_populates="prac_zatr")
-    zatrudnienia_prowadzacych = relationship("InstructorEmployment", back_populates="zatrudnienie")
-    pracownik = relationship("Pracownicy", back_populates="employment")
-    jednostka_organizacyjna = relationship("OrganizationalUnits", foreign_keys=[JEDN_KOD], back_populates="employment")
-    podjednostka_organizacyjna = relationship("OrganizationalUnits", foreign_keys=[POD_JEDN_KOD], back_populates="employment")
-    stanowisko = relationship("Position", back_populates="employment")
-    umowa_podstawowa = relationship("Employment", remote_side=[ID], back_populates="employment")
-    umowa_poprzednia = relationship("Employment", remote_side=[ID], back_populates="employment")
 
     __table_args__ = (
         Index('PRACZ_FORM_FK_I', 'FORM_KOD'),
@@ -663,13 +619,7 @@ class ThesisSupervisors(Base):
     PRZEL_KOD = Column(String(20), ForeignKey('DZ_PRZELICZNIKI.PRZEL_KOD'), nullable=True)
     LICZBA_GODZ_PRZEN = Column(Float, nullable=True)
 
-    person = relationship(
-        "Person",
-        foreign_keys=[OS_ID],
-        back_populates="thesis_supervisors"
-    )
-    rozliczenia_pensum = relationship("PensumSettlement", back_populates="thesis_supervisors")
-    przeliczniki = relationship("Przeliczniki", back_populates="thesis_supervisors")
+    
 
     __table_args__ = (
         Index('OP_CERT_FK_I', 'CERT_ID'),
@@ -713,12 +663,7 @@ class Subject(Base):
     GUID = Column(String(32), nullable=False, unique=True, default=func.rawtohex(func.sys_guid()))
     KSZTALCENIE_NAUCZYCIELA = Column(String(1), nullable=False)
 
-    organizational_unit = relationship("OrganizationalUnits", foreign_keys=[JED_ORG_KOD], back_populates="subjects")
-    organizational_unit_biorca = relationship("OrganizationalUnits", foreign_keys=[JED_ORG_KOD_BIORCA], back_populates="subjects_biorca")
-    subject_cycles = relationship("SubjectCycle", back_populates="subject")
-    subject_conversion_rates = relationship("SubjectConversionRate", back_populates="subject")
-    zajecia_cykli = relationship("DidacticCycleClasses", back_populates="przedmiot")
-
+   
     __table_args__ = (
         CheckConstraint("regexp_instr(KOD, '\\||''|&|%') = 0", name='check_kod'),
         Index('PRZ_GUID_UK', 'GUID', unique=True),
@@ -778,10 +723,11 @@ class ConversionRate(Base):
     MOD_DATA = Column(Date, nullable=False, default=func.sysdate())
     UPR_KIER_ID = Column(Integer, ForeignKey('DZ_UPRAWNIENIA_DO_KIERUNKOW.ID'), nullable=True)
 
-    rozliczenia_pensum = relationship("PensumSettlement", back_populates="conversion_rates")
-    external_pensum = relationship("ExternalPensum", back_populates="conversion_rate")
-    wartosci_przelicznikow = relationship("ConversionValue", back_populates="conversion_rate")
-    committee_members = relationship("CommitteeMember", back_populates="przeliczniki")
+    committee_members = relationship(
+            "CommitteeMember",
+            back_populates="conversion_rate",
+            foreign_keys="[CommitteeMember.RPENS_KOD, CommitteeMember.PRZEL_KOD]"
+        )
 
     __table_args__ = (
         Index('PRZEL_PK', 'RPENS_KOD', 'PRZEL_KOD', unique=True),
@@ -798,8 +744,7 @@ class SubjectConversionRate(Base):
     UTW_ID = Column(String(30), nullable=False, default=func.user())
     MOD_DATA = Column(Date, nullable=False, default=func.sysdate())
 
-    conversion_rate = relationship("ConversionRate", back_populates="subject_conversion_rates")
-    subject = relationship("Subject", back_populates="subject_conversion_rates")
+   
 
     __table_args__ = (
         Index('PRZEL_PRZ_PK', 'RPENS_KOD', 'PRZ_KOD', 'PRZEL_KOD', unique=True),
@@ -819,7 +764,7 @@ class DiscountType(Base):
     MOD_DATA = Column(Date, nullable=False, default=func.sysdate())
     CZY_AKTUALNE = Column(String(1), nullable=False)
 
-    discounts = relationship("Discount", back_populates="rodzaj_znizki")
+   
 
     __table_args__ = (
         Index('RODZ_NAZWA_UK', 'NAZWA', unique=True),
@@ -844,11 +789,7 @@ class ExternalPensum(Base):
     PRZEL_KOD = Column(String(20), ForeignKey('DZ_PRZELICZNIKI.PRZEL_KOD'), nullable=True)
     LICZBA_GODZ_PRZEN = Column(Float, nullable=True)
 
-    pracownik = relationship("Pracownicy", back_populates="external_pensum")
-    rozliczenia_pensum = relationship("PensumSettlement", back_populates="external_pensum")
-    cycle = relationship("DidacticCycles", back_populates="external_pensum")
-    conversion_rate = relationship("ConversionRate", back_populates="external_pensum")
-
+    
     __table_args__ = (
         Index('RPENS_ZEWN_PK', 'ID', unique=True),
         Index('RPENS_ZEWN_RPENS_FK_I', 'RPENS_KOD'),
@@ -871,9 +812,7 @@ class Discount(Base):
     RPENS_KOD = Column(String(20), ForeignKey('DZ_ROZLICZENIA_PENSUM.KOD'), nullable=False)
     TYP = Column(String(1), nullable=False)
 
-    pracownik = relationship("Pracownicy", back_populates="discounts")
-    rodzaj_znizki = relationship("DiscountType", back_populates="discounts")
-    pensum_settlement = relationship("PensumSettlement", back_populates="discounts")
+    
 
     __table_args__ = (
         Index('ZPENS_PK', 'ID', unique=True),
@@ -896,10 +835,7 @@ class Reviewer(Base):
     PRZEL_KOD = Column(String(20), ForeignKey('DZ_PRZELICZNIKI.PRZEL_KOD'), nullable=True)
     LICZBA_GODZ_PRZEN = Column(Float, nullable=True)
 
-    pensum_settlement = relationship("PensumSettlement", back_populates="reviewers")
-    reviewer = relationship("Employee", back_populates="reviews")
-    pracownicy = relationship("Employee", back_populates="osoba")
-
+    
     __table_args__ = (
         Index('REC_PRAC_AUTOR_OS_FK_I', 'AUTOR_OS_ID'),
         Index('REC_PRAC_OS_FK_I', 'OS_ID'),
@@ -926,11 +862,7 @@ class ConversionValue(Base):
     MOD_DATA = Column(Date, nullable=False, default=func.sysdate())
     RODZAJ = Column(String(1), nullable=True)
 
-    position = relationship("Position", back_populates="conversion_values")
-    tytul = relationship("Title", back_populates="wartosci_przelicznikow")
-    typ_zajec = relationship("TypyZajec", back_populates="wartosci_przelicznikow")
-    conversion_rate = relationship("ConversionRate", back_populates="wartosci_przelicznikow")
-
+   
     __table_args__ = (
         Index('WART_PRZEL_PK', 'ID', unique=True),
         Index('WART_PRZEL_PRZEL_FK_I', 'RPENS_KOD', 'PRZEL_KOD'),
@@ -952,12 +884,7 @@ class CommitteeType(Base):
     MOD_DATA = Column(Date, nullable=False, default=func.sysdate())
     KLASA_KOMISJI = Column(String(1), nullable=False)
 
-    funkcje_w_komisji = relationship(
-        "CommitteeFunction",
-        foreign_keys="CommitteeFunction.TYPK_KOD",
-        back_populates="typy_komisji"
-    )
-    komisje = relationship("Committee", back_populates="typy_komisji")
+    
 
     __table_args__ = (
         Index('TYPK_NAZWA_UK', 'NAZWA', unique=True),
@@ -977,9 +904,7 @@ class Title(Base):
     UTW_ID = Column(String(30), nullable=False, default=func.user())
     KOD_POLON = Column(String(20), nullable=True)
 
-    osoby_po = relationship("Person", back_populates="tytul_przed")
-    osoby_przed = relationship("Person", back_populates="tytul_po")
-    wartosci_przelicznikow = relationship("ConversionValue", back_populates="tytul")
+    
 
     __table_args__ = (
         CheckConstraint("regexp_instr(KOD_HR, '\\||''|&|%') = 0", name='check_kod_hr'),
@@ -1006,8 +931,7 @@ class FieldOfStudyAuthorization(Base):
     POPRZEDNI_KOD_POLON = Column(String(20), nullable=True)
     UID_POLON = Column(String(128), nullable=True)
 
-    organizational_unit = relationship("OrganizationalUnits", back_populates="uprawnienia_do_kierunkow")
-    conversion_rates = relationship("ConversionRate", back_populates="uprawnienia_do_kierunkow")
+   
 
     __table_args__ = (
         Index('UPR_KIER_JED_ORG_FK_I', 'JED_ORG_KOD'),
@@ -1045,12 +969,7 @@ class DidacticCycleClasses(Base):
     LITERATURA_ANG = Column(CLOB, nullable=True)
     CZY_POKAZYWAC_TERMIN = Column(String(1), nullable=False, default='T')
 
-    groups = relationship("Group", back_populates="zajecia_cykli")
-    przedmiot = relationship("Subject", back_populates="zajecia_cykli")
-    cycle = relationship("DidacticCycles", back_populates="zajecia_cykli")
-    typ_zajec = relationship("TypyZajec", back_populates="zajecia_cykli")
-    typ_protokolu = relationship("TypyProtokolow", back_populates="zajecia_cykli")
-
+   
     __table_args__ = (
         Index('ZAJ_CYK_PK', 'ID', unique=True),
         Index('ZAJ_CYK_PRZ_CKL_FK_I', 'CDYD_KOD', 'PRZ_KOD'),
@@ -1063,7 +982,7 @@ class TypyProtokolow(Base):
     __tablename__ = 'DZ_TYPY_PROTOKOLOW'
     # Define columns here...
     ID = Column(Integer, primary_key=True, autoincrement=True)
-    zajecia_cykli = relationship("DidacticCycleClasses", back_populates="typ_protokolu")
+   
 
 class InstructorEmployment(Base):
     __tablename__ = 'DZ_ZATRUDNIENIA_PROWADZACYCH'
@@ -1089,11 +1008,7 @@ class InstructorEmployment(Base):
     PLAN_LICZBA_GODZ_DO_PENSUM = Column(Float, nullable=True)
     UWAGI = Column(String(500), nullable=True)
 
-    pracownik = relationship("ProwadzacyGrup", back_populates="zatrudnienia_prowadzacych")
-    jednostka_organizacyjna = relationship("OrganizationalUnits", back_populates="zatrudnienia_prowadzacych")
-    zatrudnienie = relationship("PracZatr", back_populates="zatrudnienia_prowadzacych")
-    przepracowane_godziny = relationship("PrzepracowaneGodziny", back_populates="zatrudnienie_prowadzacych")
-
+   
     __table_args__ = (
         Index('ZATR_PROW_PK', 'ID', unique=True),
         Index('ZATR_PROW_JEDN_FK_I', 'JEDN_KOD'),
@@ -1117,7 +1032,7 @@ class PrzepracowaneGodziny(Base):
     MOD_DATA = Column(Date, nullable=False, default=func.sysdate())
     UWAGI = Column(String(500), nullable=True)
 
-    zatrudnienie_prowadzacych = relationship("InstructorEmployment", back_populates="przepracowane_godziny")
+    
 
     __table_args__ = (
         CheckConstraint("MIESIAC BETWEEN 1 AND 12", name='check_miesiac'),
@@ -1140,9 +1055,7 @@ class StanowiskaZatr(Base):
     KOD = Column(String(20), nullable=True, unique=True)
     KOD_POLON = Column(String(100), nullable=True)
 
-    prac_zatr = relationship("PracZatr", back_populates="stanowisko")
-    wartosci_przelicznikow = relationship("ConversionValue", back_populates="stanowisko")
-    stanowiska_zatr_pensum = relationship("StanowiskaZatrPensum", back_populates="stanowisko")
+   
 
     __table_args__ = (
         Index('DZ_STAN_ZATR_KOD_UK', 'KOD', unique=True),
