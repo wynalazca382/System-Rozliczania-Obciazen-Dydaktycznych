@@ -31,6 +31,32 @@ class DidacticCycles(Base):
         back_populates="cycle_end",
         foreign_keys="[CommitteeFunctionPensum.CDYD_KON]"
     )
+    committee_functions_pensum_start = relationship(
+        "CommitteeFunctionPensum",
+        back_populates="cycle_start",
+        foreign_keys="[CommitteeFunctionPensum.CDYD_POCZ]"
+    )
+    subject_cycles = relationship(
+        "SubjectCycle",
+        back_populates="cycle",
+        foreign_keys="[SubjectCycle.CDYD_KOD]"
+    )
+    external_pensum = relationship(
+        "ExternalPensum",
+        back_populates="cycle",
+        foreign_keys="[ExternalPensum.CDYD_KOD]"
+    )
+    positions_pensum_end = relationship(
+        "StanowiskaZatrPensum",
+        back_populates="cycle_end",
+        foreign_keys="[StanowiskaZatrPensum.CDYD_KON]"
+    )
+    positions_pensum_start = relationship(
+        "StanowiskaZatrPensum",
+        back_populates="cycle_start",
+        foreign_keys="[StanowiskaZatrPensum.CDYD_POCZ]"
+    )
+
     __table_args__ = (
         CheckConstraint("regexp_instr(KOD, '\\||''|&|%') = 0", name='check_kod'),
         CheckConstraint("CZY_WYSWIETLAC IN ('N', 'T')", name='check_czy_wyswietlac'),
@@ -68,6 +94,46 @@ class PensumSettlement(Base):
         "CommitteeMember",
         back_populates="pensum_settlement",
         foreign_keys="[CommitteeMember.RPENS_KOD]"
+    )
+    individual_rates = relationship(
+        "IndividualRates",
+        back_populates="pensum_settlement",
+        foreign_keys="[IndividualRates.RPENS_KOD]"
+    )
+    thesis_supervisors = relationship(
+        "ThesisSupervisors",
+        back_populates="pensum_settlement",
+        foreign_keys="[ThesisSupervisors.RPENS_KOD]"
+    )
+    employee_pensum = relationship(
+        "EmployeePensum",
+        back_populates="pensum_settlement",
+        foreign_keys="[EmployeePensum.RPENS_KOD]"
+    )
+    conversion_rates = relationship(
+        "ConversionRate",
+        back_populates="pensum_settlement",
+        foreign_keys="[ConversionRate.RPENS_KOD]"
+    )
+    reviewers = relationship(
+        "Reviewer",
+        back_populates="pensum_settlement",
+        foreign_keys="[Reviewer.RPENS_KOD]"
+    )
+    organizational_unit = relationship(
+        "OrganizationalUnits",
+        back_populates="pensum_settlements",
+        foreign_keys=[JEDN_KOD]
+    )
+    external_pensum = relationship(
+        "ExternalPensum",
+        back_populates="pensum_settlement",
+        foreign_keys="[ExternalPensum.RPENS_KOD]"
+    )
+    discounts = relationship(
+        "Discount",
+        back_populates="pensum_settlement",
+        foreign_keys="[Discount.RPENS_KOD]"
     )
 
     __table_args__ = (
@@ -214,6 +280,46 @@ class Person(Base):
         back_populates="person",
         foreign_keys="[CommitteeMember.OS_ID]"
     )
+    thesis_supervisors = relationship(
+        "ThesisSupervisors",
+        back_populates="person",
+        foreign_keys="[ThesisSupervisors.OS_ID]"
+    )
+    social_unit = relationship(
+        "OrganizationalUnits",
+        back_populates="persons_social",
+        foreign_keys=[GDZIE_SOCJALNE]
+    )
+    organizational_unit = relationship(
+        "OrganizationalUnits",
+        back_populates="persons",
+        foreign_keys=[JED_ORG_KOD]
+    )
+    post_title = relationship(
+        "Title",
+        back_populates="persons_with_post_title",
+        foreign_keys=[TYTUL_PO]
+    )
+    pre_title = relationship(
+        "Title",
+        back_populates="persons_with_pre_title",
+        foreign_keys=[TYTUL_PRZED]
+    )
+    employees = relationship(
+        "Employee",
+        back_populates="person",
+        foreign_keys="[Employee.OS_ID]"
+    )
+    authored_reviews = relationship(
+        "Reviewer",
+        back_populates="author",
+        foreign_keys="[Reviewer.AUTOR_OS_ID]"
+    )
+    reviews = relationship(
+        "Reviewer",
+        back_populates="person",
+        foreign_keys="[Reviewer.OS_ID]"
+    )
     
     __table_args__ = (
         Index('NIP_UK', 'NIP', unique=True),
@@ -253,6 +359,16 @@ class CommitteeFunction(Base):
         back_populates="function",
         foreign_keys="[CommitteeMember.FUNKK_ID]"
     )
+    committee_functions_pensum = relationship(
+        "CommitteeFunctionPensum",
+        back_populates="function",
+        foreign_keys="[CommitteeFunctionPensum.FUNKK_ID]"
+    )
+    committee_type = relationship(
+        "CommitteeType",
+        back_populates="committee_functions",
+        foreign_keys=[TYPK_KOD]
+    )
 
     __table_args__ = (
         Index('FUNKK_PK', 'ID', unique=True),
@@ -279,12 +395,27 @@ class CommitteeFunctionPensum(Base):
         back_populates="committee_functions_pensum_end",
         foreign_keys=[CDYD_KON]
     )
+    cycle_start = relationship(
+        "DidacticCycles",
+        back_populates="committee_functions_pensum_start",
+        foreign_keys=[CDYD_POCZ]
+    )
+    function = relationship(
+        "CommitteeFunction",
+        back_populates="committee_functions_pensum",
+        foreign_keys=[FUNKK_ID]
+    )
+    organizational_unit = relationship(
+        "OrganizationalUnits",
+        back_populates="committee_functions_pensum",
+        foreign_keys=[JED_ORG_KOD]
+    )
     
 
 class Group(Base):
     __tablename__ = 'DZ_GRUPY'
 
-    ZAJ_CYK_ID = Column(Integer, primary_key=True, index=True)
+    ZAJ_CYK_ID = Column(Integer, ForeignKey('DZ_ZAJECIA_CYKLI.ID'), primary_key=True, index=True)
     NR = Column(Integer, primary_key=True, index=True)
     LIMIT_MIEJSC = Column(Integer, nullable=True)
     UTW_ID = Column(String(30), nullable=False, default=func.user())
@@ -292,7 +423,7 @@ class Group(Base):
     MOD_DATA = Column(Date, nullable=False, default=func.sysdate())
     MOD_ID = Column(String(30), nullable=False, default=func.user())
     GR_NR = Column(Integer, nullable=True)
-    GR_ZAJ_CYK_ID = Column(Integer, nullable=True)
+    GR_ZAJ_CYK_ID = Column(Integer, ForeignKey('DZ_GRUPY.ZAJ_CYK_ID'), nullable=True)
     OPIS = Column(String(1000), nullable=True)
     WAGA_PENSUM = Column(Float, nullable=True)
     ZAKRES_TEMATOW = Column(Text, nullable=True)
@@ -307,11 +438,31 @@ class Group(Base):
     KRYTERIA_OCENIANIA = Column(Text, nullable=True)
     KRYTERIA_OCENIANIA_ANG = Column(Text, nullable=True)
 
-    
+    parent_group = relationship(
+        "Group",
+        back_populates="related_groups",
+        remote_side="[ZAJ_CYK_ID, NR]",
+        foreign_keys="[GR_ZAJ_CYK_ID, GR_NR]"
+    )
+    related_groups = relationship(
+        "Group",
+        back_populates="parent_group",
+        foreign_keys="[Group.GR_ZAJ_CYK_ID, Group.GR_NR]"
+    )
+    didactic_cycle_class = relationship(
+        "DidacticCycleClasses",
+        back_populates="groups",
+        foreign_keys=[ZAJ_CYK_ID]
+    )
     __table_args__ = (
         Index('GR_GR_FK_I', 'GR_ZAJ_CYK_ID', 'GR_NR'),
         Index('GR_PK', 'ZAJ_CYK_ID', 'NR', unique=True),
         Index('GR_ZAJ_CYK_FK_I', 'ZAJ_CYK_ID')
+    )
+    instructors = relationship(
+        "GroupInstructor",
+        back_populates="group",
+        foreign_keys="[GroupInstructor.ZAJ_CYK_ID, GroupInstructor.GR_NR]"
     )
 
 class GroupInstructor(Base):
@@ -335,6 +486,27 @@ class GroupInstructor(Base):
     PLAN_LICZBA_GODZ = Column(Float, nullable=True)
     PLAN_LICZBA_GODZ_DO_PENSUM = Column(Float, nullable=True)
 
+    group = relationship(
+        "Group",
+        back_populates="instructors",
+        foreign_keys=[ZAJ_CYK_ID, GR_NR]
+    )
+    organizational_unit = relationship(
+        "OrganizationalUnits",
+        back_populates="group_instructors",
+        foreign_keys=[JEDN_KOD]
+    )
+    employee = relationship(
+        "Employee",
+        back_populates="group_instructors",
+        foreign_keys=[PRAC_ID]
+    )
+    instructor_employments = relationship(
+        "InstructorEmployment",
+        back_populates="group_instructor",
+        foreign_keys="[InstructorEmployment.PRAC_ID, InstructorEmployment.ZAJ_CYK_ID, InstructorEmployment.GR_NR]"
+    )
+
     
     __table_args__ = (
         Index('PRW_GR_GR_FK_I', 'ZAJ_CYK_ID', 'GR_NR'),
@@ -356,7 +528,26 @@ class StanowiskaZatrPensum(Base):
     MOD_ID = Column(String(30), nullable=False, default=func.user())
     MOD_DATA = Column(Date, nullable=False, default=func.sysdate())
 
-    
+    cycle_end = relationship(
+        "DidacticCycles",
+        back_populates="positions_pensum_end",
+        foreign_keys=[CDYD_KON]
+    )
+    cycle_start = relationship(
+        "DidacticCycles",
+        back_populates="positions_pensum_start",
+        foreign_keys=[CDYD_POCZ]
+    )
+    organizational_unit = relationship(
+        "OrganizationalUnits",
+        back_populates="positions_pensum",
+        foreign_keys=[JED_ORG_KOD]
+    )
+    position = relationship(
+        "StanowiskaZatr",
+        back_populates="positions_pensum",
+        foreign_keys=[STAN_ID]
+    )
 
     __table_args__ = (
         Index('STAN_PENS_PK', 'ID', unique=True),
@@ -390,6 +581,16 @@ class Committee(Base):
         back_populates="committee",
         foreign_keys="[CommitteeMember.KOMI_ID]"
     )
+    organizational_unit = relationship(
+        "OrganizationalUnits",
+        back_populates="committees",
+        foreign_keys=[JED_ORG_KOD]
+    )
+    committee_type = relationship(
+        "CommitteeType",
+        back_populates="committees",
+        foreign_keys=[TYPK_KOD]
+    )
 
     __table_args__ = (
         Index('KOMI_JED_ORG_FK_I', 'JED_ORG_KOD'),
@@ -414,8 +615,26 @@ class IndividualRates(Base):
     TZAJ_KOD = Column(String(20), ForeignKey('DZ_TYPY_ZAJEC.KOD'), nullable=True)
     UWAGI = Column(String(500), nullable=True)
 
-    
-
+    employee = relationship(
+        "Employee",
+        back_populates="individual_rates",
+        foreign_keys=[PRAC_ID]
+    )
+    subject = relationship(
+        "Subject",
+        back_populates="individual_rates",
+        foreign_keys=[PRZ_KOD]
+    )
+    pensum_settlement = relationship(
+        "PensumSettlement",
+        back_populates="individual_rates",
+        foreign_keys=[RPENS_KOD]
+    )
+    class_type = relationship(
+        "ClassType",
+        back_populates="individual_rates",
+        foreign_keys=[TZAJ_KOD]
+    )
     __table_args__ = (
         Index('IND_STAW_PK', 'ID', unique=True),
         Index('IND_STAW_PRAC_FK_I', 'PRAC_ID'),
@@ -451,7 +670,41 @@ class Employee(Base):
     DATA_SZKOLENIA_BHP = Column(Date, nullable=True)
     TYTUL_SZK_ID = Column(Integer, ForeignKey('DZ_SZKOLY.ID'), nullable=True)
 
-    
+    individual_rates = relationship(
+        "IndividualRates",
+        back_populates="employee",
+        foreign_keys="[IndividualRates.PRAC_ID]"
+    )
+    employee_pensum = relationship(
+        "EmployeePensum",
+        back_populates="employee",
+        foreign_keys="[EmployeePensum.PRAC_ID]"
+    )
+    person = relationship(
+        "Person",
+        back_populates="employees",
+        foreign_keys=[OS_ID]
+    )
+    employments = relationship(
+        "Employment",
+        back_populates="employee",
+        foreign_keys="[Employment.PRAC_ID]"
+    )
+    group_instructors = relationship(
+        "GroupInstructor",
+        back_populates="employee",
+        foreign_keys="[GroupInstructor.PRAC_ID]"
+    )
+    external_pensum = relationship(
+        "ExternalPensum",
+        back_populates="employee",
+        foreign_keys="[ExternalPensum.PRAC_ID]"
+    )
+    discounts = relationship(
+        "Discount",
+        back_populates="employee",
+        foreign_keys="[Discount.PRAC_ID]"
+    )
 
     __table_args__ = (
         CheckConstraint("PIERWSZE_ZATR IN ('T', 'N')", name='check_pierwsze_zatr'),
@@ -468,20 +721,30 @@ class Employee(Base):
 class EmployeePensum(Base):
     __tablename__ = 'DZ_PENSUM_PRAC'
 
-    PRAC_ID = Column(Integer, ForeignKey('DZ_PRACOWNICY.ID'), primary_key=True, index=True)  # Identyfikator pracownika
-    RPENS_KOD = Column(String(20), ForeignKey('DZ_ROZLICZENIA_PENSUM.KOD'), primary_key=True, index=True)  # Kod rozliczenia pensum
-    PENSUM = Column(Integer, nullable=False)  # Pensum
-    UTW_ID = Column(String(30), nullable=False, default=func.user())  # Id użytkownika, który utworzył rekord
-    UTW_DATA = Column(Date, nullable=False, default=func.sysdate())  # Data utworzenia rekordu
-    MOD_ID = Column(String(30), nullable=False, default=func.user())  # Id użytkownika, który zmodyfikował rekord
-    MOD_DATA = Column(Date, nullable=False, default=func.sysdate())  # Data modyfikacji rekordu
-    KOMENTARZ = Column(String(200), nullable=True)  # Komentarz do wprowadzonego pensum
-    STATUS = Column(String(1), nullable=False, default='P')  # Status pensum: P - w przygotowaniu, Z - zatwierdzony, X - archiwalny
+    PRAC_ID = Column(Integer, ForeignKey('DZ_PRACOWNICY.ID'), primary_key=True, index=True)
+    RPENS_KOD = Column(String(20), ForeignKey('DZ_ROZLICZENIA_PENSUM.KOD'), primary_key=True, index=True)
+    PENSUM = Column(Integer, nullable=False)
+    UTW_ID = Column(String(30), nullable=False, default=func.user())
+    UTW_DATA = Column(Date, nullable=False, default=func.sysdate())
+    MOD_ID = Column(String(30), nullable=False, default=func.user())
+    MOD_DATA = Column(Date, nullable=False, default=func.sysdate()) 
+    KOMENTARZ = Column(String(200), nullable=True)
+    STATUS = Column(String(1), nullable=False, default='P')
 
-    
+    employee = relationship(
+        "Employee",
+        back_populates="employee_pensum",
+        foreign_keys=[PRAC_ID]
+    )
+    pensum_settlement = relationship(
+        "PensumSettlement",
+        back_populates="employee_pensum",
+        foreign_keys=[RPENS_KOD]
+    )
+
     __table_args__ = (
-        CheckConstraint("STATUS IN ('P', 'Z', 'X')", name='check_status'),  # Walidacja statusu
-        Index('PENSP_PK', 'PRAC_ID', 'RPENS_KOD', unique=True),  # Unikalny indeks na PRAC_ID i RPENS_KOD
+        CheckConstraint("STATUS IN ('P', 'Z', 'X')", name='check_status'),
+        Index('PENSP_PK', 'PRAC_ID', 'RPENS_KOD', unique=True),
     )
 
 class TypyZajec(Base):
@@ -495,7 +758,21 @@ class TypyZajec(Base):
     UTW_DATA = Column(Date, nullable=False, default=func.sysdate())
     UTW_ID = Column(String(30), nullable=False, default=func.user())
 
-    
+    individual_rates = relationship(
+        "IndividualRates",
+        back_populates="class_type",
+        foreign_keys="[IndividualRates.TZAJ_KOD]"
+    )
+    conversion_values = relationship(
+        "ConversionValue",
+        back_populates="class_type",
+        foreign_keys="[ConversionValue.TZAJ_KOD]"
+    )
+    didactic_cycle_classes = relationship(
+        "DidacticCycleClasses",
+        back_populates="class_type",
+        foreign_keys="[DidacticCycleClasses.TZAJ_KOD]"
+    )
 
     __table_args__ = (
         Index('TZAJ_PK', 'KOD', unique=True),
@@ -549,7 +826,82 @@ class OrganizationalUnits(Base):
     UUID_POLON = Column(String(128), nullable=True)
     KOD_HR = Column(String(50), nullable=True)
 
-    
+    committee_functions_pensum = relationship(
+        "CommitteeFunctionPensum",
+        back_populates="organizational_unit",
+        foreign_keys="[CommitteeFunctionPensum.JED_ORG_KOD]"
+    )
+    parent_unit = relationship(
+        "OrganizationalUnits",
+        back_populates="child_units",
+        remote_side=[KOD],
+        foreign_keys=[JED_ORG_KOD]
+    )
+    child_units = relationship(
+        "OrganizationalUnits",
+        back_populates="parent_unit",
+        foreign_keys="[OrganizationalUnits.JED_ORG_KOD]"
+    )
+    committees = relationship(
+        "Committee",
+        back_populates="organizational_unit",
+        foreign_keys="[Committee.JED_ORG_KOD]"
+    )
+    persons_social = relationship(
+        "Person",
+        back_populates="social_unit",
+        foreign_keys="[Person.GDZIE_SOCJALNE]"
+    )
+    persons = relationship(
+        "Person",
+        back_populates="organizational_unit",
+        foreign_keys="[Person.JED_ORG_KOD]"
+    )
+    employments = relationship(
+        "Employment",
+        back_populates="organizational_unit",
+        foreign_keys="[Employment.JEDN_KOD]"
+    )
+    sub_employments = relationship(
+        "Employment",
+        back_populates="sub_organizational_unit",
+        foreign_keys="[Employment.POD_JEDN_KOD]"
+    )
+    group_instructors = relationship(
+        "GroupInstructor",
+        back_populates="organizational_unit",
+        foreign_keys="[GroupInstructor.JEDN_KOD]"
+    )
+    subjects_received = relationship(
+        "Subject",
+        back_populates="receiving_organizational_unit",
+        foreign_keys="[Subject.JED_ORG_KOD_BIORCA]"
+    )
+    subjects = relationship(
+        "Subject",
+        back_populates="organizational_unit",
+        foreign_keys="[Subject.JED_ORG_KOD]"
+    )
+    pensum_settlements = relationship(
+        "PensumSettlement",
+        back_populates="organizational_unit",
+        foreign_keys="[PensumSettlement.JEDN_KOD]"
+    )
+    positions_pensum = relationship(
+        "StanowiskaZatrPensum",
+        back_populates="organizational_unit",
+        foreign_keys="[StanowiskaZatrPensum.JED_ORG_KOD]"
+    )
+    field_of_study_authorizations = relationship(
+        "FieldOfStudyAuthorization",
+        back_populates="organizational_unit",
+        foreign_keys="[FieldOfStudyAuthorization.JED_ORG_KOD]"
+    )
+    instructor_employments = relationship(
+        "InstructorEmployment",
+        back_populates="organizational_unit",
+        foreign_keys="[InstructorEmployment.JEDN_KOD]"
+    )
 
     __table_args__ = (
         CheckConstraint("regexp_instr(KOD, '\\||''|&|%') = 0", name='check_kod'),
@@ -591,6 +943,53 @@ class Employment(Base):
     STATUS = Column(String(1), nullable=True)
     UID_POLON = Column(String(128), nullable=True)
 
+    organizational_unit = relationship(
+        "OrganizationalUnits",
+        back_populates="employments",
+        foreign_keys=[JEDN_KOD]
+    )
+    sub_organizational_unit = relationship(
+        "OrganizationalUnits",
+        back_populates="sub_employments",
+        foreign_keys=[POD_JEDN_KOD]
+    )
+    employee = relationship(
+        "Employee",
+        back_populates="employments",
+        foreign_keys=[PRAC_ID]
+    )
+    position = relationship(
+        "Position",
+        back_populates="employments",
+        foreign_keys=[STAN_ID]
+    )
+    base_contract = relationship(
+        "Employment",
+        back_populates="sub_contracts",
+        remote_side=[ID],
+        foreign_keys=[UMOWA_PODSTAWOWA]
+    )
+    sub_contracts = relationship(
+        "Employment",
+        back_populates="base_contract",
+        foreign_keys="[Employment.UMOWA_PODSTAWOWA]"
+    )
+    previous_contract = relationship(
+        "Employment",
+        back_populates="next_contracts",
+        remote_side=[ID],
+        foreign_keys=[UMOWA_POPRZEDNIA]
+    )
+    next_contracts = relationship(
+        "Employment",
+        back_populates="previous_contract",
+        foreign_keys="[Employment.UMOWA_POPRZEDNIA]"
+    )
+    instructor_employments = relationship(
+        "InstructorEmployment",
+        back_populates="employment",
+        foreign_keys="[InstructorEmployment.PRACZ_ID]"
+    )
 
     __table_args__ = (
         Index('PRACZ_FORM_FK_I', 'FORM_KOD'),
@@ -619,7 +1018,21 @@ class ThesisSupervisors(Base):
     PRZEL_KOD = Column(String(20), ForeignKey('DZ_PRZELICZNIKI.PRZEL_KOD'), nullable=True)
     LICZBA_GODZ_PRZEN = Column(Float, nullable=True)
 
-    
+    person = relationship(
+        "Person",
+        back_populates="thesis_supervisors",
+        foreign_keys=[OS_ID]
+    )
+    conversion_rate = relationship(
+        "ConversionRate",
+        back_populates="thesis_supervisors",
+        foreign_keys=[RPENS_KOD, PRZEL_KOD]
+    )
+    pensum_settlement = relationship(
+        "PensumSettlement",
+        back_populates="thesis_supervisors",
+        foreign_keys=[RPENS_KOD]
+    )
 
     __table_args__ = (
         Index('OP_CERT_FK_I', 'CERT_ID'),
@@ -663,6 +1076,32 @@ class Subject(Base):
     GUID = Column(String(32), nullable=False, unique=True, default=func.rawtohex(func.sys_guid()))
     KSZTALCENIE_NAUCZYCIELA = Column(String(1), nullable=False)
 
+    individual_rates = relationship(
+        "IndividualRates",
+        back_populates="subject",
+        foreign_keys="[IndividualRates.PRZ_KOD]"
+    )
+    receiving_organizational_unit = relationship(
+        "OrganizationalUnits",
+        back_populates="subjects_received",
+        foreign_keys=[JED_ORG_KOD_BIORCA]
+    )
+    organizational_unit = relationship(
+        "OrganizationalUnits",
+        back_populates="subjects",
+        foreign_keys=[JED_ORG_KOD]
+    )
+    subject_cycles = relationship(
+        "SubjectCycle",
+        back_populates="subject",
+        foreign_keys="[SubjectCycle.PRZ_KOD]"
+    )
+    conversion_rates = relationship(
+        "SubjectConversionRate",
+        back_populates="subject",
+        foreign_keys="[SubjectConversionRate.PRZ_KOD]"
+    )
+
    
     __table_args__ = (
         CheckConstraint("regexp_instr(KOD, '\\||''|&|%') = 0", name='check_kod'),
@@ -699,9 +1138,21 @@ class SubjectCycle(Base):
     GUID = Column(String(32), nullable=False, unique=True, default=func.rawtohex(func.sys_guid()))
     KSZTALCENIE_NAUCZYCIELA = Column(String(1), nullable=False)
 
-    cycle = relationship("DidacticCycles", back_populates="subject_cycles")
-    subject = relationship("Subject", back_populates="subject_cycles")
-
+    cycle = relationship(
+        "DidacticCycles",
+        back_populates="subject_cycles",
+        foreign_keys=[CDYD_KOD]
+    )
+    subject = relationship(
+        "Subject",
+        back_populates="subject_cycles",
+        foreign_keys=[PRZ_KOD]
+    )
+    didactic_cycle_classes = relationship(
+        "DidacticCycleClasses",
+        back_populates="subject_cycle",
+        foreign_keys="[DidacticCycleClasses.CDYD_KOD, DidacticCycleClasses.PRZ_KOD]"
+    )
     __table_args__ = (
         Index('PRZCKL_CDYD_FK_I', 'CDYD_KOD'),
         Index('PRZCKL_GUID_UK', 'GUID', unique=True),
@@ -728,6 +1179,41 @@ class ConversionRate(Base):
             back_populates="conversion_rate",
             foreign_keys="[CommitteeMember.RPENS_KOD, CommitteeMember.PRZEL_KOD]"
         )
+    thesis_supervisors = relationship(
+        "ThesisSupervisors",
+        back_populates="conversion_rate",
+        foreign_keys="[ThesisSupervisors.RPENS_KOD, ThesisSupervisors.PRZEL_KOD]"
+    )
+    subject_conversion_rates = relationship(
+        "SubjectConversionRate",
+        back_populates="conversion_rate",
+        foreign_keys="[SubjectConversionRate.RPENS_KOD, SubjectConversionRate.PRZEL_KOD]"
+    )
+    pensum_settlement = relationship(
+        "PensumSettlement",
+        back_populates="conversion_rates",
+        foreign_keys=[RPENS_KOD]
+    )
+    field_of_study_authorization = relationship(
+        "FieldOfStudyAuthorization",
+        back_populates="conversion_rates",
+        foreign_keys=[UPR_KIER_ID]
+    )
+    reviewers = relationship(
+        "Reviewer",
+        back_populates="conversion_rate",
+        foreign_keys="[Reviewer.RPENS_KOD, Reviewer.PRZEL_KOD]"
+    )
+    external_pensum = relationship(
+        "ExternalPensum",
+        back_populates="conversion_rate",
+        foreign_keys="[ExternalPensum.RPENS_KOD, ExternalPensum.PRZEL_KOD]"
+    )
+    conversion_values = relationship(
+        "ConversionValue",
+        back_populates="conversion_rate",
+        foreign_keys="[ConversionValue.RPENS_KOD, ConversionValue.PRZEL_KOD]"
+    )
 
     __table_args__ = (
         Index('PRZEL_PK', 'RPENS_KOD', 'PRZEL_KOD', unique=True),
@@ -744,7 +1230,16 @@ class SubjectConversionRate(Base):
     UTW_ID = Column(String(30), nullable=False, default=func.user())
     MOD_DATA = Column(Date, nullable=False, default=func.sysdate())
 
-   
+    subject = relationship(
+        "Subject",
+        back_populates="conversion_rates",
+        foreign_keys=[PRZ_KOD]
+    )
+    conversion_rate = relationship(
+        "ConversionRate",
+        back_populates="subject_conversion_rates",
+        foreign_keys=[RPENS_KOD, PRZEL_KOD]
+    )
 
     __table_args__ = (
         Index('PRZEL_PRZ_PK', 'RPENS_KOD', 'PRZ_KOD', 'PRZEL_KOD', unique=True),
@@ -764,7 +1259,11 @@ class DiscountType(Base):
     MOD_DATA = Column(Date, nullable=False, default=func.sysdate())
     CZY_AKTUALNE = Column(String(1), nullable=False)
 
-   
+    discounts = relationship(
+        "Discount",
+        back_populates="discount_type",
+        foreign_keys="[Discount.RODZ_ZNIZ_ID]"
+    )
 
     __table_args__ = (
         Index('RODZ_NAZWA_UK', 'NAZWA', unique=True),
@@ -789,7 +1288,27 @@ class ExternalPensum(Base):
     PRZEL_KOD = Column(String(20), ForeignKey('DZ_PRZELICZNIKI.PRZEL_KOD'), nullable=True)
     LICZBA_GODZ_PRZEN = Column(Float, nullable=True)
 
-    
+    cycle = relationship(
+        "DidacticCycles",
+        back_populates="external_pensum",
+        foreign_keys=[CDYD_KOD]
+    )
+    employee = relationship(
+        "Employee",
+        back_populates="external_pensum",
+        foreign_keys=[PRAC_ID]
+    )
+    conversion_rate = relationship(
+        "ConversionRate",
+        back_populates="external_pensum",
+        foreign_keys=[RPENS_KOD, PRZEL_KOD]
+    )
+    pensum_settlement = relationship(
+        "PensumSettlement",
+        back_populates="external_pensum",
+        foreign_keys=[RPENS_KOD]
+    )
+
     __table_args__ = (
         Index('RPENS_ZEWN_PK', 'ID', unique=True),
         Index('RPENS_ZEWN_RPENS_FK_I', 'RPENS_KOD'),
@@ -812,7 +1331,21 @@ class Discount(Base):
     RPENS_KOD = Column(String(20), ForeignKey('DZ_ROZLICZENIA_PENSUM.KOD'), nullable=False)
     TYP = Column(String(1), nullable=False)
 
-    
+    employee = relationship(
+        "Employee",
+        back_populates="discounts",
+        foreign_keys=[PRAC_ID]
+    )
+    discount_type = relationship(
+        "DiscountType",
+        back_populates="discounts",
+        foreign_keys=[RODZ_ZNIZ_ID]
+    )
+    pensum_settlement = relationship(
+        "PensumSettlement",
+        back_populates="discounts",
+        foreign_keys=[RPENS_KOD]
+    )
 
     __table_args__ = (
         Index('ZPENS_PK', 'ID', unique=True),
@@ -835,7 +1368,27 @@ class Reviewer(Base):
     PRZEL_KOD = Column(String(20), ForeignKey('DZ_PRZELICZNIKI.PRZEL_KOD'), nullable=True)
     LICZBA_GODZ_PRZEN = Column(Float, nullable=True)
 
-    
+    author = relationship(
+        "Person",
+        back_populates="authored_reviews",
+        foreign_keys=[AUTOR_OS_ID]
+    )
+    person = relationship(
+        "Person",
+        back_populates="reviews",
+        foreign_keys=[OS_ID]
+    )
+    conversion_rate = relationship(
+        "ConversionRate",
+        back_populates="reviewers",
+        foreign_keys=[RPENS_KOD, PRZEL_KOD]
+    )
+    pensum_settlement = relationship(
+        "PensumSettlement",
+        back_populates="reviewers",
+        foreign_keys=[RPENS_KOD]
+    )
+
     __table_args__ = (
         Index('REC_PRAC_AUTOR_OS_FK_I', 'AUTOR_OS_ID'),
         Index('REC_PRAC_OS_FK_I', 'OS_ID'),
@@ -862,6 +1415,27 @@ class ConversionValue(Base):
     MOD_DATA = Column(Date, nullable=False, default=func.sysdate())
     RODZAJ = Column(String(1), nullable=True)
 
+    conversion_rate = relationship(
+        "ConversionRate",
+        back_populates="conversion_values",
+        foreign_keys=[RPENS_KOD, PRZEL_KOD]
+    )
+    position = relationship(
+        "StanowiskaZatr",
+        back_populates="conversion_values",
+        foreign_keys=[STAN_ID]
+    )
+    title = relationship(
+        "Title",
+        back_populates="conversion_values",
+        foreign_keys=[TYTUL_ID]
+    )
+    class_type = relationship(
+        "ClassType",
+        back_populates="conversion_values",
+        foreign_keys=[TZAJ_KOD]
+    )
+
    
     __table_args__ = (
         Index('WART_PRZEL_PK', 'ID', unique=True),
@@ -884,7 +1458,16 @@ class CommitteeType(Base):
     MOD_DATA = Column(Date, nullable=False, default=func.sysdate())
     KLASA_KOMISJI = Column(String(1), nullable=False)
 
-    
+    committee_functions = relationship(
+        "CommitteeFunction",
+        back_populates="committee_type",
+        foreign_keys="[CommitteeFunction.TYPK_KOD]"
+    )
+    committees = relationship(
+        "Committee",
+        back_populates="committee_type",
+        foreign_keys="[Committee.TYPK_KOD]"
+    )
 
     __table_args__ = (
         Index('TYPK_NAZWA_UK', 'NAZWA', unique=True),
@@ -904,7 +1487,21 @@ class Title(Base):
     UTW_ID = Column(String(30), nullable=False, default=func.user())
     KOD_POLON = Column(String(20), nullable=True)
 
-    
+    persons_with_post_title = relationship(
+        "Person",
+        back_populates="post_title",
+        foreign_keys="[Person.TYTUL_PO]"
+    )
+    persons_with_pre_title = relationship(
+        "Person",
+        back_populates="pre_title",
+        foreign_keys="[Person.TYTUL_PRZED]"
+    )
+    conversion_values = relationship(
+        "ConversionValue",
+        back_populates="title",
+        foreign_keys="[ConversionValue.TYTUL_ID]"
+    )
 
     __table_args__ = (
         CheckConstraint("regexp_instr(KOD_HR, '\\||''|&|%') = 0", name='check_kod_hr'),
@@ -931,7 +1528,16 @@ class FieldOfStudyAuthorization(Base):
     POPRZEDNI_KOD_POLON = Column(String(20), nullable=True)
     UID_POLON = Column(String(128), nullable=True)
 
-   
+    conversion_rates = relationship(
+        "ConversionRate",
+        back_populates="field_of_study_authorization",
+        foreign_keys="[ConversionRate.UPR_KIER_ID]"
+    )
+    organizational_unit = relationship(
+        "OrganizationalUnits",
+        back_populates="field_of_study_authorizations",
+        foreign_keys=[JED_ORG_KOD]
+    )
 
     __table_args__ = (
         Index('UPR_KIER_JED_ORG_FK_I', 'JED_ORG_KOD'),
@@ -969,7 +1575,21 @@ class DidacticCycleClasses(Base):
     LITERATURA_ANG = Column(CLOB, nullable=True)
     CZY_POKAZYWAC_TERMIN = Column(String(1), nullable=False, default='T')
 
-   
+    groups = relationship(
+        "Group",
+        back_populates="didactic_cycle_class",
+        foreign_keys="[Group.ZAJ_CYK_ID]"
+    )
+    subject_cycle = relationship(
+        "SubjectCycle",
+        back_populates="didactic_cycle_classes",
+        foreign_keys=[CDYD_KOD, PRZ_KOD]
+    )
+    class_type = relationship(
+        "ClassType",
+        back_populates="didactic_cycle_classes",
+        foreign_keys=[TZAJ_KOD]
+    )
     __table_args__ = (
         Index('ZAJ_CYK_PK', 'ID', unique=True),
         Index('ZAJ_CYK_PRZ_CKL_FK_I', 'CDYD_KOD', 'PRZ_KOD'),
@@ -1008,6 +1628,26 @@ class InstructorEmployment(Base):
     PLAN_LICZBA_GODZ_DO_PENSUM = Column(Float, nullable=True)
     UWAGI = Column(String(500), nullable=True)
 
+    worked_hours = relationship(
+        "WorkedHours",
+        back_populates="instructor_employment",
+        foreign_keys="[WorkedHours.ZATR_PROW_ID]"
+    )
+    organizational_unit = relationship(
+        "OrganizationalUnits",
+        back_populates="instructor_employments",
+        foreign_keys=[JEDN_KOD]
+    )
+    group_instructor = relationship(
+        "GroupInstructor",
+        back_populates="instructor_employments",
+        foreign_keys=[PRAC_ID, ZAJ_CYK_ID, GR_NR]
+    )
+    employment = relationship(
+        "Employment",
+        back_populates="instructor_employments",
+        foreign_keys=[PRACZ_ID]
+    )
    
     __table_args__ = (
         Index('ZATR_PROW_PK', 'ID', unique=True),
@@ -1032,7 +1672,11 @@ class PrzepracowaneGodziny(Base):
     MOD_DATA = Column(Date, nullable=False, default=func.sysdate())
     UWAGI = Column(String(500), nullable=True)
 
-    
+    instructor_employment = relationship(
+        "InstructorEmployment",
+        back_populates="worked_hours",
+        foreign_keys=[ZATR_PROW_ID]
+    )
 
     __table_args__ = (
         CheckConstraint("MIESIAC BETWEEN 1 AND 12", name='check_miesiac'),
@@ -1055,7 +1699,21 @@ class StanowiskaZatr(Base):
     KOD = Column(String(20), nullable=True, unique=True)
     KOD_POLON = Column(String(100), nullable=True)
 
-   
+    employments = relationship(
+        "Employment",
+        back_populates="position",
+        foreign_keys="[Employment.STAN_ID]"
+    )
+    positions_pensum = relationship(
+        "StanowiskaZatrPensum",
+        back_populates="position",
+        foreign_keys="[StanowiskaZatrPensum.STAN_ID]"
+    )
+    conversion_values = relationship(
+        "ConversionValue",
+        back_populates="position",
+        foreign_keys="[ConversionValue.STAN_ID]"
+    )
 
     __table_args__ = (
         Index('DZ_STAN_ZATR_KOD_UK', 'KOD', unique=True),
