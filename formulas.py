@@ -1,4 +1,4 @@
-from models import Employee, GroupInstructor, ThesisSupervisors, Reviewer, IndividualRates, OrganizationalUnits, CommitteeFunctionPensum, DidacticCycles, Group, Person, StanowiskaZatr, Employment, EmployeePensum, Discount
+from models import Employee, GroupInstructor, ThesisSupervisors, Reviewer, IndividualRates, OrganizationalUnits, CommitteeFunctionPensum, DidacticCycles, Group, Person, Position, Employment, EmployeePensum, Discount
 from database import SessionLocal
 
 STAWKI_NADGODZIN = {

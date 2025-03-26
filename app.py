@@ -4,7 +4,7 @@ import pandas as pd
 from formulas import calculate_workload_for_employee, get_group_data
 from sqlalchemy.orm import sessionmaker
 from database import engine
-from models import Employee, GroupInstructor, ThesisSupervisors, Reviewer, IndividualRates, OrganizationalUnits, CommitteeFunctionPensum, DidacticCycles, Group, Person, StanowiskaZatr, Employment
+from models import Employee, GroupInstructor, ThesisSupervisors, Reviewer, IndividualRates, OrganizationalUnits, CommitteeFunctionPensum, DidacticCycles, Group, Person, Position, Employment
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
@@ -166,7 +166,7 @@ class MainWindow(QMainWindow):
             organizational_unit = db.query(OrganizationalUnits).filter_by(KOD=employee.organizational_unit).first()
             person = db.query(Person).filter_by(ID=employee.OS_ID).first()
             prac_zatr = db.query(Employment).filter_by(PRAC_ID=employee.ID).first()
-            position = db.query(StanowiskaZatr).filter_by(ID=prac_zatr.STAN_ID).first() if prac_zatr else None
+            position = db.query(Position).filter_by(ID=prac_zatr.STAN_ID).first() if prac_zatr else None
             stanowisko = position.NAZWA if position else "N/A"
             workload_data = calculate_workload_for_employee(employee.ID)
             

@@ -1,9 +1,9 @@
 from sqlalchemy import Column, Integer, String, Float, Date, CheckConstraint, func, Text, ForeignKey, Index, CLOB
-from sqlalchemy.orm import relationship
+from sqlalchemy.orm import relationship, foreign, registry
 from sqlalchemy.ext.declarative import declarative_base
 
 Base = declarative_base()
-
+registry().configure()
 class DidacticCycles(Base):
     __tablename__ = 'DZ_CYKLE_DYDAKTYCZNE'
 
@@ -37,10 +37,10 @@ class DidacticCycles(Base):
         foreign_keys="[CommitteeFunctionPensum.CDYD_POCZ]"
     )
     subject_cycles = relationship(
-        "SubjectCycle",
-        back_populates="cycle",
-        foreign_keys="[SubjectCycle.CDYD_KOD]"
-    )
+    "SubjectCycle",
+    back_populates="cycle",
+    foreign_keys="SubjectCycle.CDYD_KOD"
+)
     external_pensum = relationship(
         "ExternalPensum",
         back_populates="cycle",
@@ -55,6 +55,10 @@ class DidacticCycles(Base):
         "StanowiskaZatrPensum",
         back_populates="cycle_start",
         foreign_keys="[StanowiskaZatrPensum.CDYD_POCZ]"
+    )
+    groups = relationship(
+        "Group",
+        back_populates="didactic_cycle",
     )
 
     __table_args__ = (
@@ -411,11 +415,61 @@ class CommitteeFunctionPensum(Base):
         foreign_keys=[JED_ORG_KOD]
     )
     
+class DidacticCycleClasses(Base):
+    __tablename__ = 'DZ_ZAJECIA_CYKLI'
 
+    ID = Column(Integer, primary_key=True, index=True)
+    PRZ_KOD = Column(String(20), ForeignKey('DZ_PRZEDMIOTY.KOD'), nullable=False)
+    CDYD_KOD = Column(String(20), ForeignKey('DZ_CYKLE_DYDAKTYCZNE.KOD'), nullable=False)
+    TZAJ_KOD = Column(String(20), ForeignKey('DZ_TYPY_ZAJEC.KOD'), nullable=False)
+    LICZBA_GODZ = Column(Float, nullable=True)
+    LIMIT_MIEJSC = Column(Integer, nullable=True)
+    UTW_ID = Column(String(30), nullable=False, default=func.user())
+    UTW_DATA = Column(Date, nullable=False, default=func.sysdate())
+    MOD_ID = Column(String(30), nullable=False, default=func.user())
+    MOD_DATA = Column(Date, nullable=False, default=func.sysdate())
+    WAGA_PENSUM = Column(Float, nullable=True)
+    TPRO_KOD = Column(String(20), ForeignKey('DZ_TYPY_PROTOKOLOW.KOD'), nullable=True)
+    EFEKTY_UCZENIA = Column(CLOB, nullable=True)
+    EFEKTY_UCZENIA_ANG = Column(CLOB, nullable=True)
+    KRYTERIA_OCENIANIA = Column(CLOB, nullable=True)
+    KRYTERIA_OCENIANIA_ANG = Column(CLOB, nullable=True)
+    URL = Column(String(500), nullable=True)
+    ZAKRES_TEMATOW = Column(CLOB, nullable=True)
+    ZAKRES_TEMATOW_ANG = Column(CLOB, nullable=True)
+    METODY_DYD = Column(CLOB, nullable=True)
+    METODY_DYD_ANG = Column(CLOB, nullable=True)
+    LITERATURA = Column(CLOB, nullable=True)
+    LITERATURA_ANG = Column(CLOB, nullable=True)
+    CZY_POKAZYWAC_TERMIN = Column(String(1), nullable=False, default='T')
+
+    groups = relationship(
+        "Group",
+        back_populates="didactic_cycle_class",
+        primaryjoin="Group.GR_ZAJ_CYK_ID == DidacticCycleClasses.ID"
+    )
+    subject_cycle = relationship(  # MANYTOONE
+        "SubjectCycle",
+        back_populates="didactic_cycle_classes",
+        primaryjoin="and_(foreign(DidacticCycleClasses.CDYD_KOD) == SubjectCycle.CDYD_KOD, "
+                    "foreign(DidacticCycleClasses.PRZ_KOD) == SubjectCycle.PRZ_KOD)"
+    )
+    class_type = relationship(
+        "ClassType",
+        back_populates="didactic_cycle_classes",
+        foreign_keys=[TZAJ_KOD]
+    )
+    __table_args__ = (
+        Index('ZAJ_CYK_PK', 'ID', unique=True),
+        Index('ZAJ_CYK_PRZ_CKL_FK_I', 'CDYD_KOD', 'PRZ_KOD'),
+        Index('ZAJ_CYK_TZAJ_FK_I', 'TZAJ_KOD'),
+        Index('ZAJ_CYK_UK', 'CDYD_KOD', 'PRZ_KOD', 'TZAJ_KOD', unique=True),
+        Index('ZAJ_TPROT_FK_I', 'TPRO_KOD')
+    )
 class Group(Base):
     __tablename__ = 'DZ_GRUPY'
 
-    ZAJ_CYK_ID = Column(Integer, ForeignKey('DZ_ZAJECIA_CYKLI.ID'), primary_key=True, index=True)
+    ZAJ_CYK_ID = Column(Integer, ForeignKey('DZ_CYKLE_DYDAKTYCZNE.KOD'), primary_key=True, index=True)
     NR = Column(Integer, primary_key=True, index=True)
     LIMIT_MIEJSC = Column(Integer, nullable=True)
     UTW_ID = Column(String(30), nullable=False, default=func.user())
@@ -423,7 +477,7 @@ class Group(Base):
     MOD_DATA = Column(Date, nullable=False, default=func.sysdate())
     MOD_ID = Column(String(30), nullable=False, default=func.user())
     GR_NR = Column(Integer, nullable=True)
-    GR_ZAJ_CYK_ID = Column(Integer, ForeignKey('DZ_GRUPY.ZAJ_CYK_ID'), nullable=True)
+    GR_ZAJ_CYK_ID = Column(Integer, ForeignKey('DZ_ZAJECIA_CYKLI.ID'), nullable=True)
     OPIS = Column(String(1000), nullable=True)
     WAGA_PENSUM = Column(Float, nullable=True)
     ZAKRES_TEMATOW = Column(Text, nullable=True)
@@ -438,32 +492,48 @@ class Group(Base):
     KRYTERIA_OCENIANIA = Column(Text, nullable=True)
     KRYTERIA_OCENIANIA_ANG = Column(Text, nullable=True)
 
+    parent_group_id = Column(Integer, ForeignKey('DZ_GRUPY.ZAJ_CYK_ID'), nullable=True)
+    parent_group_nr = Column(Integer, ForeignKey('DZ_GRUPY.NR'), nullable=True)
+
     parent_group = relationship(
         "Group",
-        back_populates="related_groups",
-        remote_side="[ZAJ_CYK_ID, NR]",
-        foreign_keys="[GR_ZAJ_CYK_ID, GR_NR]"
+        remote_side=[ZAJ_CYK_ID, NR],
+        back_populates="subgroups",
+        foreign_keys=[parent_group_id, parent_group_nr],  # Explicitly specify foreign keys
+        primaryjoin="and_(Group.parent_group_id == Group.ZAJ_CYK_ID, Group.parent_group_nr == Group.NR)"  # Explicit join condition
     )
-    related_groups = relationship(
+
+    subgroups = relationship(
         "Group",
         back_populates="parent_group",
-        foreign_keys="[Group.GR_ZAJ_CYK_ID, Group.GR_NR]"
+        foreign_keys=[parent_group_id, parent_group_nr],  # Explicitly specify foreign keys
+        primaryjoin="and_(Group.parent_group_id == Group.ZAJ_CYK_ID, Group.parent_group_nr == Group.NR)"  # Explicit join condition
     )
+
     didactic_cycle_class = relationship(
         "DidacticCycleClasses",
         back_populates="groups",
-        foreign_keys=[ZAJ_CYK_ID]
+        primaryjoin="Group.GR_ZAJ_CYK_ID == DidacticCycleClasses.ID"
     )
+    didactic_cycle = relationship(
+        "DidacticCycles",
+        back_populates="groups"
+    )
+
+    instructors = relationship(
+    "GroupInstructor",
+    back_populates="group",
+    foreign_keys="[GroupInstructor.ZAJ_CYK_ID, GroupInstructor.GR_NR]",
+    primaryjoin="and_(Group.ZAJ_CYK_ID == GroupInstructor.ZAJ_CYK_ID, Group.NR == GroupInstructor.GR_NR)",
+    overlaps="didactic_cycle,subgroups"
+    )
+
     __table_args__ = (
         Index('GR_GR_FK_I', 'GR_ZAJ_CYK_ID', 'GR_NR'),
         Index('GR_PK', 'ZAJ_CYK_ID', 'NR', unique=True),
         Index('GR_ZAJ_CYK_FK_I', 'ZAJ_CYK_ID')
     )
-    instructors = relationship(
-        "GroupInstructor",
-        back_populates="group",
-        foreign_keys="[GroupInstructor.ZAJ_CYK_ID, GroupInstructor.GR_NR]"
-    )
+    
 
 class GroupInstructor(Base):
     __tablename__ = 'DZ_PROWADZACY_GRUP'
@@ -487,27 +557,36 @@ class GroupInstructor(Base):
     PLAN_LICZBA_GODZ_DO_PENSUM = Column(Float, nullable=True)
 
     group = relationship(
-        "Group",
-        back_populates="instructors",
-        foreign_keys=[ZAJ_CYK_ID, GR_NR]
+    "Group",
+    back_populates="instructors",
+    foreign_keys=[ZAJ_CYK_ID, GR_NR],
+    primaryjoin="and_(GroupInstructor.ZAJ_CYK_ID == Group.ZAJ_CYK_ID, GroupInstructor.GR_NR == Group.NR)",
+    remote_side=[Group.ZAJ_CYK_ID, Group.NR]
     )
     organizational_unit = relationship(
         "OrganizationalUnits",
         back_populates="group_instructors",
         foreign_keys=[JEDN_KOD]
     )
-    employee = relationship(
-        "Employee",
-        back_populates="group_instructors",
-        foreign_keys=[PRAC_ID]
-    )
+    instructor = relationship(
+    "Employee",
+    back_populates="group_instructors",
+    overlaps="employee"
+)
     instructor_employments = relationship(
-        "InstructorEmployment",
-        back_populates="group_instructor",
-        foreign_keys="[InstructorEmployment.PRAC_ID, InstructorEmployment.ZAJ_CYK_ID, InstructorEmployment.GR_NR]"
+    "InstructorEmployment",
+    back_populates="group_instructor",
+    foreign_keys="[InstructorEmployment.PRAC_ID, InstructorEmployment.ZAJ_CYK_ID, InstructorEmployment.GR_NR]",
+    primaryjoin="and_(GroupInstructor.PRAC_ID == InstructorEmployment.PRAC_ID, "
+                "GroupInstructor.ZAJ_CYK_ID == InstructorEmployment.ZAJ_CYK_ID, "
+                "GroupInstructor.GR_NR == InstructorEmployment.GR_NR)"
     )
+    employee = relationship(
+    "Employee",
+    back_populates="group_instructors",
+    overlaps="instructor"
+)
 
-    
     __table_args__ = (
         Index('PRW_GR_GR_FK_I', 'ZAJ_CYK_ID', 'GR_NR'),
         Index('PRW_GR_PK', 'PRAC_ID', 'ZAJ_CYK_ID', 'GR_NR', unique=True),
@@ -544,7 +623,7 @@ class StanowiskaZatrPensum(Base):
         foreign_keys=[JED_ORG_KOD]
     )
     position = relationship(
-        "StanowiskaZatr",
+        "Position",
         back_populates="positions_pensum",
         foreign_keys=[STAN_ID]
     )
@@ -747,7 +826,7 @@ class EmployeePensum(Base):
         Index('PENSP_PK', 'PRAC_ID', 'RPENS_KOD', unique=True),
     )
 
-class TypyZajec(Base):
+class ClassType(Base):
     __tablename__ = 'DZ_TYPY_ZAJEC'
 
     KOD = Column(String(20), primary_key=True, index=True)
@@ -771,7 +850,7 @@ class TypyZajec(Base):
     didactic_cycle_classes = relationship(
         "DidacticCycleClasses",
         back_populates="class_type",
-        foreign_keys="[DidacticCycleClasses.TZAJ_KOD]"
+        foreign_keys=[DidacticCycleClasses.TZAJ_KOD]
     )
 
     __table_args__ = (
@@ -1139,19 +1218,20 @@ class SubjectCycle(Base):
     KSZTALCENIE_NAUCZYCIELA = Column(String(1), nullable=False)
 
     cycle = relationship(
-        "DidacticCycles",
-        back_populates="subject_cycles",
-        foreign_keys=[CDYD_KOD]
+    "DidacticCycles",
+    back_populates="subject_cycles",
+    foreign_keys=[CDYD_KOD]
     )
     subject = relationship(
         "Subject",
         back_populates="subject_cycles",
         foreign_keys=[PRZ_KOD]
     )
-    didactic_cycle_classes = relationship(
+    didactic_cycle_classes = relationship(  # ONETOMANY
         "DidacticCycleClasses",
         back_populates="subject_cycle",
-        foreign_keys="[DidacticCycleClasses.CDYD_KOD, DidacticCycleClasses.PRZ_KOD]"
+        primaryjoin="and_(foreign(SubjectCycle.CDYD_KOD) == DidacticCycleClasses.CDYD_KOD, "
+                    "foreign(SubjectCycle.PRZ_KOD) == DidacticCycleClasses.PRZ_KOD)"
     )
     __table_args__ = (
         Index('PRZCKL_CDYD_FK_I', 'CDYD_KOD'),
@@ -1547,57 +1627,6 @@ class FieldOfStudyAuthorization(Base):
         Index('UPR_KIER_UK', 'JED_ORG_KOD', 'KRSTD_KOD', 'STOPIEN_STUDIOW', 'PROFIL', 'STOP_ZAW_ID', 'KOMENTARZ', unique=True)
     )
 
-class DidacticCycleClasses(Base):
-    __tablename__ = 'DZ_ZAJECIA_CYKLI'
-
-    ID = Column(Integer, primary_key=True, index=True)
-    PRZ_KOD = Column(String(20), ForeignKey('DZ_PRZEDMIOTY.KOD'), nullable=False)
-    CDYD_KOD = Column(String(20), ForeignKey('DZ_CYKLE_DYDAKTYCZNE.KOD'), nullable=False)
-    TZAJ_KOD = Column(String(20), ForeignKey('DZ_TYPY_ZAJEC.KOD'), nullable=False)
-    LICZBA_GODZ = Column(Float, nullable=True)
-    LIMIT_MIEJSC = Column(Integer, nullable=True)
-    UTW_ID = Column(String(30), nullable=False, default=func.user())
-    UTW_DATA = Column(Date, nullable=False, default=func.sysdate())
-    MOD_ID = Column(String(30), nullable=False, default=func.user())
-    MOD_DATA = Column(Date, nullable=False, default=func.sysdate())
-    WAGA_PENSUM = Column(Float, nullable=True)
-    TPRO_KOD = Column(String(20), ForeignKey('DZ_TYPY_PROTOKOLOW.KOD'), nullable=True)
-    EFEKTY_UCZENIA = Column(CLOB, nullable=True)
-    EFEKTY_UCZENIA_ANG = Column(CLOB, nullable=True)
-    KRYTERIA_OCENIANIA = Column(CLOB, nullable=True)
-    KRYTERIA_OCENIANIA_ANG = Column(CLOB, nullable=True)
-    URL = Column(String(500), nullable=True)
-    ZAKRES_TEMATOW = Column(CLOB, nullable=True)
-    ZAKRES_TEMATOW_ANG = Column(CLOB, nullable=True)
-    METODY_DYD = Column(CLOB, nullable=True)
-    METODY_DYD_ANG = Column(CLOB, nullable=True)
-    LITERATURA = Column(CLOB, nullable=True)
-    LITERATURA_ANG = Column(CLOB, nullable=True)
-    CZY_POKAZYWAC_TERMIN = Column(String(1), nullable=False, default='T')
-
-    groups = relationship(
-        "Group",
-        back_populates="didactic_cycle_class",
-        foreign_keys="[Group.ZAJ_CYK_ID]"
-    )
-    subject_cycle = relationship(
-        "SubjectCycle",
-        back_populates="didactic_cycle_classes",
-        foreign_keys=[CDYD_KOD, PRZ_KOD]
-    )
-    class_type = relationship(
-        "ClassType",
-        back_populates="didactic_cycle_classes",
-        foreign_keys=[TZAJ_KOD]
-    )
-    __table_args__ = (
-        Index('ZAJ_CYK_PK', 'ID', unique=True),
-        Index('ZAJ_CYK_PRZ_CKL_FK_I', 'CDYD_KOD', 'PRZ_KOD'),
-        Index('ZAJ_CYK_TZAJ_FK_I', 'TZAJ_KOD'),
-        Index('ZAJ_CYK_UK', 'CDYD_KOD', 'PRZ_KOD', 'TZAJ_KOD', unique=True),
-        Index('ZAJ_TPROT_FK_I', 'TPRO_KOD')
-    )
-
 class TypyProtokolow(Base):
     __tablename__ = 'DZ_TYPY_PROTOKOLOW'
     # Define columns here...
@@ -1641,7 +1670,11 @@ class InstructorEmployment(Base):
     group_instructor = relationship(
         "GroupInstructor",
         back_populates="instructor_employments",
-        foreign_keys=[PRAC_ID, ZAJ_CYK_ID, GR_NR]
+        foreign_keys=[PRAC_ID, ZAJ_CYK_ID, GR_NR],  # Jawne określenie kluczy obcych
+        primaryjoin="and_("
+                    "InstructorEmployment.PRAC_ID == GroupInstructor.PRAC_ID, "
+                    "InstructorEmployment.ZAJ_CYK_ID == GroupInstructor.ZAJ_CYK_ID, "
+                    "InstructorEmployment.GR_NR == GroupInstructor.GR_NR)"
     )
     employment = relationship(
         "Employment",
@@ -1684,7 +1717,7 @@ class PrzepracowaneGodziny(Base):
         Index('PRZEPR_GODZ_UK', 'ZATR_PROW_ID', 'MIESIAC', 'ROK', unique=True)
     )
 
-class StanowiskaZatr(Base):
+class Position(Base):
     __tablename__ = 'DZ_STANOWISKA_ZATR'
 
     ID = Column(Integer, primary_key=True, index=True)
