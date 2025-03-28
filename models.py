@@ -592,24 +592,6 @@ class Group(Base):
     KRYTERIA_OCENIANIA = Column(Text, nullable=True)
     KRYTERIA_OCENIANIA_ANG = Column(Text, nullable=True)
 
-    parent_group_id = Column(Integer, ForeignKey('DZ_GRUPY.ZAJ_CYK_ID'), nullable=True)
-    parent_group_nr = Column(Integer, ForeignKey('DZ_GRUPY.NR'), nullable=True)
-
-    parent_group = relationship(
-        "Group",
-        remote_side=[ZAJ_CYK_ID, NR],
-        back_populates="subgroups",
-        foreign_keys=[parent_group_id, parent_group_nr],  # Explicitly specify foreign keys
-        primaryjoin="and_(Group.parent_group_id == Group.ZAJ_CYK_ID, Group.parent_group_nr == Group.NR)"  # Explicit join condition
-    )
-
-    subgroups = relationship(
-        "Group",
-        back_populates="parent_group",
-        foreign_keys=[parent_group_id, parent_group_nr],  # Explicitly specify foreign keys
-        primaryjoin="and_(Group.parent_group_id == Group.ZAJ_CYK_ID, Group.parent_group_nr == Group.NR)"  # Explicit join condition
-    )
-
     didactic_cycle_class = relationship(
         "DidacticCycleClasses",
         back_populates="groups",
@@ -619,7 +601,6 @@ class Group(Base):
         "DidacticCycles",
         back_populates="groups"
     )
-
     instructors = relationship(
         "GroupInstructor",
         primaryjoin="and_(GroupInstructor.ZAJ_CYK_ID == Group.ZAJ_CYK_ID, GroupInstructor.GR_NR == Group.NR)",
