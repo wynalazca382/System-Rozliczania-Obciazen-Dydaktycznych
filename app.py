@@ -2,6 +2,7 @@ import sys
 from PyQt5.QtWidgets import QApplication, QMainWindow, QVBoxLayout, QHBoxLayout, QWidget, QPushButton, QLabel, QComboBox, QFileDialog, QListWidget, QListWidgetItem, QTabWidget, QCheckBox, QSpacerItem, QSizePolicy
 import pandas as pd
 from formulas import calculate_workload_for_employee, get_group_data
+from sqlalchemy import and_
 from sqlalchemy.orm import sessionmaker
 from database import engine
 from models import Employee, GroupInstructor, ThesisSupervisors, Reviewer, IndividualRates, OrganizationalUnits, CommitteeFunctionPensum, DidacticCycles, Group, Person, Position, Employment
@@ -100,44 +101,101 @@ class MainWindow(QMainWindow):
         db.close()
     
     def populate_units(self):
-        """Populate the unit filter with all organizational units."""
+        """Populate the unit filter with only institutes."""
+        self.unit_filter.clear()
+        self.unit_filter.addItem("Wszystkie jednostki", None)  # Opcja dla wszystkich jednostek
         db = SessionLocal()
-        units = db.query(OrganizationalUnits).all()
+        # Pobieranie jednostek, których nazwa zawiera "Instytut"
+        units = db.query(OrganizationalUnits).filter(OrganizationalUnits.OPIS.like("Instytut %")).all()
         for unit in units:
             self.unit_filter.addItem(unit.OPIS, unit.KOD)
         db.close()
     
     def populate_groups(self):
-        """Populate the group list based on the selected year and unit."""
+        """Populate the group list based on the selected year and unit, and filter instructors."""
         self.group_list.clear()
+        self.employee_list.clear()  # Clear the instructor list as well
         selected_unit = self.unit_filter.currentData()
         selected_year = self.year_filter.currentText()
         db = SessionLocal()
 
-        # Query groups based on the selected year and unit
-        query = db.query(Group).join(DidacticCycles).filter(DidacticCycles.OPIS.like(f"%{selected_year}%"))
+        try:
+            # Query groups based on the selected year and unit
+            query = db.query(Group).join(DidacticCycles, Group.ZAJ_CYK_ID == DidacticCycles.KOD)
 
-        if selected_unit:
-            query = query.join(GroupInstructor).filter(GroupInstructor.JEDN_KOD == selected_unit)
+            # Filter for both winter and summer semesters of the selected year
+            if selected_year:
+                query = query.filter(
+                    DidacticCycles.KOD.like(f"{selected_year}Z") | DidacticCycles.KOD.like(f"{selected_year}L")
+                )
 
-        groups = query.all()
-        for group in groups:
-            item = QListWidgetItem(f"{group.OPIS} - {group.ZAJ_CYK_ID}")
-            item.setData(1, group.ZAJ_CYK_ID)
-            self.group_list.addItem(item)
-        db.close()
+            if selected_unit:  # If a specific unit is selected
+                query = query.join(
+                    GroupInstructor,
+                    and_(
+                        GroupInstructor.ZAJ_CYK_ID == Group.ZAJ_CYK_ID,
+                        GroupInstructor.GR_NR == Group.NR
+                    )
+                ).filter(GroupInstructor.JEDN_KOD == selected_unit)
+
+            groups = query.all()
+            for group in groups:
+                item = QListWidgetItem(f"{group.OPIS} - {group.ZAJ_CYK_ID}")
+                item.setData(1, group.ZAJ_CYK_ID)
+                self.group_list.addItem(item)
+
+            if not groups:  # If no groups are found, display a message
+                self.group_list.addItem("Brak grup do wyświetlenia.")
+
+            # Query instructors based on the selected unit
+            instructor_query = db.query(Employee).join(Person, Employee.OS_ID == Person.ID)
+            if selected_unit:
+                instructor_query = instructor_query.filter(Person.JED_ORG_KOD == selected_unit)
+
+            instructors = instructor_query.all()
+            for instructor in instructors:
+                person = db.query(Person).filter_by(ID=instructor.OS_ID).first()
+                item = QListWidgetItem(f"{person.NAZWISKO} {person.IMIE}")
+                item.setData(1, instructor.ID)
+                self.employee_list.addItem(item)
+
+            if not instructors:  # If no instructors are found, display a message
+                self.employee_list.addItem("Brak wykładowców do wyświetlenia.")
+        except Exception as e:
+            self.group_list.addItem(f"Błąd: {str(e)}")
+            self.employee_list.addItem(f"Błąd: {str(e)}")
+        finally:
+            db.close()
         
     def populate_employees(self):
-        """Populate the employee list with all employees."""
+        """Populate the employee list with all employees filtered by the selected unit."""
         self.employee_list.clear()
+        selected_unit = self.unit_filter.currentData()
         db = SessionLocal()
-        employees = db.query(Employee).all()
-        for employee in employees:
-            person = db.query(Person).filter_by(ID=employee.OS_ID).first()
-            item = QListWidgetItem(f"{person.NAZWISKO} {person.IMIE}")
-            item.setData(1, employee.ID)
-            self.employee_list.addItem(item)
-        db.close()
+
+        try:
+            # Query employees
+            query = db.query(Employee).join(Person, Employee.OS_ID == Person.ID)
+
+            if selected_unit:  # If a specific unit is selected
+                query = query.join(
+                    OrganizationalUnits,
+                    Employee.JEDN_KOD == OrganizationalUnits.KOD
+                ).filter(OrganizationalUnits.KOD == selected_unit)
+
+            employees = query.all()
+            for employee in employees:
+                person = db.query(Person).filter_by(ID=employee.OS_ID).first()
+                item = QListWidgetItem(f"{person.NAZWISKO} {person.IMIE}")
+                item.setData(1, employee.ID)
+                self.employee_list.addItem(item)
+
+            if not employees:  # If no employees are found, display a message
+                self.employee_list.addItem("Brak wykładowców do wyświetlenia.")
+        except Exception as e:
+            self.employee_list.addItem(f"Błąd: {str(e)}")
+        finally:
+            db.close()
     
     def toggle_edit_mode(self, state):
         """Toggle edit mode to enable or disable drag-and-drop functionality."""
@@ -155,60 +213,66 @@ class MainWindow(QMainWindow):
         db = SessionLocal()
         selected_unit = self.unit_filter.currentData()
         
-        query = db.query(Employee)
-        
-        if selected_unit:
-            query = query.join(Employee.organizational_unit).filter(Person.JED_ORG_KOD == selected_unit)
-        
-        employees = query.all()
-        lp = 1
-        data = []
-        for employee in employees:
-            organizational_unit = db.query(OrganizationalUnits).filter_by(KOD=employee.organizational_unit).first()
-            person = db.query(Person).filter_by(ID=employee.OS_ID).first()
-            prac_zatr = db.query(Employment).filter_by(PRAC_ID=employee.ID).first()
-            position = db.query(Position).filter_by(ID=prac_zatr.STAN_ID).first() if prac_zatr else None
-            stanowisko = position.NAZWA if position else "N/A"
-            workload_data = calculate_workload_for_employee(employee.ID)
+        try:
+            # Query employees and filter by the selected unit
+            query = db.query(Employee).join(Person, Employee.OS_ID == Person.ID)
             
-            data.append({
-                "Lp.": lp,
-                "Tytuły": person.TYTUL_PO,
-                "Nazwisko i imię": f"{person.NAZWISKO} {person.IMIE}",
-                "J.O.": organizational_unit.OPIS,
-                "Stanowisko": stanowisko,
-                "Forma": "etat",
-                "Godziny dydaktyczne Z": workload_data["godziny_dydaktyczne_z"],
-                "Godziny dydaktyczne L": workload_data["godziny_dydaktyczne_l"],
-                "Pensum realne": workload_data["total_workload"],
-                "Pensum": workload_data["pensum"],
-                "Etat": workload_data["etat"],
-                "Nadgodziny": workload_data["nadgodziny"],
-                "Stawka": workload_data["stawka"],
-                "Kwota nadgodzin": workload_data["kwota_nadgodzin"],
-            })
-            lp += 1
+            if selected_unit:
+                query = query.filter(Person.JED_ORG_KOD == selected_unit)
+            
+            employees = query.all()
+            lp = 1
+            data = []
+            for employee in employees:
+                # Get related data for the employee
+                person = db.query(Person).filter_by(ID=employee.OS_ID).first()
+                organizational_unit = db.query(OrganizationalUnits).filter_by(KOD=person.JED_ORG_KOD).first()
+                prac_zatr = db.query(Employment).filter_by(PRAC_ID=employee.ID).first()
+                position = db.query(Position).filter_by(ID=prac_zatr.STAN_ID).first() if prac_zatr else None
+                stanowisko = position.NAZWA if position else "N/A"
+                workload_data = calculate_workload_for_employee(employee.ID)
+                
+                # Append data for the report
+                data.append({
+                    "Lp.": lp,
+                    "Tytuły": person.TYTUL_PO,
+                    "Nazwisko i imię": f"{person.NAZWISKO} {person.IMIE}",
+                    "J.O.": organizational_unit.OPIS if organizational_unit else "N/A",
+                    "Stanowisko": stanowisko,
+                    "Forma": "etat",
+                    "Godziny dydaktyczne Z": workload_data["godziny_dydaktyczne_z"],
+                    "Godziny dydaktyczne L": workload_data["godziny_dydaktyczne_l"],
+                    "Pensum realne": workload_data["total_workload"],
+                    "Pensum": workload_data["pensum"],
+                    "Etat": workload_data["etat"],
+                    "Nadgodziny": workload_data["nadgodziny"],
+                    "Stawka": workload_data["stawka"],
+                    "Kwota nadgodzin": workload_data["kwota_nadgodzin"],
+                })
+                lp += 1
 
-        # Tworzenie DataFrame z danych dla pierwszej karty
-        df1 = pd.DataFrame(data)
-        
-        # Dane dla drugiej karty
-        data2 = get_group_data()
-        
-        # Tworzenie DataFrame z danych dla drugiej karty
-        df2 = pd.DataFrame(data2)
-        
-        # Zapis do pliku Excel z dwiema kartami
-        file_path, _ = QFileDialog.getSaveFileName(self, "Save File", "", "Excel Files (*.xlsx)")
-        if file_path:
-            with pd.ExcelWriter(file_path, engine='openpyxl') as writer:
-                df1.to_excel(writer, sheet_name='Raport 1', index=False)
-                df2.to_excel(writer, sheet_name='Raport 2', index=False)
-            self.status_label.setText(f"Status: Raport zapisany do {file_path}")
-        else:
-            self.status_label.setText("Status: Anulowano zapis raportu")
-        
-        db.close()
+            # Create DataFrame for the first sheet
+            df1 = pd.DataFrame(data)
+            
+            # Data for the second sheet
+            data2 = get_group_data()
+            
+            # Create DataFrame for the second sheet
+            df2 = pd.DataFrame(data2)
+            
+            # Save to an Excel file with two sheets
+            file_path, _ = QFileDialog.getSaveFileName(self, "Save File", "", "Excel Files (*.xlsx)")
+            if file_path:
+                with pd.ExcelWriter(file_path, engine='openpyxl') as writer:
+                    df1.to_excel(writer, sheet_name='Raport 1', index=False)
+                    df2.to_excel(writer, sheet_name='Raport 2', index=False)
+                self.status_label.setText(f"Status: Raport zapisany do {file_path}")
+            else:
+                self.status_label.setText("Status: Anulowano zapis raportu")
+        except Exception as e:
+            self.status_label.setText(f"Status: Błąd podczas generowania raportu: {str(e)}")
+        finally:
+            db.close()
 
 app = QApplication(sys.argv)
 window = MainWindow()
