@@ -16,7 +16,8 @@ class MainWindow(QMainWindow):
         self.setGeometry(100, 100, 800, 600)
         
         main_layout = QVBoxLayout()
-        
+        self.status_label = QLabel("Status: Oczekiwanie na akcję", self)
+        main_layout.addWidget(self.status_label)
         # Filters layout
         filters_layout = QHBoxLayout()
         
@@ -93,12 +94,26 @@ class MainWindow(QMainWindow):
         self.setCentralWidget(container)
     
     def populate_years(self):
-        """Populate the year filter with distinct years from DidacticCycles."""
+        """Populate the year filter with distinct academic years from DidacticCycles."""
+        self.year_filter.clear()
         db = SessionLocal()
-        years = db.query(DidacticCycles.OPIS).distinct().all()
-        for year in years:
-            self.year_filter.addItem(year[0])
-        db.close()
+        try:
+            # Explicitly cast to string to avoid any implicit conversions
+            years = db.query(DidacticCycles.OPIS).filter(
+                DidacticCycles.OPIS.like("Rok akademicki%")
+            ).distinct().all()
+
+            # Extract unique academic years
+            unique_years = sorted(set(str(year[0]) for year in years if year[0] is not None))
+
+            # Add each academic year to the year filter
+            for year in unique_years:
+                self.year_filter.addItem(year)
+        except Exception as e:
+            self.status_label.setText(f"Status: Błąd podczas pobierania lat: {str(e)}")
+            print(f"Database error details: {str(e)}")  # Add this for debugging
+        finally:
+            db.close()
     
     def populate_units(self):
         """Populate the unit filter with only institutes."""
@@ -112,7 +127,7 @@ class MainWindow(QMainWindow):
         db.close()
     
     def populate_groups(self):
-        """Populate the group list based on the selected year and unit, and filter instructors."""
+        """Populate the group list based on the selected academic year and unit, and filter instructors."""
         self.group_list.clear()
         self.employee_list.clear()  # Clear the instructor list as well
         selected_unit = self.unit_filter.currentData()
@@ -120,14 +135,15 @@ class MainWindow(QMainWindow):
         db = SessionLocal()
 
         try:
-            # Query groups based on the selected year and unit
+            # Query groups based on the selected academic year and unit
             query = db.query(Group).join(DidacticCycles, Group.ZAJ_CYK_ID == DidacticCycles.KOD)
 
-            # Filter for both winter and summer semesters of the selected year
-            if selected_year:
-                query = query.filter(
-                    DidacticCycles.KOD.like(f"{selected_year}Z") | DidacticCycles.KOD.like(f"{selected_year}L")
-                )
+            # Debugging: Log selected filters
+            print(f"Selected Year: {selected_year}, Selected Unit: {selected_unit}")
+
+            # Filter by the selected academic year
+            if selected_year and selected_year != "Wszystkie lata":
+                query = query.filter(DidacticCycles.OPIS == selected_year)
 
             if selected_unit:  # If a specific unit is selected
                 query = query.join(
@@ -138,7 +154,12 @@ class MainWindow(QMainWindow):
                     )
                 ).filter(GroupInstructor.JEDN_KOD == selected_unit)
 
+            # Fetch groups
             groups = query.all()
+
+            # Debugging: Log query results
+            print(f"Groups Found: {len(groups)}")
+
             for group in groups:
                 item = QListWidgetItem(f"{group.OPIS} - {group.ZAJ_CYK_ID}")
                 item.setData(1, group.ZAJ_CYK_ID)
@@ -164,6 +185,7 @@ class MainWindow(QMainWindow):
         except Exception as e:
             self.group_list.addItem(f"Błąd: {str(e)}")
             self.employee_list.addItem(f"Błąd: {str(e)}")
+            print(f"Error: {str(e)}")  # Debugging: Log the error
         finally:
             db.close()
         
