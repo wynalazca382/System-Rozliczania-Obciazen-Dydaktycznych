@@ -5,7 +5,7 @@ from formulas import calculate_workload_for_employee, get_group_data
 from sqlalchemy import and_
 from sqlalchemy.orm import sessionmaker
 from database import engine
-from models import Employee, GroupInstructor, ThesisSupervisors, Reviewer, IndividualRates, OrganizationalUnits, CommitteeFunctionPensum, DidacticCycles, Group, Person, Position, Employment
+from models import Employee, GroupInstructor, ThesisSupervisors, Reviewer, IndividualRates, OrganizationalUnits, CommitteeFunctionPensum, DidacticCycles, Group, Person, Position, Employment, DidacticCycleClasses
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
@@ -136,14 +136,15 @@ class MainWindow(QMainWindow):
 
         try:
             # Query groups based on the selected academic year and unit
-            query = db.query(Group).join(DidacticCycles, Group.ZAJ_CYK_ID == DidacticCycles.KOD)
+            query = db.query(Group).join(DidacticCycleClasses, Group.ZAJ_CYK_ID == DidacticCycleClasses.ID)
 
             # Debugging: Log selected filters
             print(f"Selected Year: {selected_year}, Selected Unit: {selected_unit}")
 
             # Filter by the selected academic year
             if selected_year and selected_year != "Wszystkie lata":
-                query = query.filter(DidacticCycles.OPIS == selected_year)
+                query = query.join(DidacticCycles, DidacticCycleClasses.CDYD_KOD == DidacticCycles.KOD)
+                query = query.filter(DidacticCycles.OPIS.like(f"%{selected_year.split()[-1]}%"))
 
             if selected_unit:  # If a specific unit is selected
                 query = query.join(
