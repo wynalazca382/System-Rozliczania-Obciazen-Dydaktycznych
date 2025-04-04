@@ -6,3 +6,4 @@ cx_Oracle
 PyQt5
 pandas
 openpyxl
+python-dotenv

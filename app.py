@@ -6,6 +6,7 @@ from sqlalchemy import and_
 from sqlalchemy.orm import sessionmaker
 from database import engine
 from models import Employee, GroupInstructor, ThesisSupervisors, Reviewer, IndividualRates, OrganizationalUnits, CommitteeFunctionPensum, DidacticCycles, Group, Person, Position, Employment, DidacticCycleClasses
+from login import LoginWindow
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
@@ -50,6 +51,7 @@ class MainWindow(QMainWindow):
         
         self.tab_widget.addTab(self.groups_tab, "Grupy")
         self.tab_widget.addTab(self.instructors_tab, "Wykładowcy")
+        self.tab_widget.currentChanged.connect(self.on_tab_changed)
         main_layout.addWidget(self.tab_widget)
         
         # Groups layout
@@ -92,7 +94,11 @@ class MainWindow(QMainWindow):
         container = QWidget()
         container.setLayout(main_layout)
         self.setCentralWidget(container)
-    
+        
+    def on_tab_changed(self, index):
+        """Handle tab change events."""
+        if self.tab_widget.tabText(index) == "Wykładowcy":
+            self.populate_employees()
     def populate_years(self):
         """Populate the year filter with distinct academic years from DidacticCycles."""
         self.year_filter.clear()
@@ -191,32 +197,48 @@ class MainWindow(QMainWindow):
             db.close()
         
     def populate_employees(self):
-        """Populate the employee list with all employees filtered by the selected unit."""
-        self.employee_list.clear()
+        """Populate the employee list and display workload data for the selected employee."""
+        self.instructor_list.clear()
         selected_unit = self.unit_filter.currentData()
         db = SessionLocal()
 
         try:
-            # Query employees
-            query = db.query(Employee).join(Person, Employee.OS_ID == Person.ID)
+            # Pobierz dane wykładowców
+            query = db.query(Employee, Person).join(Person, Employee.OS_ID == Person.ID)
+            if selected_unit:  # Filtruj według wybranej jednostki
+                query = query.filter(Person.JED_ORG_KOD == selected_unit)
 
-            if selected_unit:  # If a specific unit is selected
-                query = query.join(
-                    OrganizationalUnits,
-                    Employee.JEDN_KOD == OrganizationalUnits.KOD
-                ).filter(OrganizationalUnits.KOD == selected_unit)
-
-            employees = query.all()
-            for employee in employees:
-                person = db.query(Person).filter_by(ID=employee.OS_ID).first()
+            results = query.all()
+            for employee, person in results:
+                # Wyświetl dane wykładowcy w widżecie
                 item = QListWidgetItem(f"{person.NAZWISKO} {person.IMIE}")
-                item.setData(1, employee.ID)
+                item.setData(1, employee.ID)  # Przechowuj ID wykładowcy w elemencie listy
                 self.employee_list.addItem(item)
 
-            if not employees:  # If no employees are found, display a message
+            if not results:  # Jeśli brak wyników
                 self.employee_list.addItem("Brak wykładowców do wyświetlenia.")
         except Exception as e:
-            self.employee_list.addItem(f"Błąd: {str(e)}")
+            print(f"Błąd podczas pobierania danych wykładowców: {str(e)}")
+            self.employee_list.addItem("Błąd podczas ładowania wykładowców.")
+        finally:
+            db.close()
+
+        # Po wybraniu wykładowcy wyświetl jego obciążenie dydaktyczne
+        self.employee_list.itemClicked.connect(self.display_employee_workload)
+    
+    def display_employee_workload(self, item):
+        """Display workload data for the selected employee."""
+        selected_employee_id = item.data(1)  # Pobierz ID wykładowcy
+        db = SessionLocal()
+        try:
+            # Oblicz obciążenie dydaktyczne
+            workload_data = calculate_workload_for_employee(selected_employee_id)
+            # Wyświetl dane w konsoli (lub w innym widżecie, jeśli jest dostępny)
+            print("Obciążenie dydaktyczne:")
+            for key, value in workload_data.items():
+                print(f"{key}: {value}")
+        except Exception as e:
+            print(f"Błąd podczas obliczania obciążenia dydaktycznego: {str(e)}")
         finally:
             db.close()
     
@@ -297,7 +319,8 @@ class MainWindow(QMainWindow):
         finally:
             db.close()
 
-app = QApplication(sys.argv)
-window = MainWindow()
-window.show()
-app.exec_()
+if __name__ == "__main__":
+    app = QApplication(sys.argv)
+    login_window = LoginWindow()
+    login_window.show()
+    sys.exit(app.exec_())

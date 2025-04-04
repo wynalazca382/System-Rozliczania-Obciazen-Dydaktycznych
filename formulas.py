@@ -1,4 +1,4 @@
-from models import Employee, GroupInstructor, ThesisSupervisors, Reviewer, IndividualRates, OrganizationalUnits, CommitteeFunctionPensum, DidacticCycles, Group, Person, Position, Employment, EmployeePensum, Discount
+from models import Employee, GroupInstructor, ThesisSupervisors, Reviewer, IndividualRates, OrganizationalUnits, CommitteeFunctionPensum, DidacticCycles, Group, Person, Position, Employment, EmployeePensum, Discount, Position 
 from database import SessionLocal
 
 STAWKI_NADGODZIN = {
@@ -38,7 +38,7 @@ def calculate_workload_for_employee(employee_id):
         
         discounts = db.query(Discount).filter_by(PRAC_ID=employee_id).all()
         prac_zatr = db.query(Employment).filter_by(PRAC_ID=employee_id).first()
-        position = db.query(StanowiskaZatr).filter_by(ID=prac_zatr.STAN_ID).first() if prac_zatr else None
+        position = db.query(Position).filter_by(ID=prac_zatr.STAN_ID).first() if prac_zatr else None
         stanowisko = position.NAZWA if position else "N/A"
         pensum_employee = db.query(EmployeePensum).filter_by(PRAC_ID=employee_id).first()
         
@@ -48,7 +48,7 @@ def calculate_workload_for_employee(employee_id):
         stawka = STAWKI_NADGODZIN.get(stanowisko, 0)
         
         for load in teaching_loads:
-            organizational_unit = db.query(OrganizationalUnits).filter_by(ID=load.JEDN_KOD).first()
+            organizational_unit = db.query(OrganizationalUnits).filter_by(KOD=load.JEDN_KOD).first()
             if organizational_unit and organizational_unit.OPIS:
                 if "Semestr zimowy" in organizational_unit.OPIS:
                     godziny_dydaktyczne_z += load.LICZBA_GODZ_DO_PENSUM
