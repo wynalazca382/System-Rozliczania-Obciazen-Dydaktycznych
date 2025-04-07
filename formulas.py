@@ -18,7 +18,7 @@ STAWKI_NADGODZIN = {
     "wykł. spec.": 71
 }
 
-def calculate_workload_for_employee(employee_id):
+def calculate_workload_for_employee(employee_id, selected_year):
     db = SessionLocal()
     try:
         teaching_loads = db.query(GroupInstructor).filter_by(PRAC_ID=employee_id).all()

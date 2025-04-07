@@ -168,7 +168,7 @@ class MainWindow(QMainWindow):
             print(f"Groups Found: {len(groups)}")
 
             for group in groups:
-                item = QListWidgetItem(f"{group.OPIS} - {group.ZAJ_CYK_ID}")
+                item = QListWidgetItem(f"{group.GR_NR} - {group.OPIS}")
                 item.setData(1, group.ZAJ_CYK_ID)
                 self.group_list.addItem(item)
 
@@ -257,6 +257,7 @@ class MainWindow(QMainWindow):
         """Generate an Excel report based on the current data."""
         db = SessionLocal()
         selected_unit = self.unit_filter.currentData()
+        selected_year = self.year_filter.currentText()
         
         try:
             # Query employees and filter by the selected unit
@@ -275,7 +276,7 @@ class MainWindow(QMainWindow):
                 prac_zatr = db.query(Employment).filter_by(PRAC_ID=employee.ID).first()
                 position = db.query(Position).filter_by(ID=prac_zatr.STAN_ID).first() if prac_zatr else None
                 stanowisko = position.NAZWA if position else "N/A"
-                workload_data = calculate_workload_for_employee(employee.ID)
+                workload_data = calculate_workload_for_employee(employee.ID, selected_year)
                 
                 # Append data for the report
                 data.append({
