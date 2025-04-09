@@ -5,6 +5,8 @@ from PyQt5.QtGui import QFont
 from PyQt5.QtCore import Qt
 from sqlalchemy import create_engine
 import os
+from models import PensumRight
+from database import SessionLocal
 
 class LoginWindow(QWidget):
     def __init__(self):
@@ -85,12 +87,20 @@ class LoginWindow(QWidget):
             user_connection = user_engine.connect()
             user_connection.close()
 
+            db = SessionLocal()
+            user_right = db.query(PensumRight).filter_by(LOGIN=username).first()
+            print(user_right)
+            db.close()
+            if not user_right:
+                QMessageBox.warning(self, "Brak uprawnień", "Nie znaleziono prawa dla tego użytkownika.")
+                return
+
             pensum_engine = create_engine(os.getenv("DATABASE_URL"))
             pensum_connection = pensum_engine.connect()
             pensum_connection.close()
 
             from app import MainWindow
-            self.main_window = MainWindow()
+            self.main_window = MainWindow(user_right.PRAWO)
             self.main_window.show()
             self.close()
         except Exception as e:

@@ -1743,3 +1743,13 @@ class ConversionRate(Base):
         Index('PRZEL_RPENS_FK_I', 'RPENS_KOD'),
         Index('PRZEL_UPR_KIER_FK_I', 'UPR_KIER_ID')
     )
+
+class PensumRight(Base):
+    __tablename__ = 'ANS_PENSUM_PRAWO'
+    __table_args__ = {'schema': 'USOS_PROD_TAB'} 
+
+    ID = Column(Integer, primary_key=True, index=True, nullable=False)
+    LOGIN = Column(String(50), nullable=False)
+    PRAWO = Column(Integer, nullable=False, default=0)
+    def __repr__(self):
+        return f"<PensumRight(ID={self.ID}, LOGIN='{self.LOGIN}', PRAWO={self.PRAWO})>"

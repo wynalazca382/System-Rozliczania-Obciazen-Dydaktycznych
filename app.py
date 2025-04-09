@@ -11,8 +11,9 @@ from login import LoginWindow
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 class MainWindow(QMainWindow):
-    def __init__(self):
+    def __init__(self, user_right):
         super().__init__()
+        self.user_right = user_right
         self.setWindowTitle("System Rozliczania Obciążeń Dydaktycznych")
         self.setGeometry(100, 100, 800, 600)
         
@@ -110,7 +111,8 @@ class MainWindow(QMainWindow):
             ).distinct().all()
 
             # Extract unique academic years
-            unique_years = sorted(set(str(year[0]) for year in years if year[0] is not None))
+            unique_years = sorted(set(str(year[0]) for year in years if year[0] is not None),
+                                  reverse=True)  # Sort in descending order
 
             # Add each academic year to the year filter
             for year in unique_years:
@@ -122,15 +124,33 @@ class MainWindow(QMainWindow):
             db.close()
     
     def populate_units(self):
-        """Populate the unit filter with only institutes."""
+        """Populate the unit filter with only allowed institutes based on user rights."""
         self.unit_filter.clear()
-        self.unit_filter.addItem("Wszystkie jednostki", None)  # Opcja dla wszystkich jednostek
+        self.unit_filter.addItem("Wszystkie jednostki", None)  # Opcja dla wszystkich jednostek, jeśli prawo = 0
         db = SessionLocal()
-        # Pobieranie jednostek, których nazwa zawiera "Instytut"
-        units = db.query(OrganizationalUnits).filter(OrganizationalUnits.OPIS.like("Instytut %")).all()
-        for unit in units:
-            self.unit_filter.addItem(unit.OPIS, unit.KOD)
-        db.close()
+
+        try:
+            # Pobierz jednostki organizacyjne na podstawie prawa użytkownika
+            if self.user_right == 0:  # Dostęp do wszystkich jednostek
+                units = db.query(OrganizationalUnits).filter(OrganizationalUnits.OPIS.like("Instytut %")).all()
+            elif self.user_right == 1:  # Dostęp tylko do Instytutu Informatyki Stosowanej
+                units = db.query(OrganizationalUnits).filter(OrganizationalUnits.OPIS == "Instytut Informatyki Stosowanej%").all()
+            elif self.user_right == 2:  # Dostęp tylko do Instytutu Ekonomicznego
+                units = db.query(OrganizationalUnits).filter(OrganizationalUnits.OPIS == "Instytut Ekonomiczny%").all()
+            elif self.user_right == 3:  # Dostęp tylko do Instytutu Politechnicznego
+                units = db.query(OrganizationalUnits).filter(OrganizationalUnits.OPIS == "Instytut Politechniczny%").all()
+            elif self.user_right == 4:  # Dostęp tylko do Instytutu Pedagogiczno-Językowego
+                units = db.query(OrganizationalUnits).filter(OrganizationalUnits.OPIS == "Instytut Pedagogiczno-Językowy%").all()
+            else:
+                units = []  # Brak dostępu do żadnych jednostek
+
+            # Dodaj jednostki do filtra
+            for unit in units:
+                self.unit_filter.addItem(unit.OPIS, unit.KOD)
+        except Exception as e:
+            print(f"Błąd podczas ładowania jednostek organizacyjnych: {str(e)}")
+        finally:
+            db.close()
     
     def populate_groups(self):
         """Populate the group list based on the selected academic year and unit, and filter instructors."""
