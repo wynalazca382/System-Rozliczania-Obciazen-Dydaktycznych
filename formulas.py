@@ -1,4 +1,5 @@
-from models import Employee, GroupInstructor, ThesisSupervisors, Reviewer, IndividualRates, OrganizationalUnits, CommitteeFunctionPensum, DidacticCycles, Group, Person, Position, Employment, EmployeePensum, Discount, Position 
+from models import Employee, GroupInstructor, ThesisSupervisors, Reviewer, IndividualRates, OrganizationalUnits, CommitteeFunctionPensum, DidacticCycles, Group, Person, Position, Employment, EmployeePensum, Discount, Position, DidacticCycleClasses , Subject, ClassType
+from sqlalchemy import and_
 from database import SessionLocal
 
 STAWKI_NADGODZIN = {
@@ -18,14 +19,30 @@ STAWKI_NADGODZIN = {
     "wykł. spec.": 71
 }
 
-def calculate_workload_for_employee(employee_id, selected_year):
+def calculate_workload_for_employee(employee_id, selected_year, selected_unit):
     db = SessionLocal()
     try:
-        teaching_loads = db.query(GroupInstructor).filter_by(PRAC_ID=employee_id).all()
-        thesis_supervisions = db.query(ThesisSupervisors).filter_by(OS_ID=employee_id).all()
-        reviews = db.query(Reviewer).filter_by(OS_ID=employee_id).all()
-        individual_rates = db.query(IndividualRates).filter_by(PRAC_ID=employee_id).all()
-        
+        # Pobierz zajęcia dydaktyczne dla pracownika z filtrowaniem po roku akademickim i jednostce organizacyjnej
+        query = (
+            db.query(GroupInstructor, Group, DidacticCycleClasses, Subject, DidacticCycles, ClassType)
+            .join(Group, and_(
+                GroupInstructor.ZAJ_CYK_ID == Group.ZAJ_CYK_ID,
+                GroupInstructor.GR_NR == Group.NR
+            ))
+            .join(DidacticCycleClasses, Group.ZAJ_CYK_ID == DidacticCycleClasses.ID)
+            .join(Subject, DidacticCycleClasses.PRZ_KOD == Subject.KOD)
+            .join(DidacticCycles, DidacticCycleClasses.CDYD_KOD == DidacticCycles.KOD)
+            .join(ClassType, DidacticCycleClasses.TZAJ_KOD == ClassType.KOD)
+            .filter(GroupInstructor.PRAC_ID == employee_id)
+            .filter(DidacticCycles.OPIS.like(f"%{selected_year}%"))
+        )
+
+        # Dodaj filtrację po jednostce organizacyjnej, jeśli wybrano
+        if selected_unit:
+            query = query.filter(GroupInstructor.JEDN_KOD == selected_unit)
+
+        results = query.all()
+
         total_workload = 0.0
         godziny_dydaktyczne_z = 0.0
         godziny_dydaktyczne_l = 0.0
@@ -35,48 +52,29 @@ def calculate_workload_for_employee(employee_id, selected_year):
         stawka = 0.0
         kwota_nadgodzin = 0.0
 
-        
-        discounts = db.query(Discount).filter_by(PRAC_ID=employee_id).all()
-        prac_zatr = db.query(Employment).filter_by(PRAC_ID=employee_id).first()
-        position = db.query(Position).filter_by(ID=prac_zatr.STAN_ID).first() if prac_zatr else None
-        stanowisko = position.NAZWA if position else "N/A"
+        # Przetwarzanie wyników
+        for group_instructor, group, didactic_class, subject, didactic_cycle, class_type in results:
+            godziny = didactic_class.LICZBA_GODZ or 0
+            total_workload += godziny
+
+            # Rozdzielenie godzin na semestr zimowy i letni
+            if "Semestr zimowy" in didactic_cycle.OPIS:
+                godziny_dydaktyczne_z += godziny
+            elif "Semestr letni" in didactic_cycle.OPIS:
+                godziny_dydaktyczne_l += godziny
+
+            # Debugowanie: Wyświetl dodatkowe informacje
+            print(f"Przedmiot: {subject.NAZWA}, Typ zajęć: {class_type.OPIS}, Liczba godzin: {godziny}")
+
+        # Obliczenia pensum, nadgodzin i stawki
         pensum_employee = db.query(EmployeePensum).filter_by(PRAC_ID=employee_id).first()
-        
         if pensum_employee:
-            pensum = EmployeePensum.PENSUM
+            pensum = pensum_employee.PENSUM
 
-        stawka = STAWKI_NADGODZIN.get(stanowisko, 0)
-        
-        for load in teaching_loads:
-            organizational_unit = db.query(OrganizationalUnits).filter_by(KOD=load.JEDN_KOD).first()
-            if organizational_unit and organizational_unit.OPIS:
-                if "Semestr zimowy" in organizational_unit.OPIS:
-                    godziny_dydaktyczne_z += load.LICZBA_GODZ_DO_PENSUM
-                elif "Semestr letni" in organizational_unit.OPIS:
-                    godziny_dydaktyczne_l += load.LICZBA_GODZ_DO_PENSUM
-            total_workload += load.LICZBA_GODZ_DO_PENSUM
-            teaching_cycle = db.query(DidacticCycles).filter_by(ID=load.ZAJ_CYK_ID).first()
-            if teaching_cycle:
-                committee_record = db.query(CommitteeFunctionPensum).filter_by(CDYD_KON=teaching_cycle.KOD).first()
-                if committee_record:
-                    pensum -= committee_record.PENSUM
-        
-        for supervision in thesis_supervisions:
-            total_workload += supervision.LICZBA_GODZ_DO_PENSUM
-        
-        for review in reviews:
-            total_workload += review.LICZBA_GODZ_DO_PENSUM
-        
-        for discount in discounts:
-            if discount.ZNIZKA:
-                pensum -= discount.ZNIZKA
-
-        for rate in individual_rates:
-            stawka = rate.STAWKA
-        
+        stawka = STAWKI_NADGODZIN.get("stanowisko", 0)  # Przykładowe stanowisko
         nadgodziny = total_workload - pensum if total_workload > pensum else 0
         kwota_nadgodzin = nadgodziny * stawka
-        
+
         return {
             "total_workload": total_workload,
             "godziny_dydaktyczne_z": godziny_dydaktyczne_z,
@@ -103,9 +101,9 @@ def get_group_data():
             organizational_unit = db.query(OrganizationalUnits).filter_by(KOD=group.ZAJ_CYK_ID).first()
 
             group_data = {
-                "Symbol grupy": group.OPIS,
-                "Studia": cycle.OPIS if cycle else "",
-                "Rok": group.NR,
+                "Symbol grupy": group.GR_NR,
+                "Studia": 0,
+                "Rok": 0,
                 "Instytut": organizational_unit.OPIS if organizational_unit else "",
                 "Specjalność": "",  # Brak odpowiednika w modelach
                 "p.d.": group.WAGA_PENSUM,

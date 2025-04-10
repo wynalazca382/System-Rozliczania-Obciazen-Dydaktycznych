@@ -217,9 +217,10 @@ class MainWindow(QMainWindow):
             db.close()
         
     def populate_employees(self):
-        """Populate the employee list and display workload data for the selected employee."""
+        """Populate the employee list and display workload data for each employee."""
         self.instructor_list.clear()
         selected_unit = self.unit_filter.currentData()
+        selected_year = self.year_filter.currentText()
         db = SessionLocal()
 
         try:
@@ -230,21 +231,28 @@ class MainWindow(QMainWindow):
 
             results = query.all()
             for employee, person in results:
+                # Oblicz obciążenie dydaktyczne dla każdego wykładowcy
+                workload_data = calculate_workload_for_employee(employee.ID, selected_year, selected_unit)
+
                 # Wyświetl dane wykładowcy w widżecie
-                item = QListWidgetItem(f"{person.NAZWISKO} {person.IMIE}")
+                item_text = (
+                    f"{person.NAZWISKO} {person.IMIE} | "
+                    f"Pensum: {workload_data['pensum']} | "
+                    f"Godziny Z: {workload_data['godziny_dydaktyczne_z']} | "
+                    f"Godziny L: {workload_data['godziny_dydaktyczne_l']} | "
+                    f"Nadgodziny: {workload_data['nadgodziny']}"
+                )
+                item = QListWidgetItem(item_text)
                 item.setData(1, employee.ID)  # Przechowuj ID wykładowcy w elemencie listy
-                self.employee_list.addItem(item)
+                self.instructor_list.addItem(item)
 
             if not results:  # Jeśli brak wyników
-                self.employee_list.addItem("Brak wykładowców do wyświetlenia.")
+                self.instructor_list.addItem("Brak wykładowców do wyświetlenia.")
         except Exception as e:
             print(f"Błąd podczas pobierania danych wykładowców: {str(e)}")
-            self.employee_list.addItem("Błąd podczas ładowania wykładowców.")
+            self.instructor_list.addItem("Błąd podczas ładowania wykładowców.")
         finally:
             db.close()
-
-        # Po wybraniu wykładowcy wyświetl jego obciążenie dydaktyczne
-        self.employee_list.itemClicked.connect(self.display_employee_workload)
     
     def display_employee_workload(self, item):
         """Display workload data for the selected employee."""
@@ -296,7 +304,7 @@ class MainWindow(QMainWindow):
                 prac_zatr = db.query(Employment).filter_by(PRAC_ID=employee.ID).first()
                 position = db.query(Position).filter_by(ID=prac_zatr.STAN_ID).first() if prac_zatr else None
                 stanowisko = position.NAZWA if position else "N/A"
-                workload_data = calculate_workload_for_employee(employee.ID, selected_year)
+                workload_data = calculate_workload_for_employee(employee.ID, selected_year, selected_unit)
                 
                 # Append data for the report
                 data.append({
