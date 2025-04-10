@@ -42,7 +42,7 @@ def calculate_workload_for_employee(employee_id, selected_year, selected_unit):
             query = query.filter(GroupInstructor.JEDN_KOD == selected_unit)
 
         results = query.all()
-
+        print(f"Filtr roku akademickiego: {selected_year}")
         total_workload = 0.0
         godziny_dydaktyczne_z = 0.0
         godziny_dydaktyczne_l = 0.0

@@ -105,21 +105,21 @@ class MainWindow(QMainWindow):
         self.year_filter.clear()
         db = SessionLocal()
         try:
-            # Explicitly cast to string to avoid any implicit conversions
+            # Pobierz unikalne lata akademickie
             years = db.query(DidacticCycles.OPIS).filter(
                 DidacticCycles.OPIS.like("Rok akademicki%")
             ).distinct().all()
 
-            # Extract unique academic years
-            unique_years = sorted(set(str(year[0]) for year in years if year[0] is not None),
-                                  reverse=True)  # Sort in descending order
+            # Wyodrębnij fragment "2024/25" z "Rok akademicki 2024/25"
+            unique_years = sorted(set(year[0].split()[-1] for year in years if year[0] is not None),
+                                reverse=True)  # Sortuj malejąco
 
-            # Add each academic year to the year filter
+            # Dodaj każdy rok akademicki do filtra
             for year in unique_years:
                 self.year_filter.addItem(year)
         except Exception as e:
             self.status_label.setText(f"Status: Błąd podczas pobierania lat: {str(e)}")
-            print(f"Database error details: {str(e)}")  # Add this for debugging
+            print(f"Database error details: {str(e)}")
         finally:
             db.close()
     
@@ -170,7 +170,7 @@ class MainWindow(QMainWindow):
             # Filter by the selected academic year
             if selected_year and selected_year != "Wszystkie lata":
                 query = query.join(DidacticCycles, DidacticCycleClasses.CDYD_KOD == DidacticCycles.KOD)
-                query = query.filter(DidacticCycles.OPIS.like(f"%{selected_year.split()[-1]}%"))
+                query = query.filter(DidacticCycles.OPIS.like(f"%{selected_year}%"))
 
             if selected_unit:  # If a specific unit is selected
                 query = query.join(
