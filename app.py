@@ -95,6 +95,9 @@ class MainWindow(QMainWindow):
         container = QWidget()
         container.setLayout(main_layout)
         self.setCentralWidget(container)
+
+        self.year_filter.currentIndexChanged.connect(self.populate_employees)
+        self.unit_filter.currentIndexChanged.connect(self.populate_employees)
         
     def on_tab_changed(self, index):
         """Handle tab change events."""
@@ -220,12 +223,14 @@ class MainWindow(QMainWindow):
         """Populate the employee list and display workload data for each employee."""
         self.instructor_list.clear()
         selected_unit = self.unit_filter.currentData()
+        print(selected_unit)
         selected_year = self.year_filter.currentText()
+        print(selected_year)
         db = SessionLocal()
 
         try:
             # Pobierz dane wykładowców
-            query = db.query(Employee, Person).join(Person, Employee.OS_ID == Person.ID)
+            query = db.query(Employee, Person).join(Person, Employee.OS_ID == Person.ID).filter(GroupInstructor.PRAC_ID == Employee.ID).filter(DidacticCycles.OPIS.like(f"%{selected_year}%"))
             if selected_unit:  # Filtruj według wybranej jednostki
                 query = query.filter(Person.JED_ORG_KOD == selected_unit)
 
@@ -234,17 +239,17 @@ class MainWindow(QMainWindow):
                 # Oblicz obciążenie dydaktyczne dla każdego wykładowcy
                 workload_data = calculate_workload_for_employee(employee.ID, selected_year, selected_unit)
 
-                # Wyświetl dane wykładowcy w widżecie
-                item_text = (
-                    f"{person.NAZWISKO} {person.IMIE} | "
-                    f"Pensum: {workload_data['pensum']} | "
-                    f"Godziny Z: {workload_data['godziny_dydaktyczne_z']} | "
-                    f"Godziny L: {workload_data['godziny_dydaktyczne_l']} | "
-                    f"Nadgodziny: {workload_data['nadgodziny']}"
-                )
-                item = QListWidgetItem(item_text)
-                item.setData(1, employee.ID)  # Przechowuj ID wykładowcy w elemencie listy
-                self.instructor_list.addItem(item)
+                if workload_data["total_workload"] > 0:
+                    item_text = (
+                        f"{person.NAZWISKO} {person.IMIE} | "
+                        f"Pensum: {workload_data['pensum']} | "
+                        f"Godziny Z: {workload_data['godziny_dydaktyczne_z']} | "
+                        f"Godziny L: {workload_data['godziny_dydaktyczne_l']} | "
+                        f"Nadgodziny: {workload_data['nadgodziny']}"
+                    )
+                    item = QListWidgetItem(item_text)
+                    item.setData(1, employee.ID)  # Przechowuj ID wykładowcy w elemencie listy
+                    self.instructor_list.addItem(item)
 
             if not results:  # Jeśli brak wyników
                 self.instructor_list.addItem("Brak wykładowców do wyświetlenia.")

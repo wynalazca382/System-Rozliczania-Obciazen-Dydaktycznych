@@ -64,7 +64,8 @@ def calculate_workload_for_employee(employee_id, selected_year, selected_unit):
                 godziny_dydaktyczne_l += godziny
 
             # Debugowanie: Wyświetl dodatkowe informacje
-            print(f"Przedmiot: {subject.NAZWA}, Typ zajęć: {class_type.OPIS}, Liczba godzin: {godziny}")
+            print(f"Przedmiot: {subject.NAZWA}, Typ zajęć: {class_type.OPIS}, Liczba godzin: {godziny}", 
+                  f"Semestr: {didactic_cycle.OPIS}, Jednostka: {group_instructor.JEDN_KOD}")
 
         # Obliczenia pensum, nadgodzin i stawki
         pensum_employee = db.query(EmployeePensum).filter_by(PRAC_ID=employee_id).first()
