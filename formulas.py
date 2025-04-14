@@ -35,6 +35,7 @@ def calculate_workload_for_employee(employee_id, selected_year, selected_unit):
             .join(ClassType, DidacticCycleClasses.TZAJ_KOD == ClassType.KOD)
             .filter(GroupInstructor.PRAC_ID == employee_id)
             .filter(DidacticCycles.OPIS.like(f"%{selected_year}%"))
+            .filter(ClassType.OPIS != "Praktyka zawodowa")
         )
 
         # Dodaj filtrację po jednostce organizacyjnej, jeśli wybrano
@@ -42,7 +43,6 @@ def calculate_workload_for_employee(employee_id, selected_year, selected_unit):
             query = query.filter(GroupInstructor.JEDN_KOD == selected_unit)
 
         results = query.all()
-        print(f"Filtr roku akademickiego: {selected_year}")
         total_workload = 0.0
         godziny_dydaktyczne_z = 0.0
         godziny_dydaktyczne_l = 0.0
@@ -89,53 +89,48 @@ def calculate_workload_for_employee(employee_id, selected_year, selected_unit):
     finally:
         db.close()
 
-def get_group_data():
+def get_group_data(selected_year, selected_unit):
     db = SessionLocal()
     try:
-        groups = db.query(Group).all()
-        data = []
-        for group in groups:
-            # Pobieranie powiązanych danych
-            cycle = db.query(DidacticCycles).filter_by(KOD=group.ZAJ_CYK_ID).first()
-            instructors = db.query(GroupInstructor).filter_by(ZAJ_CYK_ID=group.ZAJ_CYK_ID, GR_NR=group.NR).all()
-            instructor_names = ", ".join([f"{instr.pracownik.osoba.NAZWISKO} {instr.pracownik.osoba.IMIE}" for instr in instructors])
-            organizational_unit = db.query(OrganizationalUnits).filter_by(KOD=group.ZAJ_CYK_ID).first()
+        # Pobierz dane grup z powiązanymi informacjami
+        query = (
+            db.query(GroupInstructor, Group, DidacticCycleClasses, Subject, DidacticCycles, ClassType, OrganizationalUnits)
+            .join(Group, and_(
+                GroupInstructor.ZAJ_CYK_ID == Group.ZAJ_CYK_ID,
+                GroupInstructor.GR_NR == Group.NR
+            ))
+            .join(DidacticCycleClasses, Group.ZAJ_CYK_ID == DidacticCycleClasses.ID)
+            .join(Subject, DidacticCycleClasses.PRZ_KOD == Subject.KOD)
+            .join(DidacticCycles, DidacticCycleClasses.CDYD_KOD == DidacticCycles.KOD)
+            .join(ClassType, DidacticCycleClasses.TZAJ_KOD == ClassType.KOD)
+            .join(OrganizationalUnits, GroupInstructor.JEDN_KOD == OrganizationalUnits.KOD, isouter=True)
+        )
 
+        # Filtruj po roku akademickim
+        if selected_year:
+            query = query.filter(
+                DidacticCycles.OPIS.like(f"%{selected_year}%")
+            )
+
+        # Filtruj po jednostce organizacyjnej
+        if selected_unit:
+            query = query.filter(GroupInstructor.JEDN_KOD == selected_unit)
+
+        results = query.all()
+        data = []
+
+        # Przetwarzanie wyników
+        for group_instructor, group, didactic_class, subject, didactic_cycle, class_type, organizational_unit in results:
+            godziny = didactic_class.LICZBA_GODZ or 0
             group_data = {
-                "Symbol grupy": group.GR_NR,
-                "Studia": 0,
-                "Rok": 0,
-                "Instytut": organizational_unit.OPIS if organizational_unit else "",
-                "Specjalność": "",  # Brak odpowiednika w modelach
-                "p.d.": group.WAGA_PENSUM,
-                "Semestr": cycle.DATA_OD.year if cycle else "",
-                "Lstud": group.LIMIT_MIEJSC,
-                "Wykonanie": group.ZAKRES_TEMATOW,
-                "Przedmiot": "",  # Brak odpowiednika w modelach
-                "Nazwisko i imię": instructor_names,
-                "stan.": ", ".join([instr.pracownik.stanowisko.NAZWA for instr in instructors]),
-                "Inst.": organizational_unit.OPIS if organizational_unit else "",
-                "Do Inst.": organizational_unit.OPIS if organizational_unit else "",
-                "Zespół": group.ZESPOL,
-                "Z/E": group.ZE,
-                "Godz.wg siatki W": group.GODZ_WG_SIATKI_W,
-                "Godz.wg siatki C": group.GODZ_WG_SIATKI_C,
-                "Godz.wg siatki L": group.GODZ_WG_SIATKI_L,
-                "Godz.wg siatki P": group.GODZ_WG_SIATKI_P,
-                "Godz.wg siatki S": group.GODZ_WG_SIATKI_S,
-                "Liczba grup W": group.LICZBA_GRUP_W,
-                "Liczba grup C": group.LICZBA_GRUP_C,
-                "Liczba grup L": group.LICZBA_GRUP_L,
-                "Liczba grup P": group.LICZBA_GRUP_P,
-                "Liczba grup S": group.LICZBA_GRUP_S,
-                "Łącznie liczba godz. W": group.LACZNIE_LICZBA_GODZ_W,
-                "Łącznie liczba godz. C": group.LACZNIE_LICZBA_GODZ_C,
-                "Łącznie liczba godz. L": group.LACZNIE_LICZBA_GODZ_L,
-                "Łącznie liczba godz. P": group.LACZNIE_LICZBA_GODZ_P,
-                "Łącznie liczba godz. S": group.LACZNIE_LICZBA_GODZ_S,
-                "Łącznie liczba godz. SUMA": group.LACZNIE_LICZBA_GODZ_SUMA
+                "Przedmiot": subject.NAZWA,
+                "Typ zajęć": class_type.OPIS,
+                "Liczba godzin": godziny,
+                "Semestr": didactic_cycle.OPIS,
+                "Instytut": organizational_unit.OPIS if organizational_unit else "N/A"  # Nazwa instytutu
             }
             data.append(group_data)
+
         return data
     finally:
         db.close()
