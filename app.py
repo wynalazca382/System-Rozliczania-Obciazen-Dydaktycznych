@@ -199,6 +199,7 @@ class MainWindow(QMainWindow):
             # Wyświetl dane grup w group_list
             for group in group_data:
                 item_text = (
+                    f"{group['Prowadzący']} | "
                     f"Przedmiot: {group['Przedmiot']}, Typ zajęć: {group['Typ zajęć']}, "
                     f"Liczba godzin: {group['Liczba godzin']}, Semestr: {group['Semestr']}, "
                     f"Jednostka: {group['Jednostka']}"

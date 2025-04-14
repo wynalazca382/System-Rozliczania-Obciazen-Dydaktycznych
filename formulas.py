@@ -94,7 +94,7 @@ def get_group_data(selected_year=None, selected_unit=None):
     try:
         # Pobierz dane grup z powiązanymi informacjami
         query = (
-            db.query(GroupInstructor, Group, DidacticCycleClasses, Subject, DidacticCycles, ClassType, OrganizationalUnits)
+            db.query(GroupInstructor, Group, DidacticCycleClasses, Subject, DidacticCycles, ClassType, OrganizationalUnits, Person)
             .join(Group, and_(
                 GroupInstructor.ZAJ_CYK_ID == Group.ZAJ_CYK_ID,
                 GroupInstructor.GR_NR == Group.NR
@@ -104,6 +104,8 @@ def get_group_data(selected_year=None, selected_unit=None):
             .join(DidacticCycles, DidacticCycleClasses.CDYD_KOD == DidacticCycles.KOD)
             .join(ClassType, DidacticCycleClasses.TZAJ_KOD == ClassType.KOD)
             .join(OrganizationalUnits, GroupInstructor.JEDN_KOD == OrganizationalUnits.KOD, isouter=True)
+            .join(Employee, GroupInstructor.PRAC_ID == Employee.ID)  # Połączenie z Employee
+            .join(Person, Employee.OS_ID == Person.ID)  # Połączenie z Person
         )
 
         # Filtruj po roku akademickim
@@ -118,14 +120,19 @@ def get_group_data(selected_year=None, selected_unit=None):
         data = []
 
         # Przetwarzanie wyników
-        for group_instructor, group, didactic_class, subject, didactic_cycle, class_type, organizational_unit in results:
+        for group_instructor, group, didactic_class, subject, didactic_cycle, class_type, organizational_unit, person in results:
+            if person is None:
+                print("Błąd: Brak danych dla osoby!")
+            else:
+                print(f"Prowadzący: {person.IMIE} {person.NAZWISKO}")
             godziny = didactic_class.LICZBA_GODZ or 0
             group_data = {
                 "Przedmiot": subject.NAZWA,
                 "Typ zajęć": class_type.OPIS,
                 "Liczba godzin": godziny,
                 "Semestr": didactic_cycle.OPIS,
-                "Jednostka": organizational_unit.OPIS if organizational_unit else "N/A"
+                "Jednostka": organizational_unit.OPIS if organizational_unit else "N/A",
+                "Prowadzący": f"{person.IMIE} {person.NAZWISKO}" if person else "Nieznany prowadzący"
             }
             data.append(group_data)
 
