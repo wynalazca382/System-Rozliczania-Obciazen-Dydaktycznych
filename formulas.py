@@ -89,7 +89,7 @@ def calculate_workload_for_employee(employee_id, selected_year, selected_unit):
     finally:
         db.close()
 
-def get_group_data(selected_year, selected_unit):
+def get_group_data(selected_year=None, selected_unit=None):
     db = SessionLocal()
     try:
         # Pobierz dane grup z powiązanymi informacjami
@@ -108,9 +108,7 @@ def get_group_data(selected_year, selected_unit):
 
         # Filtruj po roku akademickim
         if selected_year:
-            query = query.filter(
-                DidacticCycles.OPIS.like(f"%{selected_year}%")
-            )
+            query = query.filter(DidacticCycles.OPIS.like(f"%{selected_year}%"))
 
         # Filtruj po jednostce organizacyjnej
         if selected_unit:
@@ -127,7 +125,7 @@ def get_group_data(selected_year, selected_unit):
                 "Typ zajęć": class_type.OPIS,
                 "Liczba godzin": godziny,
                 "Semestr": didactic_cycle.OPIS,
-                "Instytut": organizational_unit.OPIS if organizational_unit else "N/A"  # Nazwa instytutu
+                "Jednostka": organizational_unit.OPIS if organizational_unit else "N/A"
             }
             data.append(group_data)
 

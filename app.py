@@ -155,55 +155,20 @@ class MainWindow(QMainWindow):
         finally:
             db.close()
     
-    def populate_groups(self):
-        """Populate the group list based on the selected academic year and unit, and filter instructors."""
-        self.group_list.clear()
-        self.employee_list.clear()  # Clear the instructor list as well
-        selected_unit = self.unit_filter.currentData()
-        selected_year = self.year_filter.currentText()
+    def filter_instructors(self, selected_unit):
+        """Filter and populate the instructor list based on the selected unit."""
+        self.employee_list.clear()  # Clear the instructor list
         db = SessionLocal()
 
         try:
-            # Query groups based on the selected academic year and unit
-            query = db.query(Group).join(DidacticCycleClasses, Group.ZAJ_CYK_ID == DidacticCycleClasses.ID)
-
-            # Debugging: Log selected filters
-            print(f"Selected Year: {selected_year}, Selected Unit: {selected_unit}")
-
-            # Filter by the selected academic year
-            if selected_year and selected_year != "Wszystkie lata":
-                query = query.join(DidacticCycles, DidacticCycleClasses.CDYD_KOD == DidacticCycles.KOD)
-                query = query.filter(DidacticCycles.OPIS.like(f"%{selected_year}%"))
-
-            if selected_unit:  # If a specific unit is selected
-                query = query.join(
-                    GroupInstructor,
-                    and_(
-                        GroupInstructor.ZAJ_CYK_ID == Group.ZAJ_CYK_ID,
-                        GroupInstructor.GR_NR == Group.NR
-                    )
-                ).filter(GroupInstructor.JEDN_KOD == selected_unit)
-
-            # Fetch groups
-            groups = query.all()
-
-            # Debugging: Log query results
-            print(f"Groups Found: {len(groups)}")
-
-            for group in groups:
-                item = QListWidgetItem(f"{group.GR_NR} - {group.OPIS}")
-                item.setData(1, group.ZAJ_CYK_ID)
-                self.group_list.addItem(item)
-
-            if not groups:  # If no groups are found, display a message
-                self.group_list.addItem("Brak grup do wyświetlenia.")
-
             # Query instructors based on the selected unit
             instructor_query = db.query(Employee).join(Person, Employee.OS_ID == Person.ID)
             if selected_unit:
                 instructor_query = instructor_query.filter(Person.JED_ORG_KOD == selected_unit)
 
             instructors = instructor_query.all()
+            self.employee_list.addItem("Wszyscy wykładowcy")  # Opcja dla wszystkich wykładowców
+            self.employee_list.setCurrentRow(0)  # Ustaw domyślnie na "Wszyscy wykładowcy"
             for instructor in instructors:
                 person = db.query(Person).filter_by(ID=instructor.OS_ID).first()
                 item = QListWidgetItem(f"{person.NAZWISKO} {person.IMIE}")
@@ -213,11 +178,38 @@ class MainWindow(QMainWindow):
             if not instructors:  # If no instructors are found, display a message
                 self.employee_list.addItem("Brak wykładowców do wyświetlenia.")
         except Exception as e:
-            self.group_list.addItem(f"Błąd: {str(e)}")
             self.employee_list.addItem(f"Błąd: {str(e)}")
             print(f"Error: {str(e)}")  # Debugging: Log the error
         finally:
             db.close()
+    
+    def populate_groups(self):
+        """Populate the group list based on the selected academic year and unit."""
+        self.group_list.clear()
+        selected_unit = self.unit_filter.currentData()
+        selected_year = self.year_filter.currentText()
+
+        try:
+            # Wywołaj funkcję filtrowania wykładowców
+            self.filter_instructors(selected_unit)
+
+            # Pobierz dane grup z get_group_data
+            group_data = get_group_data(selected_year, selected_unit)
+
+            # Wyświetl dane grup w group_list
+            for group in group_data:
+                item_text = (
+                    f"Przedmiot: {group['Przedmiot']}, Typ zajęć: {group['Typ zajęć']}, "
+                    f"Liczba godzin: {group['Liczba godzin']}, Semestr: {group['Semestr']}, "
+                    f"Jednostka: {group['Jednostka']}"
+                )
+                self.group_list.addItem(item_text)
+
+            if not group_data:  # Jeśli brak wyników
+                self.group_list.addItem("Brak grup do wyświetlenia.")
+        except Exception as e:
+            self.group_list.addItem(f"Błąd: {str(e)}")
+            print(f"Error: {str(e)}")
         
     def populate_employees(self):
         """Populate the employee list and display workload data for each employee."""
