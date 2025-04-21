@@ -106,6 +106,7 @@ def get_group_data(selected_year=None, selected_unit=None):
             .join(OrganizationalUnits, GroupInstructor.JEDN_KOD == OrganizationalUnits.KOD, isouter=True)
             .join(Employee, GroupInstructor.PRAC_ID == Employee.ID)  # Połączenie z Employee
             .join(Person, Employee.OS_ID == Person.ID)  # Połączenie z Person
+            .filter(ClassType.OPIS != "Praktyka zawodowa")
         )
 
         # Filtruj po roku akademickim

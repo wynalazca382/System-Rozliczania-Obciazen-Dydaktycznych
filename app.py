@@ -22,23 +22,31 @@ class MainWindow(QMainWindow):
         main_layout.addWidget(self.status_label)
         # Filters layout
         filters_layout = QHBoxLayout()
-        
+
         # Year filter
         self.year_filter = QComboBox(self)
         self.populate_years()
-        self.year_filter.currentIndexChanged.connect(self.populate_groups)
         filters_layout.addWidget(QLabel("Rok akademicki:"))
         filters_layout.addWidget(self.year_filter)
-        
+
         # Unit filter
         self.unit_filter = QComboBox(self)
         self.unit_filter.addItem("Wszystkie jednostki")
         self.populate_units()
-        self.unit_filter.currentIndexChanged.connect(self.populate_groups)
         filters_layout.addWidget(QLabel("Jednostka organizacyjna:"))
         filters_layout.addWidget(self.unit_filter)
-        
+
         main_layout.addLayout(filters_layout)
+
+        # Dodaj przycisk "Filtruj"
+        self.filter_button = QPushButton("Filtruj", self)
+        self.filter_button.clicked.connect(self.apply_filters)
+        main_layout.addWidget(self.filter_button)
+
+        # Dodaj przycisk "Odśwież"
+        self.refresh_button = QPushButton("Odśwież", self)
+        self.refresh_button.clicked.connect(self.refresh_data)
+        main_layout.addWidget(self.refresh_button)
         
         # Edit mode checkbox
         self.edit_mode_checkbox = QCheckBox("Tryb edycji", self)
@@ -54,7 +62,7 @@ class MainWindow(QMainWindow):
         self.tab_widget.addTab(self.instructors_tab, "Wykładowcy")
         self.tab_widget.currentChanged.connect(self.on_tab_changed)
         main_layout.addWidget(self.tab_widget)
-        
+
         # Groups layout
         self.groups_layout = QVBoxLayout()
         self.groups_tab.setLayout(self.groups_layout)
@@ -95,10 +103,11 @@ class MainWindow(QMainWindow):
         container = QWidget()
         container.setLayout(main_layout)
         self.setCentralWidget(container)
-
-        self.year_filter.currentIndexChanged.connect(self.populate_employees)
-        self.unit_filter.currentIndexChanged.connect(self.populate_employees)
-        
+    def refresh_data(self):
+        """Refresh data in both tabs without changing filters."""
+        self.populate_groups()
+        self.populate_employees()
+        self.status_label.setText("Status: Dane zostały odświeżone.")
     def on_tab_changed(self, index):
         """Handle tab change events."""
         if self.tab_widget.tabText(index) == "Wykładowcy":
@@ -155,6 +164,11 @@ class MainWindow(QMainWindow):
         finally:
             db.close()
     
+    def apply_filters(self):
+        """Apply filters and refresh data in both tabs."""
+        self.populate_groups()
+        self.populate_employees()
+
     def filter_instructors(self, selected_unit):
         """Filter and populate the instructor list based on the selected unit."""
         self.employee_list.clear()  # Clear the instructor list
