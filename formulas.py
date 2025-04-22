@@ -1,4 +1,4 @@
-from models import Employee, GroupInstructor, ThesisSupervisors, Reviewer, IndividualRates, OrganizationalUnits, CommitteeFunctionPensum, DidacticCycles, Group, Person, Position, Employment, EmployeePensum, Discount, Position, DidacticCycleClasses , Subject, ClassType
+from models import Employee, GroupInstructor, ThesisSupervisors, Reviewer, IndividualRates, OrganizationalUnits, CommitteeFunctionPensum, DidacticCycles, Group, Person, Position, Employment, EmployeePensum, Discount, Position, DidacticCycleClasses , Subject, ClassType, DiscountType
 from sqlalchemy import and_
 from database import SessionLocal
 
@@ -35,7 +35,7 @@ def calculate_workload_for_employee(employee_id, selected_year, selected_unit):
             .join(ClassType, DidacticCycleClasses.TZAJ_KOD == ClassType.KOD)
             .filter(GroupInstructor.PRAC_ID == employee_id)
             .filter(DidacticCycles.OPIS.like(f"%{selected_year}%"))
-            .filter(ClassType.OPIS != "Praktyka zawodowa")
+            .filter(ClassType.OPIS != "Praktyka zawodowa").filter(~Subject.NAZWA.like("Praktyka zawodowa%"))
         )
 
         # Dodaj filtrację po jednostce organizacyjnej, jeśli wybrano
@@ -51,6 +51,7 @@ def calculate_workload_for_employee(employee_id, selected_year, selected_unit):
         nadgodziny = 0.0
         stawka = 0.0
         kwota_nadgodzin = 0.0
+        zniżka = 0.0
 
         # Przetwarzanie wyników
         for group_instructor, group, didactic_class, subject, didactic_cycle, class_type in results:
@@ -64,14 +65,16 @@ def calculate_workload_for_employee(employee_id, selected_year, selected_unit):
                 godziny_dydaktyczne_l += godziny
 
             # Debugowanie: Wyświetl dodatkowe informacje
-            print(f"Przedmiot: {subject.NAZWA}, Typ zajęć: {class_type.OPIS}, Liczba godzin: {godziny}", 
-                  f"Semestr: {didactic_cycle.OPIS}, Jednostka: {group_instructor.JEDN_KOD}")
+            #print(f"Przedmiot: {subject.NAZWA}, Typ zajęć: {class_type.OPIS}, Liczba godzin: {godziny}", 
+             #     f"Semestr: {didactic_cycle.OPIS}, Jednostka: {group_instructor.JEDN_KOD}")
 
         # Obliczenia pensum, nadgodzin i stawki
         pensum_employee = db.query(EmployeePensum).filter_by(PRAC_ID=employee_id).first()
         if pensum_employee:
             pensum = pensum_employee.PENSUM
-
+        zniżka = db.query(Discount).join(DiscountType, Discount.RODZ_ZNIZ_ID==DiscountType.ID).filter(Discount.PRAC_ID == employee_id).filter(DiscountType.CZY_AKTUALNE=='T').first()
+        if zniżka:
+            pensum -= zniżka.ZNIZKA
         stawka = STAWKI_NADGODZIN.get("stanowisko", 0)  # Przykładowe stanowisko
         nadgodziny = total_workload - pensum if total_workload > pensum else 0
         kwota_nadgodzin = nadgodziny * stawka
@@ -85,6 +88,7 @@ def calculate_workload_for_employee(employee_id, selected_year, selected_unit):
             "nadgodziny": nadgodziny,
             "stawka": stawka,
             "kwota_nadgodzin": kwota_nadgodzin,
+            "zniżka": zniżka.ZNIZKA if zniżka else 0,
         }
     finally:
         db.close()
@@ -106,7 +110,7 @@ def get_group_data(selected_year=None, selected_unit=None):
             .join(OrganizationalUnits, GroupInstructor.JEDN_KOD == OrganizationalUnits.KOD, isouter=True)
             .join(Employee, GroupInstructor.PRAC_ID == Employee.ID)  # Połączenie z Employee
             .join(Person, Employee.OS_ID == Person.ID)  # Połączenie z Person
-            .filter(ClassType.OPIS != "Praktyka zawodowa")
+            .filter(ClassType.OPIS != "Praktyka zawodowa").filter(~Subject.NAZWA.like("Praktyka zawodowa%"))
         )
 
         # Filtruj po roku akademickim

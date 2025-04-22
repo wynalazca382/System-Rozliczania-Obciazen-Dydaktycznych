@@ -5,7 +5,7 @@ from formulas import calculate_workload_for_employee, get_group_data
 from sqlalchemy import and_
 from sqlalchemy.orm import sessionmaker
 from database import engine
-from models import Employee, GroupInstructor, ThesisSupervisors, Reviewer, IndividualRates, OrganizationalUnits, CommitteeFunctionPensum, DidacticCycles, Group, Person, Position, Employment, DidacticCycleClasses
+from models import Employee, GroupInstructor, ThesisSupervisors, Reviewer, IndividualRates, OrganizationalUnits, CommitteeFunctionPensum, DidacticCycles, Group, Person, Position, Employment, DidacticCycleClasses, SubjectCycle
 from login import LoginWindow
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
@@ -36,6 +36,13 @@ class MainWindow(QMainWindow):
         filters_layout.addWidget(QLabel("Jednostka organizacyjna:"))
         filters_layout.addWidget(self.unit_filter)
 
+        # Employee filter
+        self.employee_filter = QComboBox(self)
+        self.employee_filter.addItem("Wszyscy wykładowcy")
+        self.filter_instructors()
+        filters_layout.addWidget(QLabel("Wykładowca:"))
+        filters_layout.addWidget(self.employee_filter)
+
         main_layout.addLayout(filters_layout)
 
         # Dodaj przycisk "Filtruj"
@@ -47,11 +54,6 @@ class MainWindow(QMainWindow):
         self.refresh_button = QPushButton("Odśwież", self)
         self.refresh_button.clicked.connect(self.refresh_data)
         main_layout.addWidget(self.refresh_button)
-        
-        # Edit mode checkbox
-        self.edit_mode_checkbox = QCheckBox("Tryb edycji", self)
-        self.edit_mode_checkbox.stateChanged.connect(self.toggle_edit_mode)
-        main_layout.addWidget(self.edit_mode_checkbox)
         
         # Tab widget
         self.tab_widget = QTabWidget(self)
@@ -71,12 +73,6 @@ class MainWindow(QMainWindow):
         self.group_list.setDragEnabled(False)
         self.groups_layout.addWidget(QLabel("Grupy:"))
         self.groups_layout.addWidget(self.group_list)
-        
-        self.employee_list = QListWidget(self)
-        self.employee_list.setAcceptDrops(False)
-        self.employee_list.setDragDropMode(QListWidget.InternalMove)
-        self.groups_layout.addWidget(QLabel("Wykładowcy:"))
-        self.groups_layout.addWidget(self.employee_list)
         
         # Instructors layout
         self.instructors_layout = QVBoxLayout()
@@ -167,32 +163,40 @@ class MainWindow(QMainWindow):
     def apply_filters(self):
         """Apply filters and refresh data in both tabs."""
         self.populate_groups()
+        self.filter_instructors() 
         self.populate_employees()
+        self.status_label.setText("Status: Filtry zostały zastosowane.")
 
-    def filter_instructors(self, selected_unit):
+    def filter_instructors(self):
         """Filter and populate the instructor list based on the selected unit."""
-        self.employee_list.clear()  # Clear the instructor list
         db = SessionLocal()
-
+        selected_unit = self.unit_filter.currentData()
+        selected_year = self.year_filter.currentText()
         try:
             # Query instructors based on the selected unit
-            instructor_query = db.query(Employee).join(Person, Employee.OS_ID == Person.ID)
+            instructor_query = (
+                db.query(Employee)
+                .join(Person, Employee.OS_ID == Person.ID)
+                .join(GroupInstructor, Employee.ID == GroupInstructor.PRAC_ID)
+                .join(OrganizationalUnits, GroupInstructor.JEDN_KOD == OrganizationalUnits.KOD)
+                .join(Group, GroupInstructor.ZAJ_CYK_ID == Group.ZAJ_CYK_ID)
+                .join(DidacticCycleClasses, Group.ZAJ_CYK_ID == DidacticCycleClasses.ID)
+                .join(DidacticCycles, DidacticCycleClasses.CDYD_KOD == DidacticCycles.KOD)
+            )
             if selected_unit:
-                instructor_query = instructor_query.filter(Person.JED_ORG_KOD == selected_unit)
-
+                print(f"Selected unit: {selected_unit}")  # Debugging: Log the selected unit
+                instructor_query = instructor_query.filter(GroupInstructor.JEDN_KOD == selected_unit)
+            if selected_year:
+                print(f"Selected year: {selected_year}")  # Debugging: Log the selected year
+                instructor_query = instructor_query.filter(DidacticCycles.OPIS.like(f"%{selected_year}%"))
             instructors = instructor_query.all()
-            self.employee_list.addItem("Wszyscy wykładowcy")  # Opcja dla wszystkich wykładowców
-            self.employee_list.setCurrentRow(0)  # Ustaw domyślnie na "Wszyscy wykładowcy"
+            self.employee_filter.clear()
+            self.employee_filter.addItem("Wszystkie jednostki", None)
             for instructor in instructors:
                 person = db.query(Person).filter_by(ID=instructor.OS_ID).first()
-                item = QListWidgetItem(f"{person.NAZWISKO} {person.IMIE}")
-                item.setData(1, instructor.ID)
-                self.employee_list.addItem(item)
-
-            if not instructors:  # If no instructors are found, display a message
-                self.employee_list.addItem("Brak wykładowców do wyświetlenia.")
+                print(f"Adding instructor: {person.NAZWISKO} {person.IMIE}")  # Debugging: Log the instructor being added
+                self.employee_filter.addItem(f"{person.NAZWISKO} {person.IMIE}", instructor.ID)
         except Exception as e:
-            self.employee_list.addItem(f"Błąd: {str(e)}")
             print(f"Error: {str(e)}")  # Debugging: Log the error
         finally:
             db.close()
@@ -204,9 +208,6 @@ class MainWindow(QMainWindow):
         selected_year = self.year_filter.currentText()
 
         try:
-            # Wywołaj funkcję filtrowania wykładowców
-            self.filter_instructors(selected_unit)
-
             # Pobierz dane grup z get_group_data
             group_data = get_group_data(selected_year, selected_unit)
 
@@ -239,7 +240,7 @@ class MainWindow(QMainWindow):
             # Pobierz dane wykładowców
             query = db.query(Employee, Person).join(Person, Employee.OS_ID == Person.ID).filter(GroupInstructor.PRAC_ID == Employee.ID).filter(DidacticCycles.OPIS.like(f"%{selected_year}%"))
             if selected_unit:  # Filtruj według wybranej jednostki
-                query = query.filter(Person.JED_ORG_KOD == selected_unit)
+                query = query.filter(GroupInstructor.JEDN_KOD== selected_unit)
 
             results = query.all()
             for employee, person in results:
@@ -281,15 +282,6 @@ class MainWindow(QMainWindow):
             print(f"Błąd podczas obliczania obciążenia dydaktycznego: {str(e)}")
         finally:
             db.close()
-    
-    def toggle_edit_mode(self, state):
-        """Toggle edit mode to enable or disable drag-and-drop functionality."""
-        if state == 2:  # Checked
-            self.group_list.setDragEnabled(True)
-            self.employee_list.setAcceptDrops(True)
-        else:
-            self.group_list.setDragEnabled(False)
-            self.employee_list.setAcceptDrops(False)
     
     from formulas import calculate_workload_for_employee, get_group_data
 
