@@ -172,6 +172,9 @@ class MainWindow(QMainWindow):
         db = SessionLocal()
         selected_unit = self.unit_filter.currentData()
         selected_year = self.year_filter.currentText()
+
+        current_instructor = self.employee_filter.currentData()
+
         try:
             # Query instructors based on the selected unit
             instructor_query = (
@@ -191,11 +194,15 @@ class MainWindow(QMainWindow):
                 instructor_query = instructor_query.filter(DidacticCycles.OPIS.like(f"%{selected_year}%"))
             instructors = instructor_query.all()
             self.employee_filter.clear()
-            self.employee_filter.addItem("Wszystkie jednostki", None)
+            self.employee_filter.addItem("Wszyscy wykładowcy", None)
             for instructor in instructors:
                 person = db.query(Person).filter_by(ID=instructor.OS_ID).first()
-                print(f"Adding instructor: {person.NAZWISKO} {person.IMIE}")  # Debugging: Log the instructor being added
+                print(f"Adding instructor: {person.NAZWISKO} {person.IMIE} {instructor.ID}")  # Debugging: Log the instructor being added
                 self.employee_filter.addItem(f"{person.NAZWISKO} {person.IMIE}", instructor.ID)
+            
+            index_to_restore = self.employee_filter.findData(current_instructor)
+            if index_to_restore != -1:
+                self.employee_filter.setCurrentIndex(index_to_restore)
         except Exception as e:
             print(f"Error: {str(e)}")  # Debugging: Log the error
         finally:
@@ -205,11 +212,15 @@ class MainWindow(QMainWindow):
         """Populate the group list based on the selected academic year and unit."""
         self.group_list.clear()
         selected_unit = self.unit_filter.currentData()
+        print(selected_unit)
         selected_year = self.year_filter.currentText()
+        print(selected_year)
+        selected_employee = self.employee_filter.currentData()
+        print(selected_employee)
 
         try:
             # Pobierz dane grup z get_group_data
-            group_data = get_group_data(selected_year, selected_unit)
+            group_data = get_group_data(selected_year, selected_unit, selected_employee)
 
             # Wyświetl dane grup w group_list
             for group in group_data:
@@ -234,6 +245,8 @@ class MainWindow(QMainWindow):
         print(selected_unit)
         selected_year = self.year_filter.currentText()
         print(selected_year)
+        selected_employee = self.employee_filter.currentData()
+        print(selected_employee)
         db = SessionLocal()
 
         try:
@@ -241,7 +254,8 @@ class MainWindow(QMainWindow):
             query = db.query(Employee, Person).join(Person, Employee.OS_ID == Person.ID).filter(GroupInstructor.PRAC_ID == Employee.ID).filter(DidacticCycles.OPIS.like(f"%{selected_year}%"))
             if selected_unit:  # Filtruj według wybranej jednostki
                 query = query.filter(GroupInstructor.JEDN_KOD== selected_unit)
-
+            if selected_employee:  # Filtruj według wybranego wykładowcy
+                query = query.filter(Employee.ID == selected_employee)
             results = query.all()
             for employee, person in results:
                 # Oblicz obciążenie dydaktyczne dla każdego wykładowcy

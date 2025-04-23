@@ -93,7 +93,7 @@ def calculate_workload_for_employee(employee_id, selected_year, selected_unit):
     finally:
         db.close()
 
-def get_group_data(selected_year=None, selected_unit=None):
+def get_group_data(selected_year=None, selected_unit=None, selected_employee=None):
     db = SessionLocal()
     try:
         # Pobierz dane grup z powiązanymi informacjami
@@ -120,6 +120,9 @@ def get_group_data(selected_year=None, selected_unit=None):
         # Filtruj po jednostce organizacyjnej
         if selected_unit:
             query = query.filter(GroupInstructor.JEDN_KOD == selected_unit)
+
+        if selected_employee:
+            query = query.filter(GroupInstructor.PRAC_ID == selected_employee)
 
         results = query.all()
         data = []
