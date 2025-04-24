@@ -77,7 +77,8 @@ class MainWindow(QMainWindow):
         # Instructors layout
         self.instructors_layout = QVBoxLayout()
         self.instructors_tab.setLayout(self.instructors_layout)
-        
+
+        # Lista wykładowców
         self.instructor_list = QListWidget(self)
         self.instructors_layout.addWidget(QLabel("Wykładowcy:"))
         self.instructors_layout.addWidget(self.instructor_list)
@@ -86,6 +87,7 @@ class MainWindow(QMainWindow):
         self.instructor_details = QListWidget(self)
         self.instructors_layout.addWidget(QLabel("Szczegóły wykładowcy:"))
         self.instructors_layout.addWidget(self.instructor_details)
+        self.instructor_list.itemClicked.connect(self.display_employee_workload)
         
         # Populate initial data
         self.populate_groups()
@@ -232,6 +234,8 @@ class MainWindow(QMainWindow):
             workload_data = calculate_workload_for_employee(selected_employee, selected_year, selected_unit)
 
             # Wyświetl szczegóły
+            self.instructor_details.addItem(f"Wykładowca: {workload_data['imie_nazwisko']}")
+            self.instructor_details.addItem(f"Jednostka: {workload_data['jednostka']}")
             self.instructor_details.addItem(f"Pensum: {workload_data['pensum']}")
             self.instructor_details.addItem(f"Zniżka: {workload_data['zniżka']}")
             self.instructor_details.addItem(f"Godziny dydaktyczne Z: {workload_data['godziny_dydaktyczne_z']}")
@@ -323,17 +327,38 @@ class MainWindow(QMainWindow):
     
     def display_employee_workload(self, item):
         """Display workload data for the selected employee."""
+        self.instructor_details.clear()  # Wyczyść szczegóły
         selected_employee_id = item.data(1)  # Pobierz ID wykładowcy
+        selected_year = self.year_filter.currentText()
+        selected_unit = self.unit_filter.currentData()
+
+        if not selected_employee_id:
+            self.instructor_details.addItem("Nie wybrano wykładowcy.")
+            return
+
         db = SessionLocal()
         try:
-            # Oblicz obciążenie dydaktyczne
-            workload_data = calculate_workload_for_employee(selected_employee_id)
-            # Wyświetl dane w konsoli (lub w innym widżecie, jeśli jest dostępny)
-            print("Obciążenie dydaktyczne:")
-            for key, value in workload_data.items():
-                print(f"{key}: {value}")
+            # Pobierz dane grup dla wybranego wykładowcy
+            group_data = get_group_data(selected_year, selected_unit, selected_employee_id)
+
+            # Pobierz pensum i zniżki
+            workload_data = calculate_workload_for_employee(selected_employee_id, selected_year, selected_unit)
+
+            # Wyświetl szczegóły
+            self.instructor_details.addItem(f"Pensum: {workload_data['pensum']}")
+            self.instructor_details.addItem(f"Zniżka: {workload_data['zniżka']}")
+            self.instructor_details.addItem(f"Godziny dydaktyczne Z: {workload_data['godziny_dydaktyczne_z']}")
+            self.instructor_details.addItem(f"Godziny dydaktyczne L: {workload_data['godziny_dydaktyczne_l']}")
+            self.instructor_details.addItem(f"Nadgodziny: {workload_data['nadgodziny']}")
+
+            self.instructor_details.addItem("Przedmioty:")
+            for group in group_data:
+                self.instructor_details.addItem(
+                    f"  - {group['Przedmiot']} ({group['Typ zajęć']}): {group['Liczba godzin']} godz. w {group['Semestr']} semestrze"
+                )
         except Exception as e:
-            print(f"Błąd podczas obliczania obciążenia dydaktycznego: {str(e)}")
+            self.instructor_details.addItem(f"Błąd: {str(e)}")
+            print(f"Error: {str(e)}")
         finally:
             db.close()
     
