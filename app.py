@@ -42,7 +42,7 @@ class MainWindow(QMainWindow):
         self.filter_instructors()
         filters_layout.addWidget(QLabel("Wykładowca:"))
         filters_layout.addWidget(self.employee_filter)
-
+        self.employee_filter.currentIndexChanged.connect(self.display_instructor_details)
         main_layout.addLayout(filters_layout)
 
         # Dodaj przycisk "Filtruj"
@@ -81,6 +81,11 @@ class MainWindow(QMainWindow):
         self.instructor_list = QListWidget(self)
         self.instructors_layout.addWidget(QLabel("Wykładowcy:"))
         self.instructors_layout.addWidget(self.instructor_list)
+
+        # Szczegóły wykładowcy
+        self.instructor_details = QListWidget(self)
+        self.instructors_layout.addWidget(QLabel("Szczegóły wykładowcy:"))
+        self.instructors_layout.addWidget(self.instructor_details)
         
         # Populate initial data
         self.populate_groups()
@@ -207,7 +212,42 @@ class MainWindow(QMainWindow):
             print(f"Error: {str(e)}")  # Debugging: Log the error
         finally:
             db.close()
-    
+    def display_instructor_details(self):
+        """Display details for the selected instructor."""
+        self.instructor_details.clear()  # Wyczyść szczegóły
+        selected_employee = self.employee_filter.currentData()
+        selected_year = self.year_filter.currentText()
+        selected_unit = self.unit_filter.currentData()
+
+        if not selected_employee:
+            self.instructor_details.addItem("Wybierz wykładowcę, aby zobaczyć szczegóły.")
+            return
+
+        db = SessionLocal()
+        try:
+            # Pobierz dane grup dla wybranego wykładowcy
+            group_data = get_group_data(selected_year, selected_unit, selected_employee)
+
+            # Pobierz pensum i zniżki
+            workload_data = calculate_workload_for_employee(selected_employee, selected_year, selected_unit)
+
+            # Wyświetl szczegóły
+            self.instructor_details.addItem(f"Pensum: {workload_data['pensum']}")
+            self.instructor_details.addItem(f"Zniżka: {workload_data['zniżka']}")
+            self.instructor_details.addItem(f"Godziny dydaktyczne Z: {workload_data['godziny_dydaktyczne_z']}")
+            self.instructor_details.addItem(f"Godziny dydaktyczne L: {workload_data['godziny_dydaktyczne_l']}")
+            self.instructor_details.addItem(f"Nadgodziny: {workload_data['nadgodziny']}")
+
+            self.instructor_details.addItem("Przedmioty:")
+            for group in group_data:
+                self.instructor_details.addItem(
+                    f"  - {group['Przedmiot']} ({group['Typ zajęć']}): {group['Liczba godzin']} godz. w {group['Semestr']} semestrze"
+                )
+        except Exception as e:
+            self.instructor_details.addItem(f"Błąd: {str(e)}")
+            print(f"Error: {str(e)}")
+        finally:
+            db.close()
     def populate_groups(self):
         """Populate the group list based on the selected academic year and unit."""
         self.group_list.clear()
