@@ -8,40 +8,46 @@ import os
 from models import PensumRight
 from database import SessionLocal
 
+
 class LoginWindow(QWidget):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("Logowanie")
-        self.setGeometry(100, 100, 400, 200)
+        self.setGeometry(100, 100, 400, 300)
 
         # Główne okno
         layout = QVBoxLayout()
-        layout.setContentsMargins(20, 20, 20, 20)
-        layout.setSpacing(15)
+        layout.setContentsMargins(30, 30, 30, 30)
+        layout.setSpacing(20)
 
         # Nagłówek
         header_label = QLabel("System Rozliczania Obciążeń Dydaktycznych")
-        header_label.setFont(QFont("Arial", 14, QFont.Bold))
+        header_label.setFont(QFont("Arial", 16, QFont.Bold))
         header_label.setAlignment(Qt.AlignCenter)
+        header_label.setStyleSheet("color: #2c3e50;")
         layout.addWidget(header_label)
 
         # Username input
-        username_layout = QHBoxLayout()
+        username_layout = QVBoxLayout()
         username_label = QLabel("Nazwa użytkownika:")
         username_label.setFont(QFont("Arial", 10))
+        username_label.setStyleSheet("color: #34495e;")
         self.username_input = QLineEdit(self)
         self.username_input.setPlaceholderText("Wprowadź nazwę użytkownika")
+        self.username_input.setStyleSheet(self.input_style())
         username_layout.addWidget(username_label)
         username_layout.addWidget(self.username_input)
         layout.addLayout(username_layout)
 
         # Password input
-        password_layout = QHBoxLayout()
+        password_layout = QVBoxLayout()
         password_label = QLabel("Hasło:")
         password_label.setFont(QFont("Arial", 10))
+        password_label.setStyleSheet("color: #34495e;")
         self.password_input = QLineEdit(self)
         self.password_input.setEchoMode(QLineEdit.Password)
         self.password_input.setPlaceholderText("Wprowadź hasło")
+        self.password_input.setStyleSheet(self.input_style())
         password_layout.addWidget(password_label)
         password_layout.addWidget(self.password_input)
         layout.addLayout(password_layout)
@@ -51,7 +57,7 @@ class LoginWindow(QWidget):
         spacer = QSpacerItem(20, 40, QSizePolicy.Expanding, QSizePolicy.Minimum)
         self.login_button = QPushButton("Zaloguj", self)
         self.login_button.setFont(QFont("Arial", 10, QFont.Bold))
-        self.login_button.setStyleSheet("background-color: #4CAF50; color: white; padding: 5px 15px; border-radius: 5px;")
+        self.login_button.setStyleSheet(self.button_style())
         self.login_button.clicked.connect(self.handle_login)
         button_layout.addSpacerItem(spacer)
         button_layout.addWidget(self.login_button)
@@ -62,17 +68,43 @@ class LoginWindow(QWidget):
         self.setLayout(layout)
         self.setStyleSheet("""
             QWidget {
-                background-color: #f5f5f5;
+                background-color: #ecf0f1;
+                border-radius: 10px;
             }
             QLabel {
-                color: #333;
-            }
-            QLineEdit {
-                border: 1px solid #ccc;
-                border-radius: 5px;
-                padding: 5px;
+                color: #2c3e50;
             }
         """)
+
+    def input_style(self):
+        """Styl dla pól tekstowych."""
+        return """
+            QLineEdit {
+                border: 1px solid #bdc3c7;
+                border-radius: 5px;
+                padding: 8px;
+                background-color: #ffffff;
+                color: #2c3e50;
+            }
+            QLineEdit:focus {
+                border: 1px solid #1abc9c;
+            }
+        """
+
+    def button_style(self):
+        """Styl dla przycisków."""
+        return """
+            QPushButton {
+                background-color: #1abc9c;
+                color: white;
+                border: none;
+                padding: 10px 20px;
+                border-radius: 5px;
+            }
+            QPushButton:hover {
+                background-color: #16a085;
+            }
+        """
 
     def handle_login(self):
         """Handle login logic."""

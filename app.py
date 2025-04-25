@@ -1,12 +1,18 @@
 import sys
-from PyQt5.QtWidgets import QApplication, QMainWindow, QVBoxLayout, QHBoxLayout, QWidget, QPushButton, QLabel, QComboBox, QFileDialog, QListWidget, QListWidgetItem, QTabWidget, QCheckBox, QSpacerItem, QSizePolicy
+from PyQt5.QtWidgets import (
+    QApplication, QMainWindow, QVBoxLayout, QHBoxLayout, QWidget, QPushButton, QLabel, QComboBox, QListWidget, QTabWidget, QLineEdit, QSpacerItem, QSizePolicy, QListWidgetItem, QFileDialog, QMessageBox
+)
+from PyQt5.QtGui import QFont, QIcon
+from PyQt5.QtCore import Qt
 import pandas as pd
 from formulas import calculate_workload_for_employee, get_group_data
 from sqlalchemy import and_
 from sqlalchemy.orm import sessionmaker
 from database import engine
-from models import Employee, GroupInstructor, ThesisSupervisors, Reviewer, IndividualRates, OrganizationalUnits, CommitteeFunctionPensum, DidacticCycles, Group, Person, Position, Employment, DidacticCycleClasses, SubjectCycle
+from models import Employee, GroupInstructor, ThesisSupervisors, Reviewer, IndividualRates, OrganizationalUnits, CommitteeFunctionPensum, DidacticCycles, Group, Person, Position, Employment, DidacticCycleClasses, SubjectCycle, Title
 from login import LoginWindow
+from openpyxl.styles import Font, Alignment, Border, Side
+from openpyxl.utils.dataframe import dataframe_to_rows
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
@@ -15,97 +21,143 @@ class MainWindow(QMainWindow):
         super().__init__()
         self.user_right = user_right
         self.setWindowTitle("System Rozliczania Obciążeń Dydaktycznych")
-        self.setGeometry(100, 100, 800, 600)
-        
-        main_layout = QVBoxLayout()
-        self.status_label = QLabel("Status: Oczekiwanie na akcję", self)
-        main_layout.addWidget(self.status_label)
-        # Filters layout
-        filters_layout = QHBoxLayout()
+        self.setGeometry(100, 100, 1000, 700)
 
-        # Year filter
+        # Główne okno
+        main_widget = QWidget()
+        main_layout = QVBoxLayout(main_widget)
+        main_layout.setContentsMargins(0, 0, 0, 0)
+
+        # Pasek nagłówka
+        header = QLabel("System Rozliczania Obciążeń Dydaktycznych")
+        header.setFont(QFont("Arial", 16, QFont.Bold))
+        header.setAlignment(Qt.AlignCenter)
+        header.setStyleSheet("background-color: #2c3e50; color: white; padding: 10px;")
+        main_layout.addWidget(header)
+
+        # Pasek boczny i główny obszar
+        content_layout = QHBoxLayout()
+        main_layout.addLayout(content_layout)
+
+        # Pasek boczny
+        sidebar = QVBoxLayout()
+        sidebar.setContentsMargins(10, 10, 10, 10)
+        sidebar.setSpacing(15)
+        sidebar_widget = QWidget()
+        sidebar_widget.setLayout(sidebar)
+        sidebar_widget.setStyleSheet("background-color: #34495e; color: white; border-radius: 10px;")
+        content_layout.addWidget(sidebar_widget, 1)
+
+        # Przyciski w pasku bocznym
+        self.filter_button = QPushButton("Filtruj")
+        self.filter_button.setStyleSheet(self.button_style())
+        self.filter_button.clicked.connect(self.apply_filters)
+        sidebar.addWidget(self.filter_button)
+
+        self.refresh_button = QPushButton("Odśwież")
+        self.refresh_button.setStyleSheet(self.button_style())
+        self.refresh_button.clicked.connect(self.refresh_data)
+        sidebar.addWidget(self.refresh_button)
+
+        self.report_button = QPushButton("Generuj raport")
+        self.report_button.setStyleSheet(self.button_style())
+        self.report_button.clicked.connect(self.generate_report)
+        sidebar.addWidget(self.report_button)
+
+        sidebar.addSpacerItem(QSpacerItem(20, 40, QSizePolicy.Minimum, QSizePolicy.Expanding))
+
+        # Główna zawartość
+        main_content = QVBoxLayout()
+        content_layout.addLayout(main_content, 3)
+
+        # Filtry
+        filters_layout = QHBoxLayout()
         self.year_filter = QComboBox(self)
         self.populate_years()
         filters_layout.addWidget(QLabel("Rok akademicki:"))
         filters_layout.addWidget(self.year_filter)
 
-        # Unit filter
         self.unit_filter = QComboBox(self)
         self.unit_filter.addItem("Wszystkie jednostki")
         self.populate_units()
         filters_layout.addWidget(QLabel("Jednostka organizacyjna:"))
         filters_layout.addWidget(self.unit_filter)
 
-        # Employee filter
         self.employee_filter = QComboBox(self)
         self.employee_filter.addItem("Wszyscy wykładowcy")
         self.filter_instructors()
         filters_layout.addWidget(QLabel("Wykładowca:"))
         filters_layout.addWidget(self.employee_filter)
-        self.employee_filter.currentIndexChanged.connect(self.display_instructor_details)
-        main_layout.addLayout(filters_layout)
+        #self.employee_filter.currentIndexChanged.connect(self.display_instructor_details)
+        main_content.addLayout(filters_layout)
 
-        # Dodaj przycisk "Filtruj"
-        self.filter_button = QPushButton("Filtruj", self)
-        self.filter_button.clicked.connect(self.apply_filters)
-        main_layout.addWidget(self.filter_button)
+        # Zakładki
+        self.tab_widget = QTabWidget()
+        self.tab_widget.setStyleSheet(self.tab_style())
+        main_content.addWidget(self.tab_widget)
 
-        # Dodaj przycisk "Odśwież"
-        self.refresh_button = QPushButton("Odśwież", self)
-        self.refresh_button.clicked.connect(self.refresh_data)
-        main_layout.addWidget(self.refresh_button)
-        
-        # Tab widget
-        self.tab_widget = QTabWidget(self)
+        # Zakładka grup
         self.groups_tab = QWidget()
-        self.instructors_tab = QWidget()
-        
-        self.tab_widget.addTab(self.groups_tab, "Grupy")
-        self.tab_widget.addTab(self.instructors_tab, "Wykładowcy")
-        self.tab_widget.currentChanged.connect(self.on_tab_changed)
-        main_layout.addWidget(self.tab_widget)
-
-        # Groups layout
-        self.groups_layout = QVBoxLayout()
-        self.groups_tab.setLayout(self.groups_layout)
-        
-        self.group_list = QListWidget(self)
-        self.group_list.setDragEnabled(False)
+        self.groups_layout = QVBoxLayout(self.groups_tab)
+        self.group_list = QListWidget()
         self.groups_layout.addWidget(QLabel("Grupy:"))
         self.groups_layout.addWidget(self.group_list)
-        
-        # Instructors layout
-        self.instructors_layout = QVBoxLayout()
-        self.instructors_tab.setLayout(self.instructors_layout)
+        self.tab_widget.addTab(self.groups_tab, "Grupy")
 
-        # Lista wykładowców
-        self.instructor_list = QListWidget(self)
+        # Zakładka wykładowców
+        self.instructors_tab = QWidget()
+        self.instructors_layout = QVBoxLayout(self.instructors_tab)
+        self.instructor_list = QListWidget()
         self.instructors_layout.addWidget(QLabel("Wykładowcy:"))
         self.instructors_layout.addWidget(self.instructor_list)
-
-        # Szczegóły wykładowcy
         self.instructor_details = QListWidget(self)
         self.instructors_layout.addWidget(QLabel("Szczegóły wykładowcy:"))
         self.instructors_layout.addWidget(self.instructor_details)
+        self.tab_widget.addTab(self.instructors_tab, "Wykładowcy")
         self.instructor_list.itemClicked.connect(self.display_employee_workload)
-        
+        # Status bar
+        self.status_label = QLabel("Status: Oczekiwanie na akcję")
+        self.status_label.setStyleSheet("background-color: #2c3e50; color: white; padding: 5px;")
+        main_layout.addWidget(self.status_label)
+
+        self.setCentralWidget(main_widget)
+
         # Populate initial data
         self.populate_groups()
         self.populate_employees()
-        
-        # Generate report button
-        self.generate_report_button = QPushButton("Generuj raport Excel", self)
-        self.generate_report_button.clicked.connect(self.generate_report)
-        main_layout.addWidget(self.generate_report_button)
-        
-        # Status label
-        self.status_label = QLabel("Status: Oczekiwanie na akcję", self)
-        main_layout.addWidget(self.status_label)
-        
-        # Set central widget
-        container = QWidget()
-        container.setLayout(main_layout)
-        self.setCentralWidget(container)
+
+    def button_style(self):
+        return """
+            QPushButton {
+                background-color: #1abc9c;
+                color: white;
+                border: none;
+                padding: 10px;
+                border-radius: 5px;
+            }
+            QPushButton:hover {
+                background-color: #16a085;
+            }
+        """
+
+    def tab_style(self):
+        return """
+            QTabWidget::pane {
+                border: 1px solid #bdc3c7;
+                border-radius: 5px;
+            }
+            QTabBar::tab {
+                background: #ecf0f1;
+                border: 1px solid #bdc3c7;
+                padding: 10px;
+                border-top-left-radius: 5px;
+                border-top-right-radius: 5px;
+            }
+            QTabBar::tab:selected {
+                background: #1abc9c;
+                color: white;
+            }
+        """
     def refresh_data(self):
         """Refresh data in both tabs without changing filters."""
         self.populate_groups()
@@ -365,37 +417,43 @@ class MainWindow(QMainWindow):
     from formulas import calculate_workload_for_employee, get_group_data
 
     def generate_report(self):
-        """Generate an Excel report based on the current data."""
+        """Generate an Excel report with improved formatting."""
         db = SessionLocal()
         selected_unit = self.unit_filter.currentData()
         selected_year = self.year_filter.currentText()
+        selected_employee = self.employee_filter.currentData()
         
         try:
             # Query employees and filter by the selected unit
-            query = db.query(Employee).join(Person, Employee.OS_ID == Person.ID)
+            query = (
+                db.query(Employee, Person)
+                .join(Person, Employee.OS_ID == Person.ID)
+                .join(GroupInstructor, GroupInstructor.PRAC_ID == Employee.ID)
+                .join(Group, GroupInstructor.ZAJ_CYK_ID == Group.ZAJ_CYK_ID)
+                .join(DidacticCycleClasses, Group.ZAJ_CYK_ID == DidacticCycleClasses.ID)
+                .join(DidacticCycles, DidacticCycleClasses.CDYD_KOD == DidacticCycles.KOD)
+                .filter(DidacticCycles.OPIS.like(f"%{selected_year}%"))
+            )
             
             if selected_unit:
-                query = query.filter(Person.JED_ORG_KOD == selected_unit)
+                query = query.filter(GroupInstructor.JEDN_KOD == selected_unit)
             
             employees = query.all()
             lp = 1
             data = []
-            for employee in employees:
+            for employee, person in employees:
                 # Get related data for the employee
-                person = db.query(Person).filter_by(ID=employee.OS_ID).first()
+                person = db.query(Person).filter_by(ID=person.ID).first()
                 organizational_unit = db.query(OrganizationalUnits).filter_by(KOD=person.JED_ORG_KOD).first()
-                prac_zatr = db.query(Employment).filter_by(PRAC_ID=employee.ID).first()
-                position = db.query(Position).filter_by(ID=prac_zatr.STAN_ID).first() if prac_zatr else None
-                stanowisko = position.NAZWA if position else "N/A"
                 workload_data = calculate_workload_for_employee(employee.ID, selected_year, selected_unit)
+                tytul = db.query(Title).filter_by(ID=person.TYTUL_PO).first()
                 
                 # Append data for the report
                 data.append({
                     "Lp.": lp,
-                    "Tytuły": person.TYTUL_PO,
+                    "Tytuły": tytul.NAZWA if tytul else "N/A",
                     "Nazwisko i imię": f"{person.NAZWISKO} {person.IMIE}",
                     "J.O.": organizational_unit.OPIS if organizational_unit else "N/A",
-                    "Stanowisko": stanowisko,
                     "Forma": "etat",
                     "Godziny dydaktyczne Z": workload_data["godziny_dydaktyczne_z"],
                     "Godziny dydaktyczne L": workload_data["godziny_dydaktyczne_l"],
@@ -410,9 +468,14 @@ class MainWindow(QMainWindow):
 
             # Create DataFrame for the first sheet
             df1 = pd.DataFrame(data)
+            print(f"Wywołanie get_group_data z parametrami: year={selected_year}, unit={selected_unit}, employee={selected_employee}")
+            data2 = get_group_data(selected_year, selected_unit, selected_employee)
+            print(f"Dane zwrócone przez get_group_data: {data2}")
             
-            # Data for the second sheet
-            data2 = get_group_data()
+            if not data2:
+                print("Brak danych dla drugiej karty raportu.")
+                self.status_label.setText("Status: Brak danych dla drugiej karty raportu.")
+                data2 = [{"Informacja": "Brak danych"}]
             
             # Create DataFrame for the second sheet
             df2 = pd.DataFrame(data2)
@@ -421,8 +484,12 @@ class MainWindow(QMainWindow):
             file_path, _ = QFileDialog.getSaveFileName(self, "Save File", "", "Excel Files (*.xlsx)")
             if file_path:
                 with pd.ExcelWriter(file_path, engine='openpyxl') as writer:
+                    # Write the first sheet
                     df1.to_excel(writer, sheet_name='Raport 1', index=False)
                     df2.to_excel(writer, sheet_name='Raport 2', index=False)
+                
+                # Apply formatting
+                self.format_excel(file_path)
                 self.status_label.setText(f"Status: Raport zapisany do {file_path}")
             else:
                 self.status_label.setText("Status: Anulowano zapis raportu")
@@ -430,6 +497,43 @@ class MainWindow(QMainWindow):
             self.status_label.setText(f"Status: Błąd podczas generowania raportu: {str(e)}")
         finally:
             db.close()
+
+    def format_excel(self, file_path):
+        """Apply formatting to the Excel file and adjust column widths."""
+        from openpyxl import load_workbook
+
+        wb = load_workbook(file_path)
+        thin_border = Border(left=Side(style='thin'), right=Side(style='thin'), top=Side(style='thin'), bottom=Side(style='thin'))
+
+        for sheet_name in wb.sheetnames:
+            sheet = wb[sheet_name]
+
+            # Apply formatting to the header row
+            for cell in sheet[1]:
+                cell.font = Font(bold=True)
+                cell.alignment = Alignment(horizontal='center', vertical='center')
+                cell.border = thin_border
+
+            # Apply formatting to the rest of the cells
+            for row in sheet.iter_rows(min_row=2):
+                for cell in row:
+                    cell.alignment = Alignment(horizontal='left', vertical='center')
+                    cell.border = thin_border
+
+            # Adjust column widths
+            for column in sheet.columns:
+                max_length = 0
+                column_letter = column[0].column_letter  # Get the column letter (e.g., 'A', 'B', etc.)
+                for cell in column:
+                    try:
+                        if cell.value:  # Check if the cell has a value
+                            max_length = max(max_length, len(str(cell.value)))
+                    except:
+                        pass
+                adjusted_width = max_length + 2  # Add some padding
+                sheet.column_dimensions[column_letter].width = adjusted_width
+
+        wb.save(file_path)
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
