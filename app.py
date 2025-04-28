@@ -26,81 +26,119 @@ class MainWindow(QMainWindow):
         # Główne okno
         main_widget = QWidget()
         main_layout = QVBoxLayout(main_widget)
-        main_layout.setContentsMargins(0, 0, 0, 0)
+        main_layout.setContentsMargins(10, 10, 10, 10)
 
         # Pasek nagłówka
         header = QLabel("System Rozliczania Obciążeń Dydaktycznych")
-        header.setFont(QFont("Arial", 16, QFont.Bold))
+        header.setFont(QFont("Verdana", 20, QFont.Bold))  # Czcionka "Verdana", rozmiar 20
         header.setAlignment(Qt.AlignCenter)
         header.setStyleSheet("background-color: #2c3e50; color: white; padding: 10px;")
         main_layout.addWidget(header)
 
-        # Pasek boczny i główny obszar
-        content_layout = QHBoxLayout()
-        main_layout.addLayout(content_layout)
+        # Filtry
+        filters_layout = QVBoxLayout()
+        filters_layout.setSpacing(10)
 
-        # Pasek boczny
-        sidebar = QVBoxLayout()
-        sidebar.setContentsMargins(10, 10, 10, 10)
-        sidebar.setSpacing(15)
-        sidebar_widget = QWidget()
-        sidebar_widget.setLayout(sidebar)
-        sidebar_widget.setStyleSheet("background-color: #34495e; color: white; border-radius: 10px;")
-        content_layout.addWidget(sidebar_widget, 1)
+        # Filtry: Rok akademicki
+        year_layout = QHBoxLayout()
+        year_label = QLabel("Rok akademicki:")
+        year_label.setStyleSheet("""
+            QLabel {
+                font-family: 'Verdana';
+                font-size: 16px;  /* Zwiększony rozmiar czcionki */
+            }
+        """)
+        self.year_filter = QComboBox(self)
+        self.year_filter.setStyleSheet("""
+            QComboBox {
+                font-family: 'Verdana';
+                font-size: 16px;  /* Zwiększony rozmiar czcionki */
+            }
+        """)
+        self.year_filter.setMinimumHeight(30)
+        self.populate_years()
+        year_layout.addWidget(year_label)
+        year_layout.addWidget(self.year_filter)
+        filters_layout.addLayout(year_layout)
 
-        # Przyciski w pasku bocznym
+        # Filtry: Jednostka organizacyjna
+        unit_layout = QHBoxLayout()
+        unit_label = QLabel("Jednostka organizacyjna:")
+        unit_label.setStyleSheet("""
+            QLabel {
+                font-family: 'Verdana';
+                font-size: 16px;  /* Zwiększony rozmiar czcionki */
+            }
+        """)
+        self.unit_filter = QComboBox(self)
+        self.unit_filter.setStyleSheet("""
+            QComboBox {
+                font-family: 'Verdana';
+                font-size: 16px;  /* Zwiększony rozmiar czcionki */
+            }
+        """)
+        self.unit_filter.setMinimumHeight(30)
+        self.unit_filter.addItem("Wszystkie jednostki")
+        self.populate_units()
+        unit_layout.addWidget(unit_label)
+        unit_layout.addWidget(self.unit_filter)
+        filters_layout.addLayout(unit_layout)
+
+        # Filtry: Wykładowca
+        employee_layout = QHBoxLayout()
+        employee_label = QLabel("Wykładowca:")
+        employee_label.setStyleSheet("""
+            QLabel {
+                font-family: 'Verdana';
+                font-size: 16px;  /* Zwiększony rozmiar czcionki */
+            }
+        """)
+        self.employee_filter = QComboBox(self)
+        self.employee_filter.setStyleSheet("""
+            QComboBox {
+                font-family: 'Verdana';
+                font-size: 16px;  /* Zwiększony rozmiar czcionki */
+            }
+        """)
+        self.employee_filter.setMinimumHeight(30)
+        self.employee_filter.addItem("Wszyscy wykładowcy")
+        self.filter_instructors()
+        employee_layout.addWidget(employee_label)
+        employee_layout.addWidget(self.employee_filter)
+        filters_layout.addLayout(employee_layout)
+
+        # Przyciski "Filtruj" i "Odśwież"
+        buttons_layout = QHBoxLayout()
         self.filter_button = QPushButton("Filtruj")
         self.filter_button.setStyleSheet(self.button_style())
         self.filter_button.clicked.connect(self.apply_filters)
-        sidebar.addWidget(self.filter_button)
+        buttons_layout.addWidget(self.filter_button)
 
         self.refresh_button = QPushButton("Odśwież")
         self.refresh_button.setStyleSheet(self.button_style())
         self.refresh_button.clicked.connect(self.refresh_data)
-        sidebar.addWidget(self.refresh_button)
+        buttons_layout.addWidget(self.refresh_button)
 
-        self.report_button = QPushButton("Generuj raport")
-        self.report_button.setStyleSheet(self.button_style())
-        self.report_button.clicked.connect(self.generate_report)
-        sidebar.addWidget(self.report_button)
-
-        sidebar.addSpacerItem(QSpacerItem(20, 40, QSizePolicy.Minimum, QSizePolicy.Expanding))
-
-        # Główna zawartość
-        main_content = QVBoxLayout()
-        content_layout.addLayout(main_content, 3)
-
-        # Filtry
-        filters_layout = QHBoxLayout()
-        self.year_filter = QComboBox(self)
-        self.populate_years()
-        filters_layout.addWidget(QLabel("Rok akademicki:"))
-        filters_layout.addWidget(self.year_filter)
-
-        self.unit_filter = QComboBox(self)
-        self.unit_filter.addItem("Wszystkie jednostki")
-        self.populate_units()
-        filters_layout.addWidget(QLabel("Jednostka organizacyjna:"))
-        filters_layout.addWidget(self.unit_filter)
-
-        self.employee_filter = QComboBox(self)
-        self.employee_filter.addItem("Wszyscy wykładowcy")
-        self.filter_instructors()
-        filters_layout.addWidget(QLabel("Wykładowca:"))
-        filters_layout.addWidget(self.employee_filter)
-        #self.employee_filter.currentIndexChanged.connect(self.display_instructor_details)
-        main_content.addLayout(filters_layout)
+        filters_layout.addLayout(buttons_layout)
+        main_layout.addLayout(filters_layout)
 
         # Zakładki
         self.tab_widget = QTabWidget()
         self.tab_widget.setStyleSheet(self.tab_style())
-        main_content.addWidget(self.tab_widget)
+        main_layout.addWidget(self.tab_widget)
 
         # Zakładka grup
         self.groups_tab = QWidget()
         self.groups_layout = QVBoxLayout(self.groups_tab)
         self.group_list = QListWidget()
-        self.groups_layout.addWidget(QLabel("Grupy:"))
+        group_label = QLabel("Grupy:")
+        group_label.setStyleSheet("""
+            QLabel {
+                font-family: 'Verdana';
+                font-size: 16px;  /* Zwiększony rozmiar czcionki */
+            }
+        """)
+        self.groups_layout.addWidget(group_label)
         self.groups_layout.addWidget(self.group_list)
         self.tab_widget.addTab(self.groups_tab, "Grupy")
 
@@ -108,13 +146,40 @@ class MainWindow(QMainWindow):
         self.instructors_tab = QWidget()
         self.instructors_layout = QVBoxLayout(self.instructors_tab)
         self.instructor_list = QListWidget()
-        self.instructors_layout.addWidget(QLabel("Wykładowcy:"))
+        instructor_label = QLabel("Wykładowcy:")
+        instructor_label.setStyleSheet("""
+            QLabel {
+                font-family: 'Verdana';
+                font-size: 16px;  /* Zwiększony rozmiar czcionki */
+            }
+        """)
+        self.instructors_layout.addWidget(instructor_label)
         self.instructors_layout.addWidget(self.instructor_list)
         self.instructor_details = QListWidget(self)
-        self.instructors_layout.addWidget(QLabel("Szczegóły wykładowcy:"))
+        details_label = QLabel("Szczegóły wykładowcy:")
+        details_label.setStyleSheet("""
+            QLabel {
+                font-family: 'Verdana';
+                font-size: 16px;  /* Zwiększony rozmiar czcionki */
+            }
+        """)
+        self.instructors_layout.addWidget(details_label)
         self.instructors_layout.addWidget(self.instructor_details)
+        self.instructor_details.setStyleSheet("""
+            QListWidget {
+                font-family: 'Verdana';
+                font-size: 16px;  /* Zwiększony rozmiar czcionki */
+            }
+        """)
         self.tab_widget.addTab(self.instructors_tab, "Wykładowcy")
         self.instructor_list.itemClicked.connect(self.display_employee_workload)
+
+        # Przycisk "Generuj raport" na samym dole
+        self.report_button = QPushButton("Generuj raport")
+        self.report_button.setStyleSheet(self.button_style())
+        self.report_button.clicked.connect(self.generate_report)
+        main_layout.addWidget(self.report_button)
+
         # Status bar
         self.status_label = QLabel("Status: Oczekiwanie na akcję")
         self.status_label.setStyleSheet("background-color: #2c3e50; color: white; padding: 5px;")
@@ -134,6 +199,8 @@ class MainWindow(QMainWindow):
                 border: none;
                 padding: 10px;
                 border-radius: 5px;
+                font-family: 'Verdana';
+                font-size: 14px;  /* Zwiększony rozmiar czcionki */
             }
             QPushButton:hover {
                 background-color: #16a085;
@@ -149,9 +216,13 @@ class MainWindow(QMainWindow):
             QTabBar::tab {
                 background: #ecf0f1;
                 border: 1px solid #bdc3c7;
-                padding: 10px;
+                padding: 10px;  /* Zwiększony padding: góra-dół 10px, lewo-prawo 15px */
+                margin: 15px 15px;  /* Zwiększony padding: góra-dół 25px, lewo-prawo 15px */
                 border-top-left-radius: 5px;
                 border-top-right-radius: 5px;
+                font-family: 'Verdana';
+                font-size: 15px;  /* Zwiększony rozmiar czcionki */
+                min-width: 150px;  /* Minimalna szerokość zakładki */
             }
             QTabBar::tab:selected {
                 background: #1abc9c;
@@ -307,6 +378,12 @@ class MainWindow(QMainWindow):
     def populate_groups(self):
         """Populate the group list based on the selected academic year and unit."""
         self.group_list.clear()
+        self.group_list.setStyleSheet("""
+            QListWidget {
+                font-family: 'Verdana';
+                font-size: 16px;
+            }
+        """)
         selected_unit = self.unit_filter.currentData()
         print(selected_unit)
         selected_year = self.year_filter.currentText()
@@ -337,6 +414,12 @@ class MainWindow(QMainWindow):
     def populate_employees(self):
         """Populate the employee list and display workload data for each employee."""
         self.instructor_list.clear()
+        self.instructor_list.setStyleSheet("""
+            QListWidget {
+                font-family: 'Verdana';
+                font-size: 16px;  /* Zwiększony rozmiar czcionki */
+            }
+        """)
         selected_unit = self.unit_filter.currentData()
         print(selected_unit)
         selected_year = self.year_filter.currentText()
@@ -379,8 +462,14 @@ class MainWindow(QMainWindow):
     
     def display_employee_workload(self, item):
         """Display workload data for the selected employee."""
-        self.instructor_details.clear()  # Wyczyść szczegóły
-        selected_employee_id = item.data(1)  # Pobierz ID wykładowcy
+        self.instructor_details.clear()
+        self.instructor_details.setStyleSheet("""
+            QListWidget {
+                font-family: 'Verdana';
+                font-size: 16px;  /* Zwiększony rozmiar czcionki */
+            }
+        """)
+        selected_employee_id = item.data(1)
         selected_year = self.year_filter.currentText()
         selected_unit = self.unit_filter.currentData()
 
@@ -398,7 +487,7 @@ class MainWindow(QMainWindow):
 
             # Wyświetl szczegóły
             self.instructor_details.addItem(f"Pensum: {workload_data['pensum']}")
-            self.instructor_details.addItem(f"Zniżka: {workload_data['zniżka']}")
+            self.instructor_details.addItem(f"Zniżka: {workload_data['zniżka']} Rodzaj: {workload_data['typ_zniżki']}")
             self.instructor_details.addItem(f"Godziny dydaktyczne Z: {workload_data['godziny_dydaktyczne_z']}")
             self.instructor_details.addItem(f"Godziny dydaktyczne L: {workload_data['godziny_dydaktyczne_l']}")
             self.instructor_details.addItem(f"Nadgodziny: {workload_data['nadgodziny']}")

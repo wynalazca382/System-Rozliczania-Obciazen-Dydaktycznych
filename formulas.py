@@ -70,6 +70,7 @@ def calculate_workload_for_employee(employee_id, selected_year, selected_unit):
         zniżka = db.query(Discount).join(DiscountType, Discount.RODZ_ZNIZ_ID==DiscountType.ID).filter(Discount.PRAC_ID == employee_id).filter(DiscountType.CZY_AKTUALNE=='T').first()
         if zniżka:
             pensum -= zniżka.ZNIZKA
+            typ_zniżki = zniżka.discount_type.NAZWA
         stawka = STAWKI_NADGODZIN.get("stanowisko", 0)  # Przykładowe stanowisko
         nadgodziny = total_workload - pensum if total_workload > pensum else 0
         kwota_nadgodzin = nadgodziny * stawka
@@ -84,6 +85,7 @@ def calculate_workload_for_employee(employee_id, selected_year, selected_unit):
             "stawka": stawka,
             "kwota_nadgodzin": kwota_nadgodzin,
             "zniżka": zniżka.ZNIZKA if zniżka else 0,
+            "typ_zniżki": typ_zniżki if zniżka else "Brak zniżki",
         }
     finally:
         db.close()
