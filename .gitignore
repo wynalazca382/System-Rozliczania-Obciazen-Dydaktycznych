@@ -1,6 +1,10 @@
 .env
-build
 dist
 .venv
 venv
 __pycache__
+app
+build
+instalator
+instalator/SRPSetup.exe
+*.exe

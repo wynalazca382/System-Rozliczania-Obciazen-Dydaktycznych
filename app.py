@@ -22,7 +22,7 @@ class MainWindow(QMainWindow):
         self.user_right = user_right
         self.setWindowTitle("System Rozliczania Obciążeń Dydaktycznych")
         self.setGeometry(100, 100, 1000, 700)
-
+        self.showMaximized()
         # Główne okno
         main_widget = QWidget()
         main_layout = QVBoxLayout(main_widget)
@@ -357,13 +357,12 @@ class MainWindow(QMainWindow):
             workload_data = calculate_workload_for_employee(selected_employee, selected_year, selected_unit)
 
             # Wyświetl szczegóły
-            self.instructor_details.addItem(f"Wykładowca: {workload_data['imie_nazwisko']}")
-            self.instructor_details.addItem(f"Jednostka: {workload_data['jednostka']}")
             self.instructor_details.addItem(f"Pensum: {workload_data['pensum']}")
             self.instructor_details.addItem(f"Zniżka: {workload_data['zniżka']}")
             self.instructor_details.addItem(f"Godziny dydaktyczne Z: {workload_data['godziny_dydaktyczne_z']}")
             self.instructor_details.addItem(f"Godziny dydaktyczne L: {workload_data['godziny_dydaktyczne_l']}")
-            self.instructor_details.addItem(f"Nadgodziny: {workload_data['nadgodziny']}")
+            self.instructor_details.addItem(f"Nadgodziny/Niedobór: {workload_data['nadgodziny']}")
+            self.instructor_details.addItem(f"Czy podstawowe miejsce pracy w rozumieniu ustawy: {workload_data['CZY_PODSTAWOWE']}")
 
             self.instructor_details.addItem("Przedmioty:")
             for group in group_data:

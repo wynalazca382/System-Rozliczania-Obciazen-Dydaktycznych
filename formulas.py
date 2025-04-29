@@ -52,7 +52,7 @@ def calculate_workload_for_employee(employee_id, selected_year, selected_unit):
         stawka = 0.0
         kwota_nadgodzin = 0.0
         zniżka = 0.0
-
+        typ_zniżki = "Brak zniżki"
         # Przetwarzanie wyników
         for group_instructor, group, didactic_class, subject, didactic_cycle, class_type in results:
             godziny = didactic_class.LICZBA_GODZ or 0
@@ -72,9 +72,9 @@ def calculate_workload_for_employee(employee_id, selected_year, selected_unit):
             pensum -= zniżka.ZNIZKA
             typ_zniżki = zniżka.discount_type.NAZWA
         stawka = STAWKI_NADGODZIN.get("stanowisko", 0)  # Przykładowe stanowisko
-        nadgodziny = total_workload - pensum if total_workload > pensum else 0
+        nadgodziny = total_workload - pensum
         kwota_nadgodzin = nadgodziny * stawka
-
+        CZY_PODSTAWOWE = db.query(Employment).filter_by(PRAC_ID=employee_id).first()
         return {
             "total_workload": total_workload,
             "godziny_dydaktyczne_z": godziny_dydaktyczne_z,
@@ -86,6 +86,7 @@ def calculate_workload_for_employee(employee_id, selected_year, selected_unit):
             "kwota_nadgodzin": kwota_nadgodzin,
             "zniżka": zniżka.ZNIZKA if zniżka else 0,
             "typ_zniżki": typ_zniżki if zniżka else "Brak zniżki",
+            "CZY_PODSTAWOWE": CZY_PODSTAWOWE.CZY_PODSTAWOWE if CZY_PODSTAWOWE else "Brak danych"
         }
     finally:
         db.close()
