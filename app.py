@@ -647,14 +647,43 @@ class MainWindow(QMainWindow):
             
             # Create DataFrame for the second sheet
             df2 = pd.DataFrame(data2)
-            
+            summary_data = []
+            group_data = get_group_data(selected_year, selected_unit, selected_employee)
+            specialty_hours = {}
+
+            for group in group_data:
+                specialty = group.get("Kierunek i specjalność", "Nieznana specjalność")
+                hours = group.get("Liczba godzin", 0)
+                semester = group.get("Semestr", "Nieznany semestr")
+
+                if specialty not in specialty_hours:
+                    specialty_hours[specialty] = {"Zimowy": 0, "Letni": 0, "Suma": 0}
+
+                if "zimowy" in semester.lower():
+                    specialty_hours[specialty]["Zimowy"] += hours
+                elif "letni" in semester.lower():
+                    specialty_hours[specialty]["Letni"] += hours
+
+                specialty_hours[specialty]["Suma"] += hours
+
+            for specialty, hours in specialty_hours.items():
+                summary_data.append({
+                    "Specjalność": specialty,
+                    "Semestr zimowy": hours["Zimowy"],
+                    "Semestr letni": hours["Letni"],
+                    "Suma": hours["Suma"]
+                })
+
+            # Create DataFrame for the third sheet
+            df3 = pd.DataFrame(summary_data)
             # Save to an Excel file with two sheets
             file_path, _ = QFileDialog.getSaveFileName(self, "Save File", "", "Excel Files (*.xlsx)")
             if file_path:
                 with pd.ExcelWriter(file_path, engine='openpyxl') as writer:
                     # Write the first sheet
-                    df1.to_excel(writer, sheet_name='Raport 1', index=False)
-                    df2.to_excel(writer, sheet_name='Raport 2', index=False)
+                    df1.to_excel(writer, sheet_name='Wykładowcy', index=False)
+                    df2.to_excel(writer, sheet_name='Grupy', index=False)
+                    df3.to_excel(writer, sheet_name='Podsumowanie', index=False)
                 
                 # Apply formatting
                 self.format_excel(file_path)
