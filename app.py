@@ -173,7 +173,19 @@ class MainWindow(QMainWindow):
         """)
         self.tab_widget.addTab(self.instructors_tab, "Wykładowcy")
         self.instructor_list.itemClicked.connect(self.display_employee_workload)
-
+        self.summary_tab = QWidget()
+        self.summary_layout = QVBoxLayout(self.summary_tab)
+        self.summary_list = QListWidget()
+        summary_label = QLabel("Podsumowanie godzin według specjalności:")
+        summary_label.setStyleSheet("""
+            QLabel {
+                font-family: 'Verdana';
+                font-size: 16px;
+            }
+        """)
+        self.summary_layout.addWidget(summary_label)
+        self.summary_layout.addWidget(self.summary_list)
+        self.tab_widget.addTab(self.summary_tab, "Zestawienie")
         # Przycisk "Generuj raport" na samym dole
         self.report_button = QPushButton("Generuj raport")
         self.report_button.setStyleSheet(self.button_style())
@@ -186,10 +198,10 @@ class MainWindow(QMainWindow):
         main_layout.addWidget(self.status_label)
 
         self.setCentralWidget(main_widget)
-
         # Populate initial data
         self.populate_groups()
         self.populate_employees()
+        self.populate_summary()
 
     def button_style(self):
         return """
@@ -233,6 +245,7 @@ class MainWindow(QMainWindow):
         """Refresh data in both tabs without changing filters."""
         self.populate_groups()
         self.populate_employees()
+        self.populate_summary()
         self.status_label.setText("Status: Dane zostały odświeżone.")
     def on_tab_changed(self, index):
         """Handle tab change events."""
@@ -295,6 +308,7 @@ class MainWindow(QMainWindow):
         self.populate_groups()
         self.filter_instructors() 
         self.populate_employees()
+        self.populate_summary()
         self.status_label.setText("Status: Filtry zostały zastosowane.")
 
     def filter_instructors(self):
@@ -411,7 +425,7 @@ class MainWindow(QMainWindow):
         try:
             # Pobierz dane grup z get_group_data
             group_data = get_group_data(selected_year, selected_unit, selected_employee)
-
+            group_data.sort(key=lambda group: group.get("Rok", "Nieznany rok"))
             # Wyświetl dane grup w group_list
             for group in group_data:
                 item_text = " | ".join([f"{key}: {value}" for key, value in group.items()])
@@ -471,7 +485,53 @@ class MainWindow(QMainWindow):
             self.instructor_list.addItem("Błąd podczas ładowania wykładowców.")
         finally:
             db.close()
-    
+    def populate_summary(self):
+        """Populate the summary tab with total hours per specialty, split by semester."""
+        self.summary_list.clear()
+        self.summary_list.setStyleSheet("""
+            QListWidget {
+                font-family: 'Verdana';
+                font-size: 16px;
+            }
+        """)
+        selected_unit = self.unit_filter.currentData()
+        selected_year = self.year_filter.currentText()
+        selected_employee = self.employee_filter.currentData()
+
+        try:
+            # Pobierz dane grup z get_group_data
+            group_data = get_group_data(selected_year, selected_unit, selected_employee)
+
+            # Słownik do przechowywania sum godzin według specjalności i semestru
+            specialty_hours = {}
+
+            for group in group_data:
+                specialty = group.get("Kierunek i specjalność", "Nieznana specjalność")
+                hours = group.get("Liczba godzin", 0)
+                semester = group.get("Semestr", "Nieznany semestr")
+
+                if specialty not in specialty_hours:
+                    specialty_hours[specialty] = {"Zimowy": 0, "Letni": 0, "Suma": 0}
+
+                if "zimowy" in semester.lower():
+                    specialty_hours[specialty]["Zimowy"] += hours
+                elif "letni" in semester.lower():
+                    specialty_hours[specialty]["Letni"] += hours
+
+                specialty_hours[specialty]["Suma"] += hours
+
+            # Wyświetl podsumowanie w summary_list
+            for specialty, hours in specialty_hours.items():
+                self.summary_list.addItem(f"Specjalność: {specialty}")
+                self.summary_list.addItem(f"  - Semestr zimowy: {hours['Zimowy']} godzin")
+                self.summary_list.addItem(f"  - Semestr letni: {hours['Letni']} godzin")
+                self.summary_list.addItem(f"  - Suma: {hours['Suma']} godzin")
+
+            if not specialty_hours:  # Jeśli brak wyników
+                self.summary_list.addItem("Brak danych do wyświetlenia.")
+        except Exception as e:
+            self.summary_list.addItem(f"Błąd: {str(e)}")
+            print(f"Error: {str(e)}")
     def display_employee_workload(self, item):
         """Display workload data for the selected employee."""
         self.instructor_details.clear()
