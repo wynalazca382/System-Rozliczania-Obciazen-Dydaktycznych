@@ -51,8 +51,6 @@ def calculate_workload_for_employee(employee_id, selected_year, selected_unit):
         nadgodziny = 0.0
         stawka = 0.0
         kwota_nadgodzin = 0.0
-        zniżka = 0.0
-        typ_zniżki = "Brak zniżki"
         # Przetwarzanie wyników
         for group_instructor, group, didactic_class, subject, didactic_cycle, class_type in results:
             godziny = didactic_class.LICZBA_GODZ or 0
@@ -67,10 +65,29 @@ def calculate_workload_for_employee(employee_id, selected_year, selected_unit):
         pensum_employee = db.query(EmployeePensum).filter_by(PRAC_ID=employee_id).first()
         if pensum_employee:
             pensum = pensum_employee.PENSUM
-        zniżka = db.query(Discount).join(DiscountType, Discount.RODZ_ZNIZ_ID==DiscountType.ID).filter(Discount.PRAC_ID == employee_id).filter(DiscountType.CZY_AKTUALNE=='T').first()
-        if zniżka:
-            pensum -= zniżka.ZNIZKA
-            typ_zniżki = zniżka.discount_type.NAZWA
+        # Pobierz wszystkie zniżki dla pracownika
+        znizki = (
+            db.query(Discount)
+            .join(DiscountType, Discount.RODZ_ZNIZ_ID == DiscountType.ID)
+            .filter(Discount.PRAC_ID == employee_id)
+            .filter(DiscountType.CZY_AKTUALNE == 'T')
+            .all()
+        )
+
+        # Inicjalizacja zmiennych dla zniżek
+        laczna_znizka = 0
+        typy_znizek = []
+        godziny_znizek = []
+
+        # Przetwarzanie wszystkich zniżek
+        for znizka in znizki:
+            laczna_znizka += znizka.ZNIZKA
+            typy_znizek.append(znizka.discount_type.NAZWA)
+            godziny_znizek.append(znizka.ZNIZKA)
+
+        # Aktualizacja pensum
+        if laczna_znizka > 0:
+            pensum -= laczna_znizka
         stawka = STAWKI_NADGODZIN.get("stanowisko", 0)  # Przykładowe stanowisko
         nadgodziny = total_workload - pensum
         kwota_nadgodzin = nadgodziny * stawka
@@ -84,8 +101,9 @@ def calculate_workload_for_employee(employee_id, selected_year, selected_unit):
             "nadgodziny": nadgodziny,
             "stawka": stawka,
             "kwota_nadgodzin": kwota_nadgodzin,
-            "zniżka": zniżka.ZNIZKA if zniżka else 0,
-            "typ_zniżki": typ_zniżki if zniżka else "Brak zniżki",
+            "zniżka": laczna_znizka,
+            "godziny_znizek": godziny_znizek if godziny_znizek else ["Brak zniżek"],
+            "typy_znizek": typy_znizek if typy_znizek else ["Brak zniżek"],
             "CZY_PODSTAWOWE": CZY_PODSTAWOWE.CZY_PODSTAWOWE if CZY_PODSTAWOWE else "Brak danych"
         }
     finally:
@@ -124,7 +142,12 @@ def get_group_data(selected_year=None, selected_unit=None, selected_employee=Non
 
         results = query.all()
         data = []
-
+        institute_mapping = {
+            "1": "IIS",
+            "2": "IE",
+            "3": "IP",
+            "4": "IPJ"
+        }
         # Przetwarzanie wyników
         for group_instructor, group, didactic_class, subject, didactic_cycle, class_type, organizational_unit, person in results:
             if person is None:
@@ -132,16 +155,55 @@ def get_group_data(selected_year=None, selected_unit=None, selected_employee=Non
             else:
                 print(f"Prowadzący: {person.IMIE} {person.NAZWISKO}")
             godziny = didactic_class.LICZBA_GODZ or 0
+            subject_code = subject.KOD if subject else "N/A"
+            parsed_code = parse_subject_code(subject_code)
+            if parsed_code and "Kod instytutu" in parsed_code:
+                institute_code = parsed_code.pop("Kod instytutu")
+                parsed_code["Instytut"] = institute_mapping.get(institute_code, "Nieznany instytut")
             group_data = {
                 "Przedmiot": subject.NAZWA,
                 "Typ zajęć": class_type.OPIS,
                 "Liczba godzin": godziny,
                 "Semestr": didactic_cycle.OPIS,
-                "Jednostka": organizational_unit.OPIS if organizational_unit else "N/A",
                 "Prowadzący": f"{person.IMIE} {person.NAZWISKO}" if person else "Nieznany prowadzący"
             }
+            if parsed_code:
+                group_data = {**parsed_code, **group_data}
             data.append(group_data)
 
         return data
     finally:
         db.close()
+
+def parse_subject_code(subject_code):
+    try:
+        # Podziel kod przedmiotu na części
+        parts = subject_code.split("-")
+        if len(parts) < 3:
+            raise ValueError("Nieprawidłowy format kodu przedmiotu.")
+
+        # Wyciągnij informacje
+        institute_code = parts[0]
+        kierunek_specjalnosc = parts[1]
+        tryb_stopien_rok_semestr = parts[2]
+        if len(tryb_stopien_rok_semestr) != 4:
+            raise ValueError("Nieprawidłowy format sekcji trybu, stopnia, roku i semestru.")
+
+        tryb = "Stacjonarne" if tryb_stopien_rok_semestr[0] == "N" else "Niestacjonarne"
+        stopien = "I stopień" if tryb_stopien_rok_semestr[1] == "1" else "II stopień"
+        rok = f"{tryb_stopien_rok_semestr[2]} rok"
+        semestr = f"{tryb_stopien_rok_semestr[3]} semestr"
+
+        # Zwróć wyniki w formie słownika
+        return {
+            "Kod instytutu": institute_code,
+            "Kierunek i specjalność": kierunek_specjalnosc,
+            "Tryb": tryb,
+            "Stopień": stopien,
+            "Rok": rok,
+            "Semestr": semestr
+        }
+
+    except Exception as e:
+        print(f"Błąd podczas parsowania kodu przedmiotu: {e}")
+        return None

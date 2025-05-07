@@ -356,19 +356,37 @@ class MainWindow(QMainWindow):
             # Pobierz pensum i zniżki
             workload_data = calculate_workload_for_employee(selected_employee, selected_year, selected_unit)
 
-            # Wyświetl szczegóły
+            # Wyświetl szczegóły obciążenia dydaktycznego
             self.instructor_details.addItem(f"Pensum: {workload_data['pensum']}")
-            self.instructor_details.addItem(f"Zniżka: {workload_data['zniżka']}")
+            self.instructor_details.addItem(f"Łączna zniżka: {workload_data['zniżka']} godzin")
             self.instructor_details.addItem(f"Godziny dydaktyczne Z: {workload_data['godziny_dydaktyczne_z']}")
             self.instructor_details.addItem(f"Godziny dydaktyczne L: {workload_data['godziny_dydaktyczne_l']}")
             self.instructor_details.addItem(f"Nadgodziny/Niedobór: {workload_data['nadgodziny']}")
             self.instructor_details.addItem(f"Czy podstawowe miejsce pracy w rozumieniu ustawy: {workload_data['CZY_PODSTAWOWE']}")
 
+            # Wyświetl szczegóły zniżek
+            self.instructor_details.addItem("Zniżki:")
+            if workload_data.get("typy_znizek"):
+                for znizka, godziny in zip(workload_data["typy_znizek"], workload_data.get("godziny_znizek", [])):
+                    self.instructor_details.addItem(f"  - Typ: {znizka}, Liczba godzin: {godziny}")
+            else:
+                self.instructor_details.addItem("  Brak zniżek")
+
+            # Wyświetl szczegóły przedmiotów
             self.instructor_details.addItem("Przedmioty:")
             for group in group_data:
-                self.instructor_details.addItem(
-                    f"  - {group['Przedmiot']} ({group['Typ zajęć']}): {group['Liczba godzin']} godz. w {group['Semestr']} semestrze"
-                )
+                # Wyświetl szczegóły z `group_data`, w tym dane z `parse_subject_code`
+                self.instructor_details.addItem(f"  - Przedmiot: {group['Przedmiot']}")
+                self.instructor_details.addItem(f"    Typ zajęć: {group['Typ zajęć']}")
+                self.instructor_details.addItem(f"    Liczba godzin: {group['Liczba godzin']}")
+                self.instructor_details.addItem(f"    Semestr: {group['Semestr']}")
+                self.instructor_details.addItem(f"    Instytut: {group['Instytut']}")
+                self.instructor_details.addItem(f"    Kierunek i specjalność: {group['Kierunek i specjalność']}")
+                self.instructor_details.addItem(f"    Tryb: {group['Tryb']}")
+                self.instructor_details.addItem(f"    Stopień: {group['Stopień']}")
+                self.instructor_details.addItem(f"    Rok: {group['Rok']}")
+                self.instructor_details.addItem(f"    Semestr: {group['Semestr']}")
+
         except Exception as e:
             self.instructor_details.addItem(f"Błąd: {str(e)}")
             print(f"Error: {str(e)}")
@@ -396,12 +414,7 @@ class MainWindow(QMainWindow):
 
             # Wyświetl dane grup w group_list
             for group in group_data:
-                item_text = (
-                    f"{group['Prowadzący']} | "
-                    f"Przedmiot: {group['Przedmiot']}, Typ zajęć: {group['Typ zajęć']}, "
-                    f"Liczba godzin: {group['Liczba godzin']}, Semestr: {group['Semestr']}, "
-                    f"Jednostka: {group['Jednostka']}"
-                )
+                item_text = " | ".join([f"{key}: {value}" for key, value in group.items()])
                 self.group_list.addItem(item_text)
 
             if not group_data:  # Jeśli brak wyników
@@ -445,7 +458,7 @@ class MainWindow(QMainWindow):
                         f"Pensum: {workload_data['pensum']} | "
                         f"Godziny Z: {workload_data['godziny_dydaktyczne_z']} | "
                         f"Godziny L: {workload_data['godziny_dydaktyczne_l']} | "
-                        f"Nadgodziny: {workload_data['nadgodziny']}"
+                        f"Nadgodziny/Niedobór: {workload_data['nadgodziny']}"
                     )
                     item = QListWidgetItem(item_text)
                     item.setData(1, employee.ID)  # Przechowuj ID wykładowcy w elemencie listy
@@ -465,7 +478,7 @@ class MainWindow(QMainWindow):
         self.instructor_details.setStyleSheet("""
             QListWidget {
                 font-family: 'Verdana';
-                font-size: 16px;  /* Zwiększony rozmiar czcionki */
+                font-size: 16px;
             }
         """)
         selected_employee_id = item.data(1)
@@ -478,19 +491,26 @@ class MainWindow(QMainWindow):
 
         db = SessionLocal()
         try:
-            # Pobierz dane grup dla wybranego wykładowcy
             group_data = get_group_data(selected_year, selected_unit, selected_employee_id)
 
-            # Pobierz pensum i zniżki
             workload_data = calculate_workload_for_employee(selected_employee_id, selected_year, selected_unit)
 
-            # Wyświetl szczegóły
+            # Wyświetl szczegóły obciążenia dydaktycznego
             self.instructor_details.addItem(f"Pensum: {workload_data['pensum']}")
-            self.instructor_details.addItem(f"Zniżka: {workload_data['zniżka']} Rodzaj: {workload_data['typ_zniżki']}")
             self.instructor_details.addItem(f"Godziny dydaktyczne Z: {workload_data['godziny_dydaktyczne_z']}")
             self.instructor_details.addItem(f"Godziny dydaktyczne L: {workload_data['godziny_dydaktyczne_l']}")
-            self.instructor_details.addItem(f"Nadgodziny: {workload_data['nadgodziny']}")
+            self.instructor_details.addItem(f"Nadgodziny/Niedobór: {workload_data['nadgodziny']}")
+            self.instructor_details.addItem(f"Łączna zniżka: {workload_data['zniżka']} godzin")
 
+            # Wyświetl szczegóły zniżek
+            self.instructor_details.addItem("Zniżki:")
+            if workload_data.get("typy_znizek"):
+                for znizka, godziny in zip(workload_data["typy_znizek"], workload_data.get("godziny_znizek", [])):
+                    self.instructor_details.addItem(f"  - Typ: {znizka}, Liczba godzin: {godziny}")
+            else:
+                self.instructor_details.addItem("  Brak zniżek")
+
+            # Wyświetl szczegóły przedmiotów
             self.instructor_details.addItem("Przedmioty:")
             for group in group_data:
                 self.instructor_details.addItem(
