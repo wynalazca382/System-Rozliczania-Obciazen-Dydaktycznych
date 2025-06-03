@@ -1,4 +1,4 @@
-from models import Employee, GroupInstructor, ThesisSupervisors, Reviewer, IndividualRates, OrganizationalUnits, CommitteeFunctionPensum, DidacticCycles, Group, Person, Position, Employment, EmployeePensum, Discount, Position, DidacticCycleClasses , Subject, ClassType, DiscountType
+from models import Employee, GroupInstructor, ThesisSupervisors, Reviewer, IndividualRates, OrganizationalUnits, CommitteeFunctionPensum, DidacticCycles, Group, Person, Position, Employment, EmployeePensum, Discount, Position, DidacticCycleClasses , Subject, ClassType, DiscountType, StanowiskaZatrPensum
 from sqlalchemy import and_
 from database import SessionLocal
 
@@ -62,9 +62,15 @@ def calculate_workload_for_employee(employee_id, selected_year, selected_unit):
             elif "Semestr letni" in didactic_cycle.OPIS:
                 godziny_dydaktyczne_l += godziny
 
-        pensum_employee = db.query(EmployeePensum).filter_by(PRAC_ID=employee_id).first()
+        pensum_employee = (
+    db.query(Position)
+    .select_from(Employment)
+    .join(Position, Employment.STAN_ID == Position.ID)
+    .filter(Employment.PRAC_ID == employee_id)
+    .first()
+)
         if pensum_employee:
-            pensum = pensum_employee.PENSUM
+            pensum = pensum_employee.PENSUM_UCZELNIANE
         # Pobierz wszystkie zniżki dla pracownika
         znizki = (
             db.query(Discount)

@@ -614,7 +614,7 @@ class MainWindow(QMainWindow):
                 person = db.query(Person).filter_by(ID=person.ID).first()
                 organizational_unit = db.query(OrganizationalUnits).filter_by(KOD=person.JED_ORG_KOD).first()
                 workload_data = calculate_workload_for_employee(employee.ID, selected_year, selected_unit)
-                tytul = db.query(Title).filter_by(ID=person.TYTUL_PO).first()
+                tytul = db.query(Title).filter_by(ID=person.TYTUL_PRZED).first()
                 
                 # Append data for the report
                 data.append({
