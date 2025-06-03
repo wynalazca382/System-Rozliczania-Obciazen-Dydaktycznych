@@ -7,22 +7,19 @@ OutputDir=instalator
 OutputBaseFilename=SRPSetup
 Compression=lzma
 SolidCompression=yes
+SetupIconFile=app\icon.ico
 
 [Files]
 Source: "dist\app.exe"; DestDir: "{app}"; Flags: ignoreversion
 Source: ".env"; DestDir: "{app}"; Flags: ignoreversion
 Source: "requirements.txt"; DestDir: "{app}"; Flags: ignoreversion
+Source: "dist\start.bat"; DestDir: "{app}"; Flags: ignoreversion
 Source: "app\instantclient_23_7\*"; DestDir: "{app}\instantclient_23_7"; Flags: recursesubdirs
+Source: "app\icon.ico"; DestDir: "{app}";
 
 [Icons]
-Name: "{group}\SRPANS"; Filename: "{app}\app.exe"
-Name: "{commondesktop}\SRPANS"; Filename: "{app}\app.exe"; Tasks: desktopicon
+Name: "{group}\SRPANS"; Filename: "{app}\start.bat"
+Name: "{commondesktop}\SRPANS"; Filename: "{app}\start.bat"; Tasks: desktopicon
 
 [Tasks]
 Name: "desktopicon"; Description: "Utwórz ikonę na pulpicie"; GroupDescription: "Dodatkowe skróty:"
-
-[Run]
-Filename: "{cmd}"; Parameters: "/C setx PATH ""{app}\instantclient_19_11;%PATH%"""; Flags: runhidden
-
-[Registry] 
-Root: HKCU; Subkey: "Environment"; ValueType: string; ValueName: "PATH"; ValueData: "{app}\instantclient_19_11;%PATH%";

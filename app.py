@@ -605,7 +605,9 @@ class MainWindow(QMainWindow):
             
             if selected_unit:
                 query = query.filter(GroupInstructor.JEDN_KOD == selected_unit)
-            
+            if selected_employee:
+                query = query.filter(Employee.ID == selected_employee)
+
             employees = query.all()
             lp = 1
             data = []
@@ -614,7 +616,7 @@ class MainWindow(QMainWindow):
                 person = db.query(Person).filter_by(ID=person.ID).first()
                 organizational_unit = db.query(OrganizationalUnits).filter_by(KOD=person.JED_ORG_KOD).first()
                 workload_data = calculate_workload_for_employee(employee.ID, selected_year, selected_unit)
-                tytul = db.query(Title).filter_by(ID=person.TYTUL_PO).first()
+                tytul = db.query(Title).filter_by(ID=person.TYTUL_PRZED).first()
                 
                 # Append data for the report
                 data.append({
@@ -696,8 +698,9 @@ class MainWindow(QMainWindow):
             db.close()
 
     def format_excel(self, file_path):
-        """Apply formatting to the Excel file and adjust column widths."""
+        """Apply formatting to the Excel file, adjust column widths, and add Excel tables with filtering."""
         from openpyxl import load_workbook
+        from openpyxl.worksheet.table import Table, TableStyleInfo
 
         wb = load_workbook(file_path)
         thin_border = Border(left=Side(style='thin'), right=Side(style='thin'), top=Side(style='thin'), bottom=Side(style='thin'))
@@ -720,15 +723,27 @@ class MainWindow(QMainWindow):
             # Adjust column widths
             for column in sheet.columns:
                 max_length = 0
-                column_letter = column[0].column_letter  # Get the column letter (e.g., 'A', 'B', etc.)
+                column_letter = column[0].column_letter
                 for cell in column:
                     try:
-                        if cell.value:  # Check if the cell has a value
+                        if cell.value:
                             max_length = max(max_length, len(str(cell.value)))
                     except:
                         pass
-                adjusted_width = max_length + 2  # Add some padding
+                adjusted_width = max_length + 2
                 sheet.column_dimensions[column_letter].width = adjusted_width
+
+            # Dodaj tabelę Excela z filtrowaniem
+            if sheet.max_row > 1 and sheet.max_column > 0:
+                table_ref = f"A1:{sheet.cell(row=sheet.max_row, column=sheet.max_column).coordinate}"
+                table = Table(displayName=f"Table_{sheet.title.replace(' ', '_')}", ref=table_ref)
+                style = TableStyleInfo(name="TableStyleMedium9", showFirstColumn=False,
+                                    showLastColumn=False, showRowStripes=True, showColumnStripes=False)
+                table.tableStyleInfo = style
+                # Usuń istniejące tabele o tej samej nazwie (jeśli są)
+                if table.displayName in sheet.tables:
+                    del sheet.tables[table.displayName]
+                sheet.add_table(table)
 
         wb.save(file_path)
 

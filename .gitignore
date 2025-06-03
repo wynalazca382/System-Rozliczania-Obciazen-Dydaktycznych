@@ -8,3 +8,6 @@ build
 instalator
 instalator/SRPSetup.exe
 *.exe
+/instalator
+instalator/SRPSetup.exe
+*.exe
