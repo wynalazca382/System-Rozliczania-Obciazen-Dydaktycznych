@@ -51,6 +51,7 @@ def calculate_workload_for_employee(employee_id, selected_year, selected_unit):
         nadgodziny = 0.0
         stawka = 0.0
         kwota_nadgodzin = 0.0
+        CZY_PODSTAWOWE = None
         # Przetwarzanie wyników
         for group_instructor, group, didactic_class, subject, didactic_cycle, class_type in results:
             godziny = didactic_class.LICZBA_GODZ or 0
@@ -61,16 +62,30 @@ def calculate_workload_for_employee(employee_id, selected_year, selected_unit):
                 godziny_dydaktyczne_z += godziny
             elif "Semestr letni" in didactic_cycle.OPIS:
                 godziny_dydaktyczne_l += godziny
+        pensum_employee = db.query(EmployeePensum).filter_by(PRAC_ID=employee_id).first()
+        #if pensum_employee:
+            #print(f"Pobrano pensum dla pracownika {employee_id}: {pensum_employee.PENSUM}")
+            #pensum = pensum_employee.PENSUM
+        #else:
+            # Dodaj pobieranie zakresu dat roku akademickiego
+        start_date, end_date = get_academic_year_dates(selected_year)
+        employment_qs = (
+                db.query(Employment, Position)
+                .join(Position, Employment.STAN_ID == Position.ID)
+                .filter(Employment.PRAC_ID == employee_id)
+                .filter(Employment.UMOWA_POCZ <= end_date)
+                .filter((Employment.UMOWA_KON == None) | (Employment.UMOWA_KON == '') | (Employment.UMOWA_KON >= start_date))
+                .order_by(Employment.UMOWA_POCZ.desc())
+                .all()
+            )
 
-        pensum_employee = (
-    db.query(Position)
-    .select_from(Employment)
-    .join(Position, Employment.STAN_ID == Position.ID)
-    .filter(Employment.PRAC_ID == employee_id)
-    .first()
-)
-        if pensum_employee:
-            pensum = pensum_employee.PENSUM_UCZELNIANE
+        if employment_qs:
+            employment, position = employment_qs[0]
+            print(employee_id, employment.PRAC_ID)
+            print(f"Wybrane pensum: {position.PENSUM_UCZELNIANE} dla umowy od {employment.UMOWA_POCZ} do {employment.UMOWA_KON}")
+            pensum = position.PENSUM_UCZELNIANE
+            CZY_PODSTAWOWE = employment.CZY_PODSTAWOWE
+            etat = employment.ETAT
         # Pobierz wszystkie zniżki dla pracownika
         znizki = (
             db.query(Discount)
@@ -99,7 +114,7 @@ def calculate_workload_for_employee(employee_id, selected_year, selected_unit):
         stawka = STAWKI_NADGODZIN.get("stanowisko", 0)  # Przykładowe stanowisko
         nadgodziny = total_workload - pensum
         kwota_nadgodzin = nadgodziny * stawka
-        CZY_PODSTAWOWE = db.query(Employment).filter_by(PRAC_ID=employee_id).first()
+        print(f"Total workload: {total_workload}, Pensum: {pensum}, Nadgodziny: {nadgodziny}, Kwota nadgodzin: {kwota_nadgodzin}")
         return {
             "total_workload": total_workload,
             "godziny_dydaktyczne_z": godziny_dydaktyczne_z,
@@ -112,7 +127,7 @@ def calculate_workload_for_employee(employee_id, selected_year, selected_unit):
             "zniżka": laczna_znizka,
             "godziny_znizek": godziny_znizek if godziny_znizek else ["Brak zniżek"],
             "typy_znizek": typy_znizek if typy_znizek else ["Brak zniżek"],
-            "CZY_PODSTAWOWE": CZY_PODSTAWOWE.CZY_PODSTAWOWE if CZY_PODSTAWOWE else "Brak danych"
+            "CZY_PODSTAWOWE": CZY_PODSTAWOWE if CZY_PODSTAWOWE else "Brak danych"
         }
     finally:
         db.close()
@@ -215,3 +230,16 @@ def parse_subject_code(subject_code):
     except Exception as e:
         print(f"Błąd podczas parsowania kodu przedmiotu: {e}")
         return None
+
+from datetime import date
+
+def get_academic_year_dates(selected_year):
+    try:
+        start_year = int(selected_year.split("/")[0])
+        end_year = start_year + 1
+        start_date = date(start_year, 10, 1)
+        end_date = date(end_year, 9, 30)
+        return start_date, end_date
+    except Exception as e:
+        print(f"Błąd parsowania roku akademickiego: {e}")
+        return None, None
