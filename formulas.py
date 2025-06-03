@@ -1,4 +1,4 @@
-from models import Employee, GroupInstructor, ThesisSupervisors, Reviewer, IndividualRates, OrganizationalUnits, CommitteeFunctionPensum, DidacticCycles, Group, Person, Position, Employment, EmployeePensum, Discount, Position, DidacticCycleClasses , Subject, ClassType, DiscountType, StanowiskaZatrPensum
+from models import Employee, GroupInstructor, ThesisSupervisors, Reviewer, IndividualRates, OrganizationalUnits, CommitteeFunctionPensum, DidacticCycles, Group, Person, Position, Employment, EmployeePensum, Discount, Position, DidacticCycleClasses , Subject, ClassType, DiscountType, StanowiskaZatrPensum, PensumSettlement
 from sqlalchemy import and_
 from database import SessionLocal
 
@@ -75,8 +75,10 @@ def calculate_workload_for_employee(employee_id, selected_year, selected_unit):
         znizki = (
             db.query(Discount)
             .join(DiscountType, Discount.RODZ_ZNIZ_ID == DiscountType.ID)
+            .join(PensumSettlement, Discount.RPENS_KOD == PensumSettlement.KOD)
             .filter(Discount.PRAC_ID == employee_id)
             .filter(DiscountType.CZY_AKTUALNE == 'T')
+            .filter(PensumSettlement.OPIS.like(f"%{selected_year}%"))
             .all()
         )
 
