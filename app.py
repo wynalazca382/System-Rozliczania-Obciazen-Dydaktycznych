@@ -294,6 +294,8 @@ class MainWindow(QMainWindow):
                 units = db.query(OrganizationalUnits).filter(OrganizationalUnits.OPIS == "Instytut Pedagogiczno-Językowy%").all()
             else:
                 units = []  # Brak dostępu do żadnych jednostek
+                self.status_label.setText("Błąd: Nieprawidłowa rola użytkownika. Skontaktuj się z administratorem.")
+                QMessageBox.critical(self, "Błąd uprawnień", "Nieprawidłowa rola użytkownika. Skontaktuj się z administratorem.")
 
             # Dodaj jednostki do filtra
             for unit in units:
