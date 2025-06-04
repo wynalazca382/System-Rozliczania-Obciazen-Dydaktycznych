@@ -339,6 +339,7 @@ class MainWindow(QMainWindow):
                 print(f"Selected year: {selected_year}")  # Debugging: Log the selected year
                 instructor_query = instructor_query.filter(DidacticCycles.OPIS.like(f"%{selected_year}%"))
             instructors = instructor_query.all()
+            instructors.sort(key=lambda i: (i.Person.NAZWISKO, i.Person.IMIE) if hasattr(i, 'Person') else (db.query(Person).filter_by(ID=i.OS_ID).first().NAZWISKO, db.query(Person).filter_by(ID=i.OS_ID).first().IMIE))
             self.employee_filter.clear()
             self.employee_filter.addItem("Wszyscy wykładowcy", None)
             for instructor in instructors:
@@ -379,6 +380,7 @@ class MainWindow(QMainWindow):
             self.instructor_details.addItem(f"Godziny dydaktyczne L: {workload_data['godziny_dydaktyczne_l']}")
             self.instructor_details.addItem(f"Nadgodziny/Niedobór: {workload_data['nadgodziny']}")
             self.instructor_details.addItem(f"Czy podstawowe miejsce pracy w rozumieniu ustawy: {workload_data['CZY_PODSTAWOWE']}")
+            self.instructor_details.addItem(f"Etat: {workload_data['etat']}")
 
             # Wyświetl szczegóły zniżek
             self.instructor_details.addItem("Zniżki:")
@@ -558,12 +560,15 @@ class MainWindow(QMainWindow):
             workload_data = calculate_workload_for_employee(selected_employee_id, selected_year, selected_unit)
 
             # Wyświetl szczegóły obciążenia dydaktycznego
+            self.instructor_details.addItem(f"Stanowisko: {workload_data['stanowisko']}")
+            self.instructor_details.addItem(f"Pensum uczelniane: {workload_data['pensum_uczelniane']}")
             self.instructor_details.addItem(f"Pensum: {workload_data['pensum']}")
             self.instructor_details.addItem(f"Godziny dydaktyczne Z: {workload_data['godziny_dydaktyczne_z']}")
             self.instructor_details.addItem(f"Godziny dydaktyczne L: {workload_data['godziny_dydaktyczne_l']}")
             self.instructor_details.addItem(f"Nadgodziny/Niedobór: {workload_data['nadgodziny']}")
             self.instructor_details.addItem(f"Łączna zniżka: {workload_data['zniżka']} godzin")
-
+            self.instructor_details.addItem(f"Etat: {workload_data['etat']}")
+            self.instructor_details.addItem(f"Czy podstawowe miejsce pracy: {workload_data['CZY_PODSTAWOWE']}")
             # Wyświetl szczegóły zniżek
             self.instructor_details.addItem("Zniżki:")
             if workload_data.get("typy_znizek"):

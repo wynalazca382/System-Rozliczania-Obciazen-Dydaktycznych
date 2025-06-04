@@ -52,6 +52,8 @@ def calculate_workload_for_employee(employee_id, selected_year, selected_unit):
         stawka = 0.0
         kwota_nadgodzin = 0.0
         CZY_PODSTAWOWE = None
+        stanowisko = None
+        pensum_uczelniane = 0.0
         # Przetwarzanie wyników
         for group_instructor, group, didactic_class, subject, didactic_cycle, class_type in results:
             godziny = didactic_class.LICZBA_GODZ or 0
@@ -62,30 +64,37 @@ def calculate_workload_for_employee(employee_id, selected_year, selected_unit):
                 godziny_dydaktyczne_z += godziny
             elif "Semestr letni" in didactic_cycle.OPIS:
                 godziny_dydaktyczne_l += godziny
-        pensum_employee = db.query(EmployeePensum).filter_by(PRAC_ID=employee_id).first()
-        #if pensum_employee:
-            #print(f"Pobrano pensum dla pracownika {employee_id}: {pensum_employee.PENSUM}")
-            #pensum = pensum_employee.PENSUM
-        #else:
+        pensum_employee = (
+        db.query(EmployeePensum)
+        .join(PensumSettlement, EmployeePensum.RPENS_KOD == PensumSettlement.KOD)
+        .filter(EmployeePensum.PRAC_ID == employee_id)
+        .filter(PensumSettlement.OPIS.like(f"%{selected_year}%"))
+        .first()
+        )
+        if pensum_employee:
+            pensum = pensum_employee.PENSUM
+        else:
             # Dodaj pobieranie zakresu dat roku akademickiego
-        start_date, end_date = get_academic_year_dates(selected_year)
-        employment_qs = (
-                db.query(Employment, Position)
-                .join(Position, Employment.STAN_ID == Position.ID)
-                .filter(Employment.PRAC_ID == employee_id)
-                .filter(Employment.UMOWA_POCZ <= end_date)
-                .filter((Employment.UMOWA_KON == None) | (Employment.UMOWA_KON == '') | (Employment.UMOWA_KON >= start_date))
-                .order_by(Employment.UMOWA_POCZ.desc())
-                .all()
-            )
+            start_date, end_date = get_academic_year_dates(selected_year)
+            employment_qs = (
+                    db.query(Employment, Position)
+                    .join(Position, Employment.STAN_ID == Position.ID)
+                    .filter(Employment.PRAC_ID == employee_id)
+                    .filter(Employment.UMOWA_POCZ <= end_date)
+                    .filter((Employment.UMOWA_KON == None) | (Employment.UMOWA_KON == '') | (Employment.UMOWA_KON >= start_date))
+                    .order_by(Employment.UMOWA_POCZ.desc())
+                    .all()
+                )
 
-        if employment_qs:
-            employment, position = employment_qs[0]
-            print(employee_id, employment.PRAC_ID)
-            print(f"Wybrane pensum: {position.PENSUM_UCZELNIANE} dla umowy od {employment.UMOWA_POCZ} do {employment.UMOWA_KON}")
-            pensum = position.PENSUM_UCZELNIANE
-            CZY_PODSTAWOWE = employment.CZY_PODSTAWOWE
-            etat = employment.ETAT
+            if employment_qs:
+                employment, position = employment_qs[0]
+                print(employee_id, employment.PRAC_ID)
+                print(f"Wybrane pensum: {position.PENSUM_UCZELNIANE} dla umowy od {employment.UMOWA_POCZ} do {employment.UMOWA_KON}")
+                pensum = position.PENSUM_UCZELNIANE
+                CZY_PODSTAWOWE = employment.CZY_PODSTAWOWE
+                etat = employment.ETAT
+                stanowisko = position.NAZWA
+                pensum_uczelniane = position.PENSUM_UCZELNIANE
         # Pobierz wszystkie zniżki dla pracownika
         znizki = (
             db.query(Discount)
@@ -127,7 +136,9 @@ def calculate_workload_for_employee(employee_id, selected_year, selected_unit):
             "zniżka": laczna_znizka,
             "godziny_znizek": godziny_znizek if godziny_znizek else ["Brak zniżek"],
             "typy_znizek": typy_znizek if typy_znizek else ["Brak zniżek"],
-            "CZY_PODSTAWOWE": CZY_PODSTAWOWE if CZY_PODSTAWOWE else "Brak danych"
+            "CZY_PODSTAWOWE": CZY_PODSTAWOWE if CZY_PODSTAWOWE else "Brak danych",
+            "stanowisko": stanowisko if stanowisko else "Brak stanowiska",
+            "pensum_uczelniane": pensum_uczelniane if pensum_uczelniane else "Brak pensum uczelnianego"
         }
     finally:
         db.close()
