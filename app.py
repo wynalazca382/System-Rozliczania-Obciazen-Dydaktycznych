@@ -466,6 +466,7 @@ class MainWindow(QMainWindow):
             if selected_employee:  # Filtruj według wybranego wykładowcy
                 query = query.filter(Employee.ID == selected_employee)
             results = query.all()
+            results.sort(key=lambda pair: (pair[1].NAZWISKO, pair[1].IMIE))
             for employee, person in results:
                 # Oblicz obciążenie dydaktyczne dla każdego wykładowcy
                 workload_data = calculate_workload_for_employee(employee.ID, selected_year, selected_unit)
@@ -562,6 +563,7 @@ class MainWindow(QMainWindow):
             # Wyświetl szczegóły obciążenia dydaktycznego
             self.instructor_details.addItem(f"Stanowisko: {workload_data['stanowisko']}")
             self.instructor_details.addItem(f"Pensum uczelniane: {workload_data['pensum_uczelniane']}")
+            self.instructor_details.addItem(f"Umowa od: {workload_data['umowa_pocz']} do: {workload_data['umowa_kon']}")
             self.instructor_details.addItem(f"Pensum: {workload_data['pensum']}")
             self.instructor_details.addItem(f"Godziny dydaktyczne Z: {workload_data['godziny_dydaktyczne_z']}")
             self.instructor_details.addItem(f"Godziny dydaktyczne L: {workload_data['godziny_dydaktyczne_l']}")

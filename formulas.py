@@ -54,6 +54,8 @@ def calculate_workload_for_employee(employee_id, selected_year, selected_unit):
         CZY_PODSTAWOWE = None
         stanowisko = None
         pensum_uczelniane = 0.0
+        umowa_pocz = None
+        umowa_kon = None
         # Przetwarzanie wyników
         for group_instructor, group, didactic_class, subject, didactic_cycle, class_type in results:
             godziny = didactic_class.LICZBA_GODZ or 0
@@ -71,12 +73,8 @@ def calculate_workload_for_employee(employee_id, selected_year, selected_unit):
         .filter(PensumSettlement.OPIS.like(f"%{selected_year}%"))
         .first()
         )
-        if pensum_employee:
-            pensum = pensum_employee.PENSUM
-        else:
-            # Dodaj pobieranie zakresu dat roku akademickiego
-            start_date, end_date = get_academic_year_dates(selected_year)
-            employment_qs = (
+        start_date, end_date = get_academic_year_dates(selected_year)
+        employment_qs = (
                     db.query(Employment, Position)
                     .join(Position, Employment.STAN_ID == Position.ID)
                     .filter(Employment.PRAC_ID == employee_id)
@@ -86,15 +84,22 @@ def calculate_workload_for_employee(employee_id, selected_year, selected_unit):
                     .all()
                 )
 
-            if employment_qs:
-                employment, position = employment_qs[0]
-                print(employee_id, employment.PRAC_ID)
-                print(f"Wybrane pensum: {position.PENSUM_UCZELNIANE} dla umowy od {employment.UMOWA_POCZ} do {employment.UMOWA_KON}")
-                pensum = position.PENSUM_UCZELNIANE
-                CZY_PODSTAWOWE = employment.CZY_PODSTAWOWE
-                etat = employment.ETAT
-                stanowisko = position.NAZWA
-                pensum_uczelniane = position.PENSUM_UCZELNIANE
+        if employment_qs:
+            employment, position = employment_qs[0]
+            CZY_PODSTAWOWE = employment.CZY_PODSTAWOWE
+            etat = employment.ETAT
+            stanowisko = position.NAZWA
+            pensum_uczelniane = position.PENSUM_UCZELNIANE
+            pensum = position.PENSUM_UCZELNIANE
+            umowa_pocz = employment.UMOWA_POCZ
+            umowa_kon = employment.UMOWA_KON
+        else:
+            position = None
+            pensum_uczelniane = 0.0
+            stanowisko = None
+            CZY_PODSTAWOWE = None
+        if pensum_employee:
+            pensum = pensum_employee.PENSUM     
         # Pobierz wszystkie zniżki dla pracownika
         znizki = (
             db.query(Discount)
@@ -138,7 +143,9 @@ def calculate_workload_for_employee(employee_id, selected_year, selected_unit):
             "typy_znizek": typy_znizek if typy_znizek else ["Brak zniżek"],
             "CZY_PODSTAWOWE": CZY_PODSTAWOWE if CZY_PODSTAWOWE else "Brak danych",
             "stanowisko": stanowisko if stanowisko else "Brak stanowiska",
-            "pensum_uczelniane": pensum_uczelniane if pensum_uczelniane else "Brak pensum uczelnianego"
+            "pensum_uczelniane": pensum_uczelniane if pensum_uczelniane else "Brak pensum uczelnianego",
+            "umowa_pocz": umowa_pocz if umowa_pocz else "Brak daty rozpoczęcia umowy",
+            "umowa_kon": umowa_kon if umowa_kon else "Brak daty zakończenia umowy"
         }
     finally:
         db.close()
