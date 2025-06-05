@@ -277,21 +277,21 @@ class MainWindow(QMainWindow):
     def populate_units(self):
         """Populate the unit filter with only allowed institutes based on user rights."""
         self.unit_filter.clear()
-        self.unit_filter.addItem("Wszystkie jednostki", None)  # Opcja dla wszystkich jednostek, jeśli prawo = 0
         db = SessionLocal()
-
+        print(f"User right: {self.user_right}")  # Debugging: Log the user right
         try:
             # Pobierz jednostki organizacyjne na podstawie prawa użytkownika
             if self.user_right == 0:  # Dostęp do wszystkich jednostek
+                self.unit_filter.addItem("Wszystkie jednostki", None) 
                 units = db.query(OrganizationalUnits).filter(OrganizationalUnits.OPIS.like("Instytut %")).all()
             elif self.user_right == 1:  # Dostęp tylko do Instytutu Informatyki Stosowanej
-                units = db.query(OrganizationalUnits).filter(OrganizationalUnits.OPIS == "Instytut Informatyki Stosowanej%").all()
+                units = db.query(OrganizationalUnits).filter(OrganizationalUnits.OPIS == "Instytut Informatyki Stosowanej im. Krzysztofa Brzeskiego").all()
             elif self.user_right == 2:  # Dostęp tylko do Instytutu Ekonomicznego
-                units = db.query(OrganizationalUnits).filter(OrganizationalUnits.OPIS == "Instytut Ekonomiczny%").all()
+                units = db.query(OrganizationalUnits).filter(OrganizationalUnits.OPIS == "Instytut Ekonomiczny").all()
             elif self.user_right == 3:  # Dostęp tylko do Instytutu Politechnicznego
-                units = db.query(OrganizationalUnits).filter(OrganizationalUnits.OPIS == "Instytut Politechniczny%").all()
+                units = db.query(OrganizationalUnits).filter(OrganizationalUnits.OPIS == "Instytut Politechniczny").all()
             elif self.user_right == 4:  # Dostęp tylko do Instytutu Pedagogiczno-Językowego
-                units = db.query(OrganizationalUnits).filter(OrganizationalUnits.OPIS == "Instytut Pedagogiczno-Językowy%").all()
+                units = db.query(OrganizationalUnits).filter(OrganizationalUnits.OPIS == "Instytut Pedagogiczno- Językowy").all()
             else:
                 units = []  # Brak dostępu do żadnych jednostek
                 self.status_label.setText("Błąd: Nieprawidłowa rola użytkownika. Skontaktuj się z administratorem.")

@@ -128,7 +128,6 @@ def calculate_workload_for_employee(employee_id, selected_year, selected_unit):
         stawka = STAWKI_NADGODZIN.get("stanowisko", 0)  # Przykładowe stanowisko
         nadgodziny = total_workload - pensum
         kwota_nadgodzin = nadgodziny * stawka
-        print(f"Total workload: {total_workload}, Pensum: {pensum}, Nadgodziny: {nadgodziny}, Kwota nadgodzin: {kwota_nadgodzin}")
         return {
             "total_workload": total_workload,
             "godziny_dydaktyczne_z": godziny_dydaktyczne_z,
