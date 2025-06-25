@@ -399,7 +399,7 @@ class MainWindow(QMainWindow):
                 self.instructor_details.addItem(f"    Liczba godzin: {group['Liczba godzin']}")
                 self.instructor_details.addItem(f"    Semestr: {group['Semestr']}")
                 self.instructor_details.addItem(f"    Instytut: {group['Instytut']}")
-                self.instructor_details.addItem(f"    Kierunek i specjalność: {group['Kierunek i specjalność']}")
+                self.instructor_details.addItem(f"    Kierunek i specjalność: {group['Kierunek']} {group['Specjalność'] if 'Specjalność' in group else ''}") 
                 self.instructor_details.addItem(f"    Tryb: {group['Tryb']}")
                 self.instructor_details.addItem(f"    Stopień: {group['Stopień']}")
                 self.instructor_details.addItem(f"    Rok: {group['Rok']}")
@@ -491,7 +491,7 @@ class MainWindow(QMainWindow):
         finally:
             db.close()
     def populate_summary(self):
-        """Populate the summary tab with total hours per specialty, split by semester."""
+        """Populate the summary tab with total hours per specialty, split by semester, grouped by kierunek."""
         self.summary_list.clear()
         self.summary_list.setStyleSheet("""
             QListWidget {
@@ -504,35 +504,45 @@ class MainWindow(QMainWindow):
         selected_employee = self.employee_filter.currentData()
 
         try:
-            # Pobierz dane grup z get_group_data
             group_data = get_group_data(selected_year, selected_unit, selected_employee)
 
-            # Słownik do przechowywania sum godzin według specjalności i semestru
-            specialty_hours = {}
+            kierunek_dict = {}
 
             for group in group_data:
-                specialty = group.get("Kierunek i specjalność", "Nieznana specjalność")
+                kierunek = group.get("Kierunek", "Nieznany kierunek")
+                specjalnosc = group.get("Specjalność", "Brak specjalności")
                 hours = group.get("Liczba godzin", 0)
                 semester = group.get("Semestr", "Nieznany semestr")
 
-                if specialty not in specialty_hours:
-                    specialty_hours[specialty] = {"Zimowy": 0, "Letni": 0, "Suma": 0}
+                if kierunek not in kierunek_dict:
+                    kierunek_dict[kierunek] = {}
+
+                if specjalnosc not in kierunek_dict[kierunek]:
+                    kierunek_dict[kierunek][specjalnosc] = {"Zimowy": 0, "Letni": 0, "Suma": 0}
 
                 if "zimowy" in semester.lower():
-                    specialty_hours[specialty]["Zimowy"] += hours
+                    kierunek_dict[kierunek][specjalnosc]["Zimowy"] += hours
                 elif "letni" in semester.lower():
-                    specialty_hours[specialty]["Letni"] += hours
+                    kierunek_dict[kierunek][specjalnosc]["Letni"] += hours
 
-                specialty_hours[specialty]["Suma"] += hours
+                kierunek_dict[kierunek][specjalnosc]["Suma"] += hours
 
-            # Wyświetl podsumowanie w summary_list
-            for specialty, hours in specialty_hours.items():
-                self.summary_list.addItem(f"Specjalność: {specialty}")
-                self.summary_list.addItem(f"  - Semestr zimowy: {hours['Zimowy']} godzin")
-                self.summary_list.addItem(f"  - Semestr letni: {hours['Letni']} godzin")
-                self.summary_list.addItem(f"  - Suma: {hours['Suma']} godzin")
+            # Wyświetlanie podsumowania
+            for kierunek, specjalnosci in kierunek_dict.items():
+                self.summary_list.addItem(f"Kierunek: {kierunek}")
+                suma_kierunku = {"Zimowy": 0, "Letni": 0, "Suma": 0}
+                for specjalnosc, godziny in specjalnosci.items():
+                    self.summary_list.addItem(f"  Specjalność: {specjalnosc}")
+                    self.summary_list.addItem(f"    - Semestr zimowy: {godziny['Zimowy']} godzin")
+                    self.summary_list.addItem(f"    - Semestr letni: {godziny['Letni']} godzin")
+                    self.summary_list.addItem(f"    - Suma: {godziny['Suma']} godzin")
+                    suma_kierunku["Zimowy"] += godziny["Zimowy"]
+                    suma_kierunku["Letni"] += godziny["Letni"]
+                    suma_kierunku["Suma"] += godziny["Suma"]
+                self.summary_list.addItem(f"  SUMA kierunku: {suma_kierunku['Suma']} godzin (zimowy: {suma_kierunku['Zimowy']}, letni: {suma_kierunku['Letni']})")
+                self.summary_list.addItem("")
 
-            if not specialty_hours:  # Jeśli brak wyników
+            if not kierunek_dict:
                 self.summary_list.addItem("Brak danych do wyświetlenia.")
         except Exception as e:
             self.summary_list.addItem(f"Błąd: {str(e)}")
@@ -666,29 +676,48 @@ class MainWindow(QMainWindow):
             df2 = pd.DataFrame(data2)
             summary_data = []
             group_data = get_group_data(selected_year, selected_unit, selected_employee)
-            specialty_hours = {}
+            kierunek_dict = {}
 
             for group in group_data:
-                specialty = group.get("Kierunek i specjalność", "Nieznana specjalność")
+                kierunek = group.get("Kierunek", "Nieznany kierunek")
+                specjalnosc = group.get("Specjalność", "Brak specjalności")
                 hours = group.get("Liczba godzin", 0)
                 semester = group.get("Semestr", "Nieznany semestr")
 
-                if specialty not in specialty_hours:
-                    specialty_hours[specialty] = {"Zimowy": 0, "Letni": 0, "Suma": 0}
+                if kierunek not in kierunek_dict:
+                    kierunek_dict[kierunek] = {}
+
+                if specjalnosc not in kierunek_dict[kierunek]:
+                    kierunek_dict[kierunek][specjalnosc] = {"Zimowy": 0, "Letni": 0, "Suma": 0}
 
                 if "zimowy" in semester.lower():
-                    specialty_hours[specialty]["Zimowy"] += hours
+                    kierunek_dict[kierunek][specjalnosc]["Zimowy"] += hours
                 elif "letni" in semester.lower():
-                    specialty_hours[specialty]["Letni"] += hours
+                    kierunek_dict[kierunek][specjalnosc]["Letni"] += hours
 
-                specialty_hours[specialty]["Suma"] += hours
+                kierunek_dict[kierunek][specjalnosc]["Suma"] += hours
 
-            for specialty, hours in specialty_hours.items():
+            # Tworzenie podsumowania do Excela
+            for kierunek, specjalnosci in kierunek_dict.items():
+                suma_kierunku = {"Zimowy": 0, "Letni": 0, "Suma": 0}
+                for specjalnosc, godziny in specjalnosci.items():
+                    summary_data.append({
+                        "Kierunek": kierunek,
+                        "Specjalność": specjalnosc,
+                        "Semestr zimowy": godziny["Zimowy"],
+                        "Semestr letni": godziny["Letni"],
+                        "Suma": godziny["Suma"]
+                    })
+                    suma_kierunku["Zimowy"] += godziny["Zimowy"]
+                    suma_kierunku["Letni"] += godziny["Letni"]
+                    suma_kierunku["Suma"] += godziny["Suma"]
+                # Dodaj sumę kierunku jako osobny wiersz
                 summary_data.append({
-                    "Specjalność": specialty,
-                    "Semestr zimowy": hours["Zimowy"],
-                    "Semestr letni": hours["Letni"],
-                    "Suma": hours["Suma"]
+                    "Kierunek": kierunek,
+                    "Specjalność": "SUMA kierunku",
+                    "Semestr zimowy": suma_kierunku["Zimowy"],
+                    "Semestr letni": suma_kierunku["Letni"],
+                    "Suma": suma_kierunku["Suma"]
                 })
 
             # Create DataFrame for the third sheet
