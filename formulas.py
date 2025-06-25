@@ -2,23 +2,6 @@ from models import Employee, GroupInstructor, ThesisSupervisors, Reviewer, Indiv
 from sqlalchemy import and_
 from database import SessionLocal
 
-STAWKI_NADGODZIN = {
-    "asystent": 65,
-    "asystent n-d": 65,
-    "adiunkt": 94,
-    "instruktor": 65,
-    "lektor": 65,
-    "prof. ndzw.": 107,
-    "profesor": 129,
-    "profesor uczelni": 107,
-    "st. wykł.": 80,
-    "st. wykł. spec.": 98,
-    "wykładowca": 65,
-    "st. wykł. doktor": 94,
-    "st. wykł. dr spec.": 103,
-    "wykł. spec.": 71
-}
-
 def calculate_workload_for_employee(employee_id, selected_year, selected_unit):
     db = SessionLocal()
     try:
@@ -125,7 +108,7 @@ def calculate_workload_for_employee(employee_id, selected_year, selected_unit):
         # Aktualizacja pensum
         if laczna_znizka > 0:
             pensum -= laczna_znizka
-        stawka = STAWKI_NADGODZIN.get("stanowisko", 0)  # Przykładowe stanowisko
+        stawka = STAWKI_NADGODZIN.get(stanowisko, 0)  # Przykładowe stanowisko
         nadgodziny = total_workload - pensum
         kwota_nadgodzin = nadgodziny * stawka
         return {
@@ -217,32 +200,47 @@ def get_group_data(selected_year=None, selected_unit=None, selected_employee=Non
 
 def parse_subject_code(subject_code):
     try:
-        # Podziel kod przedmiotu na części
         parts = subject_code.split("-")
-        if len(parts) < 3:
+        if len(parts) < 4:
             raise ValueError("Nieprawidłowy format kodu przedmiotu.")
 
-        # Wyciągnij informacje
         institute_code = parts[0]
-        kierunek_specjalnosc = parts[1]
-        tryb_stopien_rok_semestr = parts[2]
+        kierunek = parts[1]
+        # Jeśli jest specjalność, to parts[2], jeśli nie, to None
+        if len(parts) == 5:
+            specjalnosc = parts[2]
+            tryb_stopien_rok_semestr = parts[3]
+            extra = parts[4]
+        elif len(parts) == 4:
+            specjalnosc = None
+            tryb_stopien_rok_semestr = parts[2]
+            extra = parts[3]
+        else:
+            raise ValueError("Nieprawidłowa liczba części kodu przedmiotu.")
+
         if len(tryb_stopien_rok_semestr) != 4:
             raise ValueError("Nieprawidłowy format sekcji trybu, stopnia, roku i semestru.")
 
         tryb = "Stacjonarne" if tryb_stopien_rok_semestr[0] == "N" else "Niestacjonarne"
-        stopien = "I stopień" if tryb_stopien_rok_semestr[1] == "1" else "II stopień"
+        stopien_map = {"1": "I stopień", "2": "II stopień", "M": "Magisterskie"}
+        stopien = stopien_map.get(tryb_stopien_rok_semestr[1], "Nieznany stopień")
         rok = f"{tryb_stopien_rok_semestr[2]} rok"
         semestr = f"{tryb_stopien_rok_semestr[3]} semestr"
 
-        # Zwróć wyniki w formie słownika
-        return {
+        result = {
             "Kod instytutu": institute_code,
-            "Kierunek i specjalność": kierunek_specjalnosc,
+            "Kierunek": kierunek,
+            "Specjalność": specjalnosc,
             "Tryb": tryb,
             "Stopień": stopien,
             "Rok": rok,
             "Semestr": semestr
         }
+        # Dodaj dodatkowy kod jeśli jest
+        if extra:
+            result["Dodatkowy kod"] = extra
+
+        return result
 
     except Exception as e:
         print(f"Błąd podczas parsowania kodu przedmiotu: {e}")
@@ -260,3 +258,19 @@ def get_academic_year_dates(selected_year):
     except Exception as e:
         print(f"Błąd parsowania roku akademickiego: {e}")
         return None, None
+    
+import csv
+import os
+
+def load_stawki_nadgodzin(filepath="stawki_nadgodzin.csv"):
+    stawki = {}
+    if not os.path.exists(filepath):
+        print(f"Plik {filepath} nie istnieje! Używam pustego słownika stawek.")
+        return stawki
+    with open(filepath, encoding="utf-8") as f:
+        reader = csv.DictReader(f)
+        for row in reader:
+            stawki[row["stanowisko"].strip()] = float(row["stawka"])
+    return stawki
+
+STAWKI_NADGODZIN = load_stawki_nadgodzin()
