@@ -119,7 +119,7 @@ def calculate_workload_for_employee(employee_id, selected_year, selected_unit):
             "etat": etat,
             "nadgodziny": nadgodziny,
             "stawka": stawka,
-            "kwota_nadgodzin": kwota_nadgodzin,
+            "kwota_nadgodzin": kwota_nadgodzin if nadgodziny > 0 else 0,
             "zniżka": laczna_znizka,
             "godziny_znizek": godziny_znizek if godziny_znizek else ["Brak zniżek"],
             "typy_znizek": typy_znizek if typy_znizek else ["Brak zniżek"],
@@ -212,7 +212,7 @@ def parse_subject_code(subject_code):
             tryb_stopien_rok_semestr = parts[3]
             extra = parts[4]
         elif len(parts) == 4:
-            specjalnosc = None
+            specjalnosc = "Ogólny"
             tryb_stopien_rok_semestr = parts[2]
             extra = parts[3]
         else:
