@@ -202,6 +202,8 @@ class MainWindow(QMainWindow):
         self.populate_groups()
         self.populate_employees()
         self.populate_summary()
+        self.year_filter.currentIndexChanged.connect(self.filter_instructors)
+        self.unit_filter.currentIndexChanged.connect(self.filter_instructors)
 
     def button_style(self):
         return """
