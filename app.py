@@ -506,7 +506,17 @@ class MainWindow(QMainWindow):
             self.group_model.setHorizontalHeaderLabels(headers)
 
             for group in group_data:
-                row_items = [QStandardItem(str(group.get(col, ""))) for col in headers]
+                row_items = []
+                for col in headers:
+                    value = group.get(col, "")
+                    item = QStandardItem(str(value))
+                    # Jeśli wartość jest liczbą (int lub float), ustaw dane liczbowe
+                    try:
+                        num = float(value)
+                        item.setData(num, Qt.EditRole)
+                    except (ValueError, TypeError):
+                        pass  # zostaw jako tekst
+                    row_items.append(item)
                 self.group_model.appendRow(row_items)
 
         except Exception as e:
@@ -532,13 +542,31 @@ class MainWindow(QMainWindow):
             for employee, person in results:
                 workload_data = calculate_workload_for_employee(employee.ID, selected_year, selected_unit)
                 if workload_data["total_workload"] > 0:
-                    row = [
-                        QStandardItem(f"{person.NAZWISKO} {person.IMIE}"),
-                        QStandardItem(str(workload_data['pensum'])),
-                        QStandardItem(str(workload_data['godziny_dydaktyczne_z'])),
-                        QStandardItem(str(workload_data['godziny_dydaktyczne_l'])),
-                        QStandardItem(str(workload_data['nadgodziny'])),
-                    ]
+                    row = []
+
+                    # Nazwisko i imię (tekst)
+                    row.append(QStandardItem(f"{person.NAZWISKO} {person.IMIE}"))
+
+                    # Pensum (liczba)
+                    item_pensum = QStandardItem(str(workload_data['pensum']))
+                    item_pensum.setData(workload_data['pensum'], Qt.EditRole)
+                    row.append(item_pensum)
+
+                    # Godziny Z (liczba)
+                    item_z = QStandardItem(str(workload_data['godziny_dydaktyczne_z']))
+                    item_z.setData(workload_data['godziny_dydaktyczne_z'], Qt.EditRole)
+                    row.append(item_z)
+
+                    # Godziny L (liczba)
+                    item_l = QStandardItem(str(workload_data['godziny_dydaktyczne_l']))
+                    item_l.setData(workload_data['godziny_dydaktyczne_l'], Qt.EditRole)
+                    row.append(item_l)
+
+                    # Nadgodziny/Niedobór (liczba)
+                    item_nadgodziny = QStandardItem(str(workload_data['nadgodziny']))
+                    item_nadgodziny.setData(workload_data['nadgodziny'], Qt.EditRole)
+                    row.append(item_nadgodziny)
+
                     self.instructor_model.appendRow(row)
             if not results:
                 self.instructor_model.setHorizontalHeaderLabels(["Brak wykładowców do wyświetlenia."])
@@ -586,10 +614,20 @@ class MainWindow(QMainWindow):
                     row = [
                         QStandardItem(kierunek),
                         QStandardItem(specjalnosc),
-                        QStandardItem(str(godziny["Zimowy"])),
-                        QStandardItem(str(godziny["Letni"])),
-                        QStandardItem(str(godziny["Suma"])),
                     ]
+                    # Semestr zimowy
+                    item_zimowy = QStandardItem(str(godziny["Zimowy"]))
+                    item_zimowy.setData(godziny["Zimowy"], Qt.EditRole)
+                    row.append(item_zimowy)
+                    # Semestr letni
+                    item_letni = QStandardItem(str(godziny["Letni"]))
+                    item_letni.setData(godziny["Letni"], Qt.EditRole)
+                    row.append(item_letni)
+                    # Suma
+                    item_suma = QStandardItem(str(godziny["Suma"]))
+                    item_suma.setData(godziny["Suma"], Qt.EditRole)
+                    row.append(item_suma)
+
                     self.summary_model.appendRow(row)
                     suma_kierunku["Zimowy"] += godziny["Zimowy"]
                     suma_kierunku["Letni"] += godziny["Letni"]
@@ -598,10 +636,16 @@ class MainWindow(QMainWindow):
                 row = [
                     QStandardItem(kierunek),
                     QStandardItem("SUMA kierunku"),
-                    QStandardItem(str(suma_kierunku["Zimowy"])),
-                    QStandardItem(str(suma_kierunku["Letni"])),
-                    QStandardItem(str(suma_kierunku["Suma"])),
                 ]
+                item_zimowy = QStandardItem(str(suma_kierunku["Zimowy"]))
+                item_zimowy.setData(suma_kierunku["Zimowy"], Qt.EditRole)
+                row.append(item_zimowy)
+                item_letni = QStandardItem(str(suma_kierunku["Letni"]))
+                item_letni.setData(suma_kierunku["Letni"], Qt.EditRole)
+                row.append(item_letni)
+                item_suma = QStandardItem(str(suma_kierunku["Suma"]))
+                item_suma.setData(suma_kierunku["Suma"], Qt.EditRole)
+                row.append(item_suma)
                 self.summary_model.appendRow(row)
 
             if not kierunek_dict:
