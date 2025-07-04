@@ -413,9 +413,7 @@ class MainWindow(QMainWindow):
         finally:
             db.close()
     def display_instructor_details(self, index):
-        """Wyświetl szczegóły wykładowcy po kliknięciu w tabeli."""
         self.instructor_details_model.clear()
-        # Pobierz indeks wiersza w modelu źródłowym (nie proxy!)
         source_index = self.instructor_proxy.mapToSource(index)
         row = source_index.row()
         nazwisko_imie = self.instructor_model.item(row, 0).text()
@@ -440,28 +438,35 @@ class MainWindow(QMainWindow):
             group_data = get_group_data(selected_year, selected_unit, selected_employee_id)
             workload_data = calculate_workload_for_employee(selected_employee_id, selected_year, selected_unit)
 
-            # Nagłówki
+            # Dane podstawowe
             headers = [
-                "Pensum", "Łączna zniżka", "Godziny Z", "Godziny L", "Nadgodziny/Niedobór",
-                "Czy podstawowe miejsce pracy", "Etat"
+                "Stanowisko", "Pensum uczelniane", "Umowa od", "Umowa do", "Pensum", "Godziny Z", "Godziny L",
+                "Nadgodziny/Niedobór", "Łączna zniżka", "Etat", "Czy podstawowe miejsce pracy",
+                "Stawka", "Kwota nadgodzin"
             ]
             self.instructor_details_model.setHorizontalHeaderLabels(headers)
             row = [
-                QStandardItem(str(workload_data['pensum'])),
-                QStandardItem(str(workload_data['zniżka'])),
-                QStandardItem(str(workload_data['godziny_dydaktyczne_z'])),
-                QStandardItem(str(workload_data['godziny_dydaktyczne_l'])),
-                QStandardItem(str(workload_data['nadgodziny'])),
-                QStandardItem(str(workload_data['CZY_PODSTAWOWE'])),
-                QStandardItem(str(workload_data['etat'])),
+                QStandardItem(str(workload_data.get('stanowisko', ''))),
+                QStandardItem(str(workload_data.get('pensum_uczelniane', ''))),
+                QStandardItem(str(workload_data.get('umowa_pocz', ''))),
+                QStandardItem(str(workload_data.get('umowa_kon', ''))),
+                QStandardItem(str(workload_data.get('pensum', ''))),
+                QStandardItem(str(workload_data.get('godziny_dydaktyczne_z', ''))),
+                QStandardItem(str(workload_data.get('godziny_dydaktyczne_l', ''))),
+                QStandardItem(str(workload_data.get('nadgodziny', ''))),
+                QStandardItem(str(workload_data.get('zniżka', ''))),
+                QStandardItem(str(workload_data.get('etat', ''))),
+                QStandardItem(str(workload_data.get('CZY_PODSTAWOWE', ''))),
+                QStandardItem(str(workload_data.get('stawka', ''))),
+                QStandardItem(str(workload_data.get('kwota_nadgodzin', '')))
             ]
             self.instructor_details_model.appendRow(row)
 
             # Zniżki
             self.instructor_details_model.appendRow([QStandardItem("--- Zniżki ---")] + [QStandardItem("")]*(len(headers)-1))
-            if workload_data.get("typy_znizek"):
+            if workload_data.get("typy_znizek") and workload_data["typy_znizek"] != ["Brak zniżek"]:
                 for znizka, godziny in zip(workload_data["typy_znizek"], workload_data.get("godziny_znizek", [])):
-                    self.instructor_details_model.appendRow([QStandardItem(znizka), QStandardItem(str(godziny))] + [QStandardItem("")]*(len(headers)-2))
+                    self.instructor_details_model.appendRow([QStandardItem(f"{znizka} ({godziny} godz.)")] + [QStandardItem("")]*(len(headers)-1))
             else:
                 self.instructor_details_model.appendRow([QStandardItem("Brak zniżek")] + [QStandardItem("")]*(len(headers)-1))
 
@@ -474,9 +479,10 @@ class MainWindow(QMainWindow):
                     QStandardItem(str(group.get('Liczba godzin', ''))),
                     QStandardItem(group.get('Semestr', '')),
                     QStandardItem(group.get('Instytut', '')),
-                    QStandardItem(f"{group.get('Kierunek', '')} {group.get('Specjalność', '')}"),
+                    QStandardItem(f"{group.get('Kierunek', '')}"),
+                    QStandardItem(f"{group.get('Specjalność', '')}"),
                     QStandardItem(group.get('Tryb', '')),
-                ])
+                ] + [QStandardItem("")]*(len(headers)-7))
         except Exception as e:
             self.instructor_details_model.setHorizontalHeaderLabels(["Błąd"])
             self.instructor_details_model.appendRow([QStandardItem(f"Błąd: {str(e)}")])
