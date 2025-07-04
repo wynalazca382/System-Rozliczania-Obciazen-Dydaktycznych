@@ -1,9 +1,9 @@
 import sys
 from PyQt5.QtWidgets import (
-    QApplication, QMainWindow, QVBoxLayout, QHBoxLayout, QWidget, QPushButton, QLabel, QComboBox, QListWidget, QTabWidget, QLineEdit, QSpacerItem, QSizePolicy, QListWidgetItem, QFileDialog, QMessageBox
+    QApplication, QMainWindow, QVBoxLayout, QHBoxLayout, QWidget, QPushButton, QLabel, QComboBox, QListWidget, QTabWidget, QLineEdit, QSpacerItem, QSizePolicy, QListWidgetItem, QFileDialog, QMessageBox, QListWidget, QAbstractItemView, QTableView, QHeaderView
 )
-from PyQt5.QtGui import QFont, QIcon
-from PyQt5.QtCore import Qt
+from PyQt5.QtGui import QFont, QIcon, QStandardItemModel, QStandardItem
+from PyQt5.QtCore import Qt, QSortFilterProxyModel
 import pandas as pd
 from formulas import calculate_workload_for_employee, get_group_data
 from sqlalchemy import and_
@@ -129,8 +129,18 @@ class MainWindow(QMainWindow):
 
         # Zakładka grup
         self.groups_tab = QWidget()
-        self.groups_layout = QVBoxLayout(self.groups_tab)
-        self.group_list = QListWidget()
+        self.groups_layout = QVBoxLayout(self.groups_tab) 
+        self.group_table = QTableView()
+        self.group_model = QStandardItemModel()
+        self.group_proxy = QSortFilterProxyModel()
+        self.group_proxy.setSourceModel(self.group_model)
+        self.group_proxy.setFilterCaseSensitivity(Qt.CaseInsensitive)
+        self.group_proxy.setFilterKeyColumn(-1)  # -1 = wszystkie kolumny
+        self.group_table.setModel(self.group_proxy)
+        self.group_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+        self.group_table.setModel(self.group_proxy)
+        self.group_table.setSortingEnabled(True)
+        self.groups_layout.addWidget(self.group_table)
         group_label = QLabel("Grupy:")
         group_label.setStyleSheet("""
             QLabel {
@@ -150,33 +160,20 @@ class MainWindow(QMainWindow):
         """)
         self.group_search.textChanged.connect(self.filter_group_list)
         self.groups_layout.addWidget(self.group_search)
-        self.groups_layout.addWidget(self.group_list)
+        self.groups_layout.addWidget(self.group_table)
         self.tab_widget.addTab(self.groups_tab, "Grupy")
 
         # Zakładka wykładowców
         self.instructors_tab = QWidget()
         self.instructors_layout = QVBoxLayout(self.instructors_tab)
-        self.instructor_list = QListWidget()
         instructor_label = QLabel("Wykładowcy:")
         instructor_label.setStyleSheet("""
             QLabel {
                 font-family: 'Verdana';
-                font-size: 16px;  /* Zwiększony rozmiar czcionki */
+                font-size: 16px;
             }
         """)
         self.instructors_layout.addWidget(instructor_label)
-        self.instructors_tab = QWidget()
-        self.instructors_layout = QVBoxLayout(self.instructors_tab)
-        self.instructor_list = QListWidget()
-        instructor_label = QLabel("Wykładowcy:")
-        instructor_label.setStyleSheet("""
-            QLabel {
-                font-family: 'Verdana';
-                font-size: 16px;  /* Zwiększony rozmiar czcionki */
-            }
-        """)
-        self.instructors_layout.addWidget(instructor_label)
-        # Dodaj pole wyszukiwania wykładowców
         self.instructor_search = QLineEdit()
         self.instructor_search.setPlaceholderText("Szukaj w wykładowcach...")
         self.instructor_search.setStyleSheet("""
@@ -188,29 +185,34 @@ class MainWindow(QMainWindow):
         """)
         self.instructor_search.textChanged.connect(self.filter_instructor_list)
         self.instructors_layout.addWidget(self.instructor_search)
-        self.instructors_layout.addWidget(self.instructor_list)
-        self.instructors_layout.addWidget(self.instructor_list)
-        self.instructor_details = QListWidget(self)
+        self.instructor_table = QTableView()
+        self.instructor_model = QStandardItemModel()
+        self.instructor_proxy = QSortFilterProxyModel()
+        self.instructor_proxy.setSourceModel(self.instructor_model)
+        self.instructor_proxy.setFilterCaseSensitivity(Qt.CaseInsensitive)
+        self.instructor_proxy.setFilterKeyColumn(-1)
+        self.instructor_table.setModel(self.instructor_proxy)
+        self.instructor_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+        self.instructor_table.setSortingEnabled(True)
+        self.instructors_layout.addWidget(self.instructor_table)
         details_label = QLabel("Szczegóły wykładowcy:")
         details_label.setStyleSheet("""
             QLabel {
                 font-family: 'Verdana';
-                font-size: 16px;  /* Zwiększony rozmiar czcionki */
+                font-size: 16px;
             }
         """)
         self.instructors_layout.addWidget(details_label)
-        self.instructors_layout.addWidget(self.instructor_details)
-        self.instructor_details.setStyleSheet("""
-            QListWidget {
-                font-family: 'Verdana';
-                font-size: 16px;  /* Zwiększony rozmiar czcionki */
-            }
-        """)
+        self.instructor_details_table = QTableView()
+        self.instructor_details_model = QStandardItemModel()
+        self.instructor_details_table.setModel(self.instructor_details_model)
+        self.instructor_details_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+        self.instructors_layout.addWidget(self.instructor_details_table)
         self.tab_widget.addTab(self.instructors_tab, "Wykładowcy")
-        self.instructor_list.itemClicked.connect(self.display_employee_workload)
+        self.instructor_table.clicked.connect(self.display_instructor_details)
+        self.instructor_table.clicked.connect(self.display_instructor_details)
         self.summary_tab = QWidget()
         self.summary_layout = QVBoxLayout(self.summary_tab)
-        self.summary_list = QListWidget()
         summary_label = QLabel("Podsumowanie godzin według specjalności:")
         summary_label.setStyleSheet("""
             QLabel {
@@ -219,18 +221,6 @@ class MainWindow(QMainWindow):
             }
         """)
         self.summary_layout.addWidget(summary_label)
-        self.summary_tab = QWidget()
-        self.summary_layout = QVBoxLayout(self.summary_tab)
-        self.summary_list = QListWidget()
-        summary_label = QLabel("Podsumowanie godzin według specjalności:")
-        summary_label.setStyleSheet("""
-            QLabel {
-                font-family: 'Verdana';
-                font-size: 16px;
-            }
-        """)
-        self.summary_layout.addWidget(summary_label)
-        # Dodaj pole wyszukiwania podsumowania
         self.summary_search = QLineEdit()
         self.summary_search.setPlaceholderText("Szukaj w podsumowaniu...")
         self.summary_search.setStyleSheet("""
@@ -242,9 +232,16 @@ class MainWindow(QMainWindow):
         """)
         self.summary_search.textChanged.connect(self.filter_summary_list)
         self.summary_layout.addWidget(self.summary_search)
-        self.summary_layout.addWidget(self.summary_list)
-        self.tab_widget.addTab(self.summary_tab, "Zestawienie")
-        self.summary_layout.addWidget(self.summary_list)
+        self.summary_table = QTableView()
+        self.summary_model = QStandardItemModel()
+        self.summary_proxy = QSortFilterProxyModel()
+        self.summary_proxy.setSourceModel(self.summary_model)
+        self.summary_proxy.setFilterCaseSensitivity(Qt.CaseInsensitive)
+        self.summary_proxy.setFilterKeyColumn(-1)
+        self.summary_table.setModel(self.summary_proxy)
+        self.summary_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+        self.summary_table.setSortingEnabled(True)
+        self.summary_layout.addWidget(self.summary_table)
         self.tab_widget.addTab(self.summary_tab, "Zestawienie")
         # Przycisk "Generuj raport" na samym dole
         self.report_button = QPushButton("Generuj raport")
@@ -416,161 +413,143 @@ class MainWindow(QMainWindow):
             print(f"Error: {str(e)}")  # Debugging: Log the error
         finally:
             db.close()
-    def display_instructor_details(self):
-        """Display details for the selected instructor."""
-        self.instructor_details.clear()  # Wyczyść szczegóły
-        selected_employee = self.employee_filter.currentData()
+    def display_instructor_details(self, index):
+        """Wyświetl szczegóły wykładowcy po kliknięciu w tabeli."""
+        self.instructor_details_model.clear()
+        # Pobierz indeks wiersza w modelu źródłowym (nie proxy!)
+        source_index = self.instructor_proxy.mapToSource(index)
+        row = source_index.row()
+        nazwisko_imie = self.instructor_model.item(row, 0).text()
         selected_year = self.year_filter.currentText()
         selected_unit = self.unit_filter.currentData()
-
-        if not selected_employee:
-            self.instructor_details.addItem("Wybierz wykładowcę, aby zobaczyć szczegóły.")
-            return
-
         db = SessionLocal()
         try:
-            # Pobierz dane grup dla wybranego wykładowcy
-            group_data = get_group_data(selected_year, selected_unit, selected_employee)
+            person = db.query(Person).filter(
+                (Person.NAZWISKO + " " + Person.IMIE) == nazwisko_imie
+            ).first()
+            if not person:
+                self.instructor_details_model.setHorizontalHeaderLabels(["Informacja"])
+                self.instructor_details_model.appendRow([QStandardItem("Nie znaleziono wykładowcy.")])
+                return
+            employee = db.query(Employee).filter(Employee.OS_ID == person.ID).first()
+            if not employee:
+                self.instructor_details_model.setHorizontalHeaderLabels(["Informacja"])
+                self.instructor_details_model.appendRow([QStandardItem("Nie znaleziono pracownika.")])
+                return
+            selected_employee_id = employee.ID
 
-            # Pobierz pensum i zniżki
-            workload_data = calculate_workload_for_employee(selected_employee, selected_year, selected_unit)
+            group_data = get_group_data(selected_year, selected_unit, selected_employee_id)
+            workload_data = calculate_workload_for_employee(selected_employee_id, selected_year, selected_unit)
 
-            # Wyświetl szczegóły obciążenia dydaktycznego
-            self.instructor_details.addItem(f"Pensum: {workload_data['pensum']}")
-            self.instructor_details.addItem(f"Łączna zniżka: {workload_data['zniżka']} godzin")
-            self.instructor_details.addItem(f"Godziny dydaktyczne Z: {workload_data['godziny_dydaktyczne_z']}")
-            self.instructor_details.addItem(f"Godziny dydaktyczne L: {workload_data['godziny_dydaktyczne_l']}")
-            self.instructor_details.addItem(f"Nadgodziny/Niedobór: {workload_data['nadgodziny']}")
-            self.instructor_details.addItem(f"Czy podstawowe miejsce pracy w rozumieniu ustawy: {workload_data['CZY_PODSTAWOWE']}")
-            self.instructor_details.addItem(f"Etat: {workload_data['etat']}")
+            # Nagłówki
+            headers = [
+                "Pensum", "Łączna zniżka", "Godziny Z", "Godziny L", "Nadgodziny/Niedobór",
+                "Czy podstawowe miejsce pracy", "Etat"
+            ]
+            self.instructor_details_model.setHorizontalHeaderLabels(headers)
+            row = [
+                QStandardItem(str(workload_data['pensum'])),
+                QStandardItem(str(workload_data['zniżka'])),
+                QStandardItem(str(workload_data['godziny_dydaktyczne_z'])),
+                QStandardItem(str(workload_data['godziny_dydaktyczne_l'])),
+                QStandardItem(str(workload_data['nadgodziny'])),
+                QStandardItem(str(workload_data['CZY_PODSTAWOWE'])),
+                QStandardItem(str(workload_data['etat'])),
+            ]
+            self.instructor_details_model.appendRow(row)
 
-            # Wyświetl szczegóły zniżek
-            self.instructor_details.addItem("Zniżki:")
+            # Zniżki
+            self.instructor_details_model.appendRow([QStandardItem("--- Zniżki ---")] + [QStandardItem("")]*(len(headers)-1))
             if workload_data.get("typy_znizek"):
                 for znizka, godziny in zip(workload_data["typy_znizek"], workload_data.get("godziny_znizek", [])):
-                    self.instructor_details.addItem(f"  - Typ: {znizka}, Liczba godzin: {godziny}")
+                    self.instructor_details_model.appendRow([QStandardItem(znizka), QStandardItem(str(godziny))] + [QStandardItem("")]*(len(headers)-2))
             else:
-                self.instructor_details.addItem("  Brak zniżek")
+                self.instructor_details_model.appendRow([QStandardItem("Brak zniżek")] + [QStandardItem("")]*(len(headers)-1))
 
-            # Wyświetl szczegóły przedmiotów
-            self.instructor_details.addItem("Przedmioty:")
+            # Przedmioty
+            self.instructor_details_model.appendRow([QStandardItem("--- Przedmioty ---")] + [QStandardItem("")]*(len(headers)-1))
             for group in group_data:
-                # Wyświetl szczegóły z `group_data`, w tym dane z `parse_subject_code`
-                self.instructor_details.addItem(f"  - Przedmiot: {group['Przedmiot']}")
-                self.instructor_details.addItem(f"    Typ zajęć: {group['Typ zajęć']}")
-                self.instructor_details.addItem(f"    Liczba godzin: {group['Liczba godzin']}")
-                self.instructor_details.addItem(f"    Semestr: {group['Semestr']}")
-                self.instructor_details.addItem(f"    Instytut: {group['Instytut']}")
-                self.instructor_details.addItem(f"    Kierunek i specjalność: {group['Kierunek']} {group['Specjalność'] if 'Specjalność' in group else ''}") 
-                self.instructor_details.addItem(f"    Tryb: {group['Tryb']}")
-                self.instructor_details.addItem(f"    Stopień: {group['Stopień']}")
-                self.instructor_details.addItem(f"    Rok: {group['Rok']}")
-                self.instructor_details.addItem(f"    Semestr: {group['Semestr']}")
-
+                self.instructor_details_model.appendRow([
+                    QStandardItem(group.get('Przedmiot', '')),
+                    QStandardItem(group.get('Typ zajęć', '')),
+                    QStandardItem(str(group.get('Liczba godzin', ''))),
+                    QStandardItem(group.get('Semestr', '')),
+                    QStandardItem(group.get('Instytut', '')),
+                    QStandardItem(f"{group.get('Kierunek', '')} {group.get('Specjalność', '')}"),
+                    QStandardItem(group.get('Tryb', '')),
+                ])
         except Exception as e:
-            self.instructor_details.addItem(f"Błąd: {str(e)}")
-            print(f"Error: {str(e)}")
+            self.instructor_details_model.setHorizontalHeaderLabels(["Błąd"])
+            self.instructor_details_model.appendRow([QStandardItem(f"Błąd: {str(e)}")])
         finally:
             db.close()
     def populate_groups(self):
-        """Populate the group list based on the selected academic year and unit."""
-        self.group_list.clear()
-        self.group_list.setStyleSheet("""
-            QListWidget {
-                font-family: 'Verdana';
-                font-size: 16px;
-            }
-        """)
+        self.group_model.clear()
         selected_unit = self.unit_filter.currentData()
-        print(selected_unit)
         selected_year = self.year_filter.currentText()
-        print(selected_year)
         selected_employee = self.employee_filter.currentData()
-        print(selected_employee)
 
         try:
             # Pobierz dane grup z get_group_data
             group_data = get_group_data(selected_year, selected_unit, selected_employee)
-            group_data.sort(key=lambda group: group.get("Rok", "Nieznany rok"))
-            # Wyświetl dane grup w group_list
-            for group in group_data:
-                item_text = " | ".join([f"{key}: {value}" for key, value in group.items()])
-                self.group_list.addItem(item_text)
+            if not group_data:
+                self.group_model.setHorizontalHeaderLabels(["Brak grup do wyświetlenia."])
+                return
 
-            if not group_data:  # Jeśli brak wyników
-                self.group_list.addItem("Brak grup do wyświetlenia.")
-            self.filter_group_list(self.group_search.text())
+            # Ustal nagłówki na podstawie kluczy pierwszego rekordu
+            headers = list(group_data[0].keys())
+            self.group_model.setHorizontalHeaderLabels(headers)
+
+            for group in group_data:
+                row_items = [QStandardItem(str(group.get(col, ""))) for col in headers]
+                self.group_model.appendRow(row_items)
+
         except Exception as e:
-            self.group_list.addItem(f"Błąd: {str(e)}")
-            print(f"Error: {str(e)}")
+            self.group_model.setHorizontalHeaderLabels(["Błąd"])
+            self.group_model.appendRow([QStandardItem(f"Błąd: {str(e)}")])
         
     def populate_employees(self):
-        """Populate the employee list and display workload data for each employee."""
-        self.instructor_list.clear()
-        self.instructor_list.setStyleSheet("""
-            QListWidget {
-                font-family: 'Verdana';
-                font-size: 16px;  /* Zwiększony rozmiar czcionki */
-            }
-        """)
+        self.instructor_model.clear()
         selected_unit = self.unit_filter.currentData()
-        print(selected_unit)
         selected_year = self.year_filter.currentText()
-        print(selected_year)
         selected_employee = self.employee_filter.currentData()
-        print(selected_employee)
         db = SessionLocal()
-
         try:
-            # Pobierz dane wykładowców
             query = db.query(Employee, Person).join(Person, Employee.OS_ID == Person.ID).filter(GroupInstructor.PRAC_ID == Employee.ID).filter(DidacticCycles.OPIS.like(f"%{selected_year}%"))
-            if selected_unit:  # Filtruj według wybranej jednostki
-                query = query.filter(GroupInstructor.JEDN_KOD== selected_unit)
-            if selected_employee:  # Filtruj według wybranego wykładowcy
+            if selected_unit:
+                query = query.filter(GroupInstructor.JEDN_KOD == selected_unit)
+            if selected_employee:
                 query = query.filter(Employee.ID == selected_employee)
             results = query.all()
             results.sort(key=lambda pair: (pair[1].NAZWISKO, pair[1].IMIE))
+            headers = ["Nazwisko i imię", "Pensum", "Godziny Z", "Godziny L", "Nadgodziny/Niedobór"]
+            self.instructor_model.setHorizontalHeaderLabels(headers)
             for employee, person in results:
-                # Oblicz obciążenie dydaktyczne dla każdego wykładowcy
                 workload_data = calculate_workload_for_employee(employee.ID, selected_year, selected_unit)
-
                 if workload_data["total_workload"] > 0:
-                    item_text = (
-                        f"{person.NAZWISKO} {person.IMIE} | "
-                        f"Pensum: {workload_data['pensum']} | "
-                        f"Godziny Z: {workload_data['godziny_dydaktyczne_z']} | "
-                        f"Godziny L: {workload_data['godziny_dydaktyczne_l']} | "
-                        f"Nadgodziny/Niedobór: {workload_data['nadgodziny']}"
-                    )
-                    item = QListWidgetItem(item_text)
-                    item.setData(1, employee.ID)  # Przechowuj ID wykładowcy w elemencie listy
-                    self.instructor_list.addItem(item)
-
-            if not results:  # Jeśli brak wyników
-                self.instructor_list.addItem("Brak wykładowców do wyświetlenia.")
-            self.filter_instructor_list(self.instructor_search.text())
+                    row = [
+                        QStandardItem(f"{person.NAZWISKO} {person.IMIE}"),
+                        QStandardItem(str(workload_data['pensum'])),
+                        QStandardItem(str(workload_data['godziny_dydaktyczne_z'])),
+                        QStandardItem(str(workload_data['godziny_dydaktyczne_l'])),
+                        QStandardItem(str(workload_data['nadgodziny'])),
+                    ]
+                    self.instructor_model.appendRow(row)
+            if not results:
+                self.instructor_model.setHorizontalHeaderLabels(["Brak wykładowców do wyświetlenia."])
         except Exception as e:
-            print(f"Błąd podczas pobierania danych wykładowców: {str(e)}")
-            self.instructor_list.addItem("Błąd podczas ładowania wykładowców.")
+            self.instructor_model.setHorizontalHeaderLabels(["Błąd"])
+            self.instructor_model.appendRow([QStandardItem(f"Błąd: {str(e)}")])
         finally:
             db.close()
     def populate_summary(self):
-        """Populate the summary tab with total hours per specialty, split by semester, grouped by kierunek."""
-        self.summary_list.clear()
-        self.summary_blocks = []
-        self.summary_list.setStyleSheet("""
-            QListWidget {
-                font-family: 'Verdana';
-                font-size: 16px;
-            }
-        """)
+        self.summary_model.clear()
         selected_unit = self.unit_filter.currentData()
         selected_year = self.year_filter.currentText()
         selected_employee = self.employee_filter.currentData()
 
         try:
             group_data = get_group_data(selected_year, selected_unit, selected_employee)
-
             kierunek_dict = {}
 
             for group in group_data:
@@ -592,32 +571,39 @@ class MainWindow(QMainWindow):
 
                 kierunek_dict[kierunek][specjalnosc]["Suma"] += hours
 
-            # Wyświetlanie podsumowania
+            # Nagłówki
+            headers = ["Kierunek", "Specjalność", "Semestr zimowy", "Semestr letni", "Suma"]
+            self.summary_model.setHorizontalHeaderLabels(headers)
+
             for kierunek, specjalnosci in kierunek_dict.items():
-                block_lines = []
-                block_lines.append(f"Kierunek: {kierunek}")
                 suma_kierunku = {"Zimowy": 0, "Letni": 0, "Suma": 0}
                 for specjalnosc, godziny in specjalnosci.items():
-                    block_lines.append(f"  Specjalność: {specjalnosc}")
-                    block_lines.append(f"    - Semestr zimowy: {godziny['Zimowy']} godzin")
-                    block_lines.append(f"    - Semestr letni: {godziny['Letni']} godzin")
-                    block_lines.append(f"    - Suma: {godziny['Suma']} godzin")
+                    row = [
+                        QStandardItem(kierunek),
+                        QStandardItem(specjalnosc),
+                        QStandardItem(str(godziny["Zimowy"])),
+                        QStandardItem(str(godziny["Letni"])),
+                        QStandardItem(str(godziny["Suma"])),
+                    ]
+                    self.summary_model.appendRow(row)
                     suma_kierunku["Zimowy"] += godziny["Zimowy"]
                     suma_kierunku["Letni"] += godziny["Letni"]
                     suma_kierunku["Suma"] += godziny["Suma"]
-                block_lines.append(f"  SUMA kierunku: {suma_kierunku['Suma']} godzin (zimowy: {suma_kierunku['Zimowy']}, letni: {suma_kierunku['Letni']})")
-                block_lines.append("")
-                self.summary_blocks.append(block_lines)
-            # Wyświetl wszystko domyślnie
-            for block in self.summary_blocks:
-                for line in block:
-                    self.summary_list.addItem(line)
+                # Dodaj sumę kierunku jako osobny wiersz
+                row = [
+                    QStandardItem(kierunek),
+                    QStandardItem("SUMA kierunku"),
+                    QStandardItem(str(suma_kierunku["Zimowy"])),
+                    QStandardItem(str(suma_kierunku["Letni"])),
+                    QStandardItem(str(suma_kierunku["Suma"])),
+                ]
+                self.summary_model.appendRow(row)
+
             if not kierunek_dict:
-                self.summary_list.addItem("Brak danych do wyświetlenia.")
-            self.filter_summary_list(self.summary_search.text())
+                self.summary_model.setHorizontalHeaderLabels(["Brak danych do wyświetlenia."])
         except Exception as e:
-            self.summary_list.addItem(f"Błąd: {str(e)}")
-            print(f"Error: {str(e)}")
+            self.summary_model.setHorizontalHeaderLabels(["Błąd"])
+            self.summary_model.appendRow([QStandardItem(f"Błąd: {str(e)}")])
     def display_employee_workload(self, item):
         """Display workload data for the selected employee."""
         self.instructor_details.clear()
@@ -862,30 +848,13 @@ class MainWindow(QMainWindow):
 
         wb.save(file_path)
     def filter_group_list(self, text):
-        """Filtruje self.group_list na podstawie wielu fraz oddzielonych przecinkiem lub spacją."""
-        filters = [f.strip().lower() for f in text.replace(',', ' ').split() if f.strip()]
-        for i in range(self.group_list.count()):
-            item = self.group_list.item(i)
-            item_text = item.text().lower()
-            # Pokaż jeśli JAKAKOLWIEK fraza pasuje
-            item.setHidden(not any(f in item_text for f in filters)) if filters else item.setHidden(False)
+        self.group_proxy.setFilterFixedString(text)
 
     def filter_instructor_list(self, text):
-        filters = [f.strip().lower() for f in text.replace(',', ' ').split() if f.strip()]
-        for i in range(self.instructor_list.count()):
-            item = self.instructor_list.item(i)
-            item_text = item.text().lower()
-            item.setHidden(not any(f in item_text for f in filters)) if filters else item.setHidden(False)
+        self.instructor_proxy.setFilterFixedString(text)
 
     def filter_summary_list(self, text):
-        """Filtruje summary_list blokami (kierunek + specjalności) po wielu frazach."""
-        self.summary_list.clear()
-        filters = [f.strip().lower() for f in text.replace(',', ' ').split() if f.strip()]
-        for block in getattr(self, "summary_blocks", []):
-            block_text = " ".join(block).lower()
-            if not filters or any(f in block_text for f in filters):
-                for line in block:
-                    self.summary_list.addItem(line)
+        self.summary_proxy.setFilterFixedString(text)
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
