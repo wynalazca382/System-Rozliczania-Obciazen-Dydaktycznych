@@ -139,6 +139,17 @@ class MainWindow(QMainWindow):
             }
         """)
         self.groups_layout.addWidget(group_label)
+        self.group_search = QLineEdit()
+        self.group_search.setPlaceholderText("Szukaj w grupach...")
+        self.group_search.setStyleSheet("""
+            QLineEdit {
+                font-family: 'Verdana';
+                font-size: 16px;
+                padding: 5px;
+            }
+        """)
+        self.group_search.textChanged.connect(self.filter_group_list)
+        self.groups_layout.addWidget(self.group_search)
         self.groups_layout.addWidget(self.group_list)
         self.tab_widget.addTab(self.groups_tab, "Grupy")
 
@@ -154,6 +165,30 @@ class MainWindow(QMainWindow):
             }
         """)
         self.instructors_layout.addWidget(instructor_label)
+        self.instructors_tab = QWidget()
+        self.instructors_layout = QVBoxLayout(self.instructors_tab)
+        self.instructor_list = QListWidget()
+        instructor_label = QLabel("Wykładowcy:")
+        instructor_label.setStyleSheet("""
+            QLabel {
+                font-family: 'Verdana';
+                font-size: 16px;  /* Zwiększony rozmiar czcionki */
+            }
+        """)
+        self.instructors_layout.addWidget(instructor_label)
+        # Dodaj pole wyszukiwania wykładowców
+        self.instructor_search = QLineEdit()
+        self.instructor_search.setPlaceholderText("Szukaj w wykładowcach...")
+        self.instructor_search.setStyleSheet("""
+            QLineEdit {
+                font-family: 'Verdana';
+                font-size: 16px;
+                padding: 5px;
+            }
+        """)
+        self.instructor_search.textChanged.connect(self.filter_instructor_list)
+        self.instructors_layout.addWidget(self.instructor_search)
+        self.instructors_layout.addWidget(self.instructor_list)
         self.instructors_layout.addWidget(self.instructor_list)
         self.instructor_details = QListWidget(self)
         details_label = QLabel("Szczegóły wykładowcy:")
@@ -184,6 +219,31 @@ class MainWindow(QMainWindow):
             }
         """)
         self.summary_layout.addWidget(summary_label)
+        self.summary_tab = QWidget()
+        self.summary_layout = QVBoxLayout(self.summary_tab)
+        self.summary_list = QListWidget()
+        summary_label = QLabel("Podsumowanie godzin według specjalności:")
+        summary_label.setStyleSheet("""
+            QLabel {
+                font-family: 'Verdana';
+                font-size: 16px;
+            }
+        """)
+        self.summary_layout.addWidget(summary_label)
+        # Dodaj pole wyszukiwania podsumowania
+        self.summary_search = QLineEdit()
+        self.summary_search.setPlaceholderText("Szukaj w podsumowaniu...")
+        self.summary_search.setStyleSheet("""
+            QLineEdit {
+                font-family: 'Verdana';
+                font-size: 16px;
+                padding: 5px;
+            }
+        """)
+        self.summary_search.textChanged.connect(self.filter_summary_list)
+        self.summary_layout.addWidget(self.summary_search)
+        self.summary_layout.addWidget(self.summary_list)
+        self.tab_widget.addTab(self.summary_tab, "Zestawienie")
         self.summary_layout.addWidget(self.summary_list)
         self.tab_widget.addTab(self.summary_tab, "Zestawienie")
         # Przycisk "Generuj raport" na samym dole
@@ -439,6 +499,7 @@ class MainWindow(QMainWindow):
 
             if not group_data:  # Jeśli brak wyników
                 self.group_list.addItem("Brak grup do wyświetlenia.")
+            self.filter_group_list(self.group_search.text())
         except Exception as e:
             self.group_list.addItem(f"Błąd: {str(e)}")
             print(f"Error: {str(e)}")
@@ -487,6 +548,7 @@ class MainWindow(QMainWindow):
 
             if not results:  # Jeśli brak wyników
                 self.instructor_list.addItem("Brak wykładowców do wyświetlenia.")
+            self.filter_instructor_list(self.instructor_search.text())
         except Exception as e:
             print(f"Błąd podczas pobierania danych wykładowców: {str(e)}")
             self.instructor_list.addItem("Błąd podczas ładowania wykładowców.")
@@ -495,6 +557,7 @@ class MainWindow(QMainWindow):
     def populate_summary(self):
         """Populate the summary tab with total hours per specialty, split by semester, grouped by kierunek."""
         self.summary_list.clear()
+        self.summary_blocks = []
         self.summary_list.setStyleSheet("""
             QListWidget {
                 font-family: 'Verdana';
@@ -531,21 +594,27 @@ class MainWindow(QMainWindow):
 
             # Wyświetlanie podsumowania
             for kierunek, specjalnosci in kierunek_dict.items():
-                self.summary_list.addItem(f"Kierunek: {kierunek}")
+                block_lines = []
+                block_lines.append(f"Kierunek: {kierunek}")
                 suma_kierunku = {"Zimowy": 0, "Letni": 0, "Suma": 0}
                 for specjalnosc, godziny in specjalnosci.items():
-                    self.summary_list.addItem(f"  Specjalność: {specjalnosc}")
-                    self.summary_list.addItem(f"    - Semestr zimowy: {godziny['Zimowy']} godzin")
-                    self.summary_list.addItem(f"    - Semestr letni: {godziny['Letni']} godzin")
-                    self.summary_list.addItem(f"    - Suma: {godziny['Suma']} godzin")
+                    block_lines.append(f"  Specjalność: {specjalnosc}")
+                    block_lines.append(f"    - Semestr zimowy: {godziny['Zimowy']} godzin")
+                    block_lines.append(f"    - Semestr letni: {godziny['Letni']} godzin")
+                    block_lines.append(f"    - Suma: {godziny['Suma']} godzin")
                     suma_kierunku["Zimowy"] += godziny["Zimowy"]
                     suma_kierunku["Letni"] += godziny["Letni"]
                     suma_kierunku["Suma"] += godziny["Suma"]
-                self.summary_list.addItem(f"  SUMA kierunku: {suma_kierunku['Suma']} godzin (zimowy: {suma_kierunku['Zimowy']}, letni: {suma_kierunku['Letni']})")
-                self.summary_list.addItem("")
-
+                block_lines.append(f"  SUMA kierunku: {suma_kierunku['Suma']} godzin (zimowy: {suma_kierunku['Zimowy']}, letni: {suma_kierunku['Letni']})")
+                block_lines.append("")
+                self.summary_blocks.append(block_lines)
+            # Wyświetl wszystko domyślnie
+            for block in self.summary_blocks:
+                for line in block:
+                    self.summary_list.addItem(line)
             if not kierunek_dict:
                 self.summary_list.addItem("Brak danych do wyświetlenia.")
+            self.filter_summary_list(self.summary_search.text())
         except Exception as e:
             self.summary_list.addItem(f"Błąd: {str(e)}")
             print(f"Error: {str(e)}")
@@ -792,6 +861,31 @@ class MainWindow(QMainWindow):
                 sheet.add_table(table)
 
         wb.save(file_path)
+    def filter_group_list(self, text):
+        """Filtruje self.group_list na podstawie wielu fraz oddzielonych przecinkiem lub spacją."""
+        filters = [f.strip().lower() for f in text.replace(',', ' ').split() if f.strip()]
+        for i in range(self.group_list.count()):
+            item = self.group_list.item(i)
+            item_text = item.text().lower()
+            # Pokaż jeśli JAKAKOLWIEK fraza pasuje
+            item.setHidden(not any(f in item_text for f in filters)) if filters else item.setHidden(False)
+
+    def filter_instructor_list(self, text):
+        filters = [f.strip().lower() for f in text.replace(',', ' ').split() if f.strip()]
+        for i in range(self.instructor_list.count()):
+            item = self.instructor_list.item(i)
+            item_text = item.text().lower()
+            item.setHidden(not any(f in item_text for f in filters)) if filters else item.setHidden(False)
+
+    def filter_summary_list(self, text):
+        """Filtruje summary_list blokami (kierunek + specjalności) po wielu frazach."""
+        self.summary_list.clear()
+        filters = [f.strip().lower() for f in text.replace(',', ' ').split() if f.strip()]
+        for block in getattr(self, "summary_blocks", []):
+            block_text = " ".join(block).lower()
+            if not filters or any(f in block_text for f in filters):
+                for line in block:
+                    self.summary_list.addItem(line)
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)

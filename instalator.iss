@@ -7,7 +7,6 @@ OutputDir=instalator
 OutputBaseFilename=SRPSetup
 Compression=lzma
 SolidCompression=yes
-SetupIconFile=app\icon.ico
 
 [Files]
 Source: "dist\app.exe"; DestDir: "{app}"; Flags: ignoreversion
@@ -15,8 +14,6 @@ Source: ".env"; DestDir: "{app}"; Flags: ignoreversion
 Source: "stawki_nadgodzin.csv"; DestDir: "{app}"; Flags: ignoreversion
 Source: "requirements.txt"; DestDir: "{app}"; Flags: ignoreversion
 Source: "dist\start.bat"; DestDir: "{app}"; Flags: ignoreversion
-Source: "app\instantclient_23_7\*"; DestDir: "{app}\instantclient_23_7"; Flags: recursesubdirs
-Source: "app\icon.ico"; DestDir: "{app}";
 
 [Icons]
 Name: "{group}\SRPANS"; Filename: "{app}\start.bat"

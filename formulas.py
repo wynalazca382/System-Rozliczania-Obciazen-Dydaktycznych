@@ -188,7 +188,8 @@ def get_group_data(selected_year=None, selected_unit=None, selected_employee=Non
                 "Typ zajęć": class_type.OPIS,
                 "Liczba godzin": godziny,
                 "Semestr": didactic_cycle.OPIS,
-                "Prowadzący": f"{person.IMIE} {person.NAZWISKO}" if person else "Nieznany prowadzący"
+                "Prowadzący": f"{person.IMIE} {person.NAZWISKO}" if person else "Nieznany prowadzący",
+                "Nr grupy": group_instructor.GR_NR,
             }
             if parsed_code:
                 group_data = {**parsed_code, **group_data}
@@ -200,32 +201,41 @@ def get_group_data(selected_year=None, selected_unit=None, selected_employee=Non
 
 def parse_subject_code(subject_code):
     try:
+        print(f"Przetwarzanie kodu przedmiotu: {subject_code}")
         parts = subject_code.split("-")
         if len(parts) < 4:
-            raise ValueError("Nieprawidłowy format kodu przedmiotu.")
-
-        institute_code = parts[0]
-        kierunek = parts[1]
-        # Jeśli jest specjalność, to parts[2], jeśli nie, to None
-        if len(parts) == 5:
-            specjalnosc = parts[2]
-            tryb_stopien_rok_semestr = parts[3]
-            extra = parts[4]
-        elif len(parts) == 4:
+            #raise ValueError("Nieprawidłowy format kodu przedmiotu.")
+            institute_code = parts[0]
+            kierunek = "None"
             specjalnosc = "Ogólny"
-            tryb_stopien_rok_semestr = parts[2]
-            extra = parts[3]
+            tryb = "None"
+            stopien = "Nieznany stopień"
+            rok = "Nieznany rok"
+            semestr = "Nieznany semestr"
+            extra = "Brak dodatkowego kodu"
         else:
-            raise ValueError("Nieprawidłowa liczba części kodu przedmiotu.")
+            institute_code = parts[0]
+            kierunek = parts[1]
+            # Jeśli jest specjalność, to parts[2], jeśli nie, to None
+            if len(parts) == 5:
+                specjalnosc = parts[2]
+                tryb_stopien_rok_semestr = parts[3]
+                extra = parts[4]
+            elif len(parts) == 4:
+                specjalnosc = "Ogólny"
+                tryb_stopien_rok_semestr = parts[2]
+                extra = parts[3]
+            else:
+                raise ValueError("Nieprawidłowa liczba części kodu przedmiotu.")
 
-        if len(tryb_stopien_rok_semestr) != 4:
-            raise ValueError("Nieprawidłowy format sekcji trybu, stopnia, roku i semestru.")
+            if len(tryb_stopien_rok_semestr) != 4:
+                raise ValueError("Nieprawidłowy format sekcji trybu, stopnia, roku i semestru.")
 
-        tryb = "Stacjonarne" if tryb_stopien_rok_semestr[0] == "N" else "Niestacjonarne"
-        stopien_map = {"1": "I stopień", "2": "II stopień", "M": "Magisterskie"}
-        stopien = stopien_map.get(tryb_stopien_rok_semestr[1], "Nieznany stopień")
-        rok = f"{tryb_stopien_rok_semestr[2]} rok"
-        semestr = f"{tryb_stopien_rok_semestr[3]} semestr"
+            tryb = "Stacjonarne" if tryb_stopien_rok_semestr[0] == "N" else "Niestacjonarne"
+            stopien_map = {"1": "I stopień", "2": "II stopień", "M": "Magisterskie"}
+            stopien = stopien_map.get(tryb_stopien_rok_semestr[1], "Nieznany stopień")
+            rok = f"{tryb_stopien_rok_semestr[2]} rok"
+            semestr = f"{tryb_stopien_rok_semestr[3]} semestr"
 
         result = {
             "Kod instytutu": institute_code,
