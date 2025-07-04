@@ -213,14 +213,6 @@ class MainWindow(QMainWindow):
         self.instructor_table.clicked.connect(self.display_instructor_details)
         self.summary_tab = QWidget()
         self.summary_layout = QVBoxLayout(self.summary_tab)
-        summary_label = QLabel("Podsumowanie godzin według specjalności:")
-        summary_label.setStyleSheet("""
-            QLabel {
-                font-family: 'Verdana';
-                font-size: 16px;
-            }
-        """)
-        self.summary_layout.addWidget(summary_label)
         self.summary_search = QLineEdit()
         self.summary_search.setPlaceholderText("Szukaj w podsumowaniu...")
         self.summary_search.setStyleSheet("""
@@ -232,6 +224,7 @@ class MainWindow(QMainWindow):
         """)
         self.summary_search.textChanged.connect(self.filter_summary_list)
         self.summary_layout.addWidget(self.summary_search)
+        self.tab_widget.addTab(self.summary_tab, "Zestawienie")
         self.summary_table = QTableView()
         self.summary_model = QStandardItemModel()
         self.summary_proxy = QSortFilterProxyModel()
@@ -242,7 +235,13 @@ class MainWindow(QMainWindow):
         self.summary_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
         self.summary_table.setSortingEnabled(True)
         self.summary_layout.addWidget(self.summary_table)
-        self.tab_widget.addTab(self.summary_tab, "Zestawienie")
+        summary_label = QLabel("Podsumowanie godzin według specjalności:")
+        summary_label.setStyleSheet("""
+            QLabel {
+                font-family: 'Verdana';
+                font-size: 16px;
+            }
+        """)   
         # Przycisk "Generuj raport" na samym dole
         self.report_button = QPushButton("Generuj raport")
         self.report_button.setStyleSheet(self.button_style())
