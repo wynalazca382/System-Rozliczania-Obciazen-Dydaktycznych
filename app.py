@@ -137,7 +137,7 @@ class MainWindow(QMainWindow):
         self.group_proxy.setFilterCaseSensitivity(Qt.CaseInsensitive)
         self.group_proxy.setFilterKeyColumn(-1)  # -1 = wszystkie kolumny
         self.group_table.setModel(self.group_proxy)
-        self.group_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+        self.group_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeToContents)
         self.group_table.setModel(self.group_proxy)
         self.group_table.setSortingEnabled(True)
         self.groups_layout.addWidget(self.group_table)
@@ -192,7 +192,7 @@ class MainWindow(QMainWindow):
         self.instructor_proxy.setFilterCaseSensitivity(Qt.CaseInsensitive)
         self.instructor_proxy.setFilterKeyColumn(-1)
         self.instructor_table.setModel(self.instructor_proxy)
-        self.instructor_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+        self.instructor_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeToContents)
         self.instructor_table.setSortingEnabled(True)
         self.instructors_layout.addWidget(self.instructor_table)
         details_label = QLabel("Szczegóły wykładowcy:")
@@ -416,7 +416,7 @@ class MainWindow(QMainWindow):
         self.instructor_details_model.clear()
         source_index = self.instructor_proxy.mapToSource(index)
         row = source_index.row()
-        nazwisko_imie = self.instructor_model.item(row, 0).text()
+        nazwisko_imie = self.instructor_model.item(row, 1).text()
         selected_year = self.year_filter.currentText()
         selected_unit = self.unit_filter.currentData()
         db = SessionLocal()
@@ -537,36 +537,39 @@ class MainWindow(QMainWindow):
                 query = query.filter(Employee.ID == selected_employee)
             results = query.all()
             results.sort(key=lambda pair: (pair[1].NAZWISKO, pair[1].IMIE))
-            headers = ["Nazwisko i imię", "Pensum", "Godziny Z", "Godziny L", "Nadgodziny/Niedobór"]
+            headers = [
+    "Tytuły", "Nazwisko i imię", "J.O.", "Forma", "Stanowisko", "Umowa od", "Umowa do",
+    "Pensum uczelniane", "Zniżka", "Czy podstawowe miejsce pracy", "Godziny dydaktyczne Z",
+    "Godziny dydaktyczne L", "Pensum realne", "Pensum", "Etat", "Nadgodziny", "Stawka", "Kwota nadgodzin"
+]
             self.instructor_model.setHorizontalHeaderLabels(headers)
             for employee, person in results:
                 workload_data = calculate_workload_for_employee(employee.ID, selected_year, selected_unit)
                 if workload_data["total_workload"] > 0:
-                    row = []
-
-                    # Nazwisko i imię (tekst)
-                    row.append(QStandardItem(f"{person.NAZWISKO} {person.IMIE}"))
-
-                    # Pensum (liczba)
-                    item_pensum = QStandardItem(str(workload_data['pensum']))
-                    item_pensum.setData(workload_data['pensum'], Qt.EditRole)
-                    row.append(item_pensum)
-
-                    # Godziny Z (liczba)
-                    item_z = QStandardItem(str(workload_data['godziny_dydaktyczne_z']))
-                    item_z.setData(workload_data['godziny_dydaktyczne_z'], Qt.EditRole)
-                    row.append(item_z)
-
-                    # Godziny L (liczba)
-                    item_l = QStandardItem(str(workload_data['godziny_dydaktyczne_l']))
-                    item_l.setData(workload_data['godziny_dydaktyczne_l'], Qt.EditRole)
-                    row.append(item_l)
-
-                    # Nadgodziny/Niedobór (liczba)
-                    item_nadgodziny = QStandardItem(str(workload_data['nadgodziny']))
-                    item_nadgodziny.setData(workload_data['nadgodziny'], Qt.EditRole)
-                    row.append(item_nadgodziny)
-
+                    db2 = SessionLocal()
+                    tytul = db2.query(Title).filter_by(ID=person.TYTUL_PRZED).first()
+                    organizational_unit = db2.query(OrganizationalUnits).filter_by(KOD=person.JED_ORG_KOD).first()
+                    db2.close()
+                    row = [
+                        QStandardItem(tytul.NAZWA if tytul else "N/A"),
+                        QStandardItem(f"{person.NAZWISKO} {person.IMIE}"),
+                        QStandardItem(organizational_unit.OPIS if organizational_unit else "N/A"),
+                        QStandardItem("etat" if workload_data["umowa_pocz"] != "Brak daty rozpoczęcia umowy" else "umowa zlecenie"),
+                        QStandardItem(str(workload_data['stanowisko'])),
+                        QStandardItem(str(workload_data['umowa_pocz'])),
+                        QStandardItem(str(workload_data['umowa_kon'])),
+                        QStandardItem(str(workload_data['pensum_uczelniane'])),
+                        QStandardItem(str(workload_data['zniżka'])),
+                        QStandardItem(str(workload_data['CZY_PODSTAWOWE'])),
+                        QStandardItem(str(workload_data['godziny_dydaktyczne_z'])),
+                        QStandardItem(str(workload_data['godziny_dydaktyczne_l'])),
+                        QStandardItem(str(workload_data['total_workload'])),
+                        QStandardItem(str(workload_data['pensum'])),
+                        QStandardItem(str(workload_data['etat'])),
+                        QStandardItem(str(workload_data['nadgodziny'])),
+                        QStandardItem(str(workload_data['stawka'])),
+                        QStandardItem(str(workload_data['kwota_nadgodzin'])),
+                    ]
                     self.instructor_model.appendRow(row)
             if not results:
                 self.instructor_model.setHorizontalHeaderLabels(["Brak wykładowców do wyświetlenia."])
@@ -709,7 +712,7 @@ class MainWindow(QMainWindow):
     
     from formulas import calculate_workload_for_employee, get_group_data
 
-    def generate_report(self):
+    def generate_report_from_db(self):
         """Generate an Excel report with improved formatting."""
         db = SessionLocal()
         selected_unit = self.unit_filter.currentData()
@@ -905,6 +908,59 @@ class MainWindow(QMainWindow):
     def filter_summary_list(self, text):
         self.summary_proxy.setFilterFixedString(text)
 
+    from PyQt5.QtWidgets import QMessageBox
+
+    def generate_report_from_view(self):
+        try:
+            group_headers = [self.group_model.headerData(i, Qt.Horizontal) for i in range(self.group_model.columnCount())]
+            instructor_headers = [self.instructor_model.headerData(i, Qt.Horizontal) for i in range(self.instructor_model.columnCount())]
+            summary_headers = [self.summary_model.headerData(i, Qt.Horizontal) for i in range(self.summary_model.columnCount())]
+
+            group_data = self.get_visible_table_data(self.group_proxy, group_headers)
+            instructor_data = self.get_visible_table_data(self.instructor_proxy, instructor_headers)
+            summary_data = self.get_visible_table_data(self.summary_proxy, summary_headers)
+
+            import pandas as pd
+            df1 = pd.DataFrame(instructor_data)
+            df2 = pd.DataFrame(group_data)
+            df3 = pd.DataFrame(summary_data)
+
+            file_path, _ = QFileDialog.getSaveFileName(self, "Save File", "", "Excel Files (*.xlsx)")
+            if file_path:
+                with pd.ExcelWriter(file_path, engine='openpyxl') as writer:
+                    df1.to_excel(writer, sheet_name='Wykładowcy', index=False)
+                    df2.to_excel(writer, sheet_name='Grupy', index=False)
+                    df3.to_excel(writer, sheet_name='Podsumowanie', index=False)
+                self.format_excel(file_path)
+                self.status_label.setText(f"Status: Raport zapisany do {file_path}")
+            else:
+                self.status_label.setText("Status: Anulowano zapis raportu")
+        except Exception as e:
+            self.status_label.setText(f"Status: Błąd podczas generowania raportu: {str(e)}")
+
+    def get_visible_table_data(self, proxy_model, headers):
+        data = []
+        for row in range(proxy_model.rowCount()):
+            row_data = {}
+            for col, header in enumerate(headers):
+                index = proxy_model.index(row, col)
+                row_data[header] = proxy_model.data(index)
+            data.append(row_data)
+        return data
+    
+    def generate_report(self):
+        msg = QMessageBox(self)
+        msg.setWindowTitle("Wybierz tryb raportu")
+        msg.setText("Z jakiego źródła wygenerować raport?")
+        widok_btn = msg.addButton("Z widoku (to co w tabelach)", QMessageBox.AcceptRole)
+        baza_btn = msg.addButton("Z bazy (pełne dane)", QMessageBox.DestructiveRole)
+        msg.setDefaultButton(widok_btn)
+        msg.exec_()
+
+        if msg.clickedButton() == widok_btn:
+            self.generate_report_from_view()
+        else:
+            self.generate_report_from_db()
 if __name__ == "__main__":
     app = QApplication(sys.argv)
     login_window = LoginWindow()
