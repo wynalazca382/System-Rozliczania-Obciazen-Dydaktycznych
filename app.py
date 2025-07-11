@@ -301,6 +301,24 @@ class MainWindow(QMainWindow):
         self.populate_summary()
         self.year_filter.currentIndexChanged.connect(self.filter_instructors)
         self.unit_filter.currentIndexChanged.connect(self.filter_instructors)
+        self.year_filter.setToolTip("Wybierz rok akademicki")
+        self.unit_filter.setToolTip("Wybierz jednostkę organizacyjną")
+        self.employee_filter.setToolTip("Wybierz wykładowcę")
+        self.filter_button.setToolTip("Zastosuj wybrane filtry do danych")
+        self.refresh_button.setToolTip("Odśwież dane bez zmiany filtrów")
+        self.group_search.setToolTip("Wyszukaj grupę po dowolnym polu")
+        self.clear_group_filter_button.setToolTip("Wyczyść pole wyszukiwania grup")
+        self.instructor_search.setToolTip("Wyszukaj wykładowcę po nazwisku lub imieniu")
+        self.clear_instructor_filter_button.setToolTip("Wyczyść pole wyszukiwania wykładowców")
+        self.summary_search.setToolTip("Wyszukaj w podsumowaniu po dowolnym polu")
+        self.clear_summary_filter_button.setToolTip("Wyczyść pole wyszukiwania w podsumowaniu")
+        self.report_button.setToolTip("Wygeneruj raport Excel z aktualnych danych")
+        # Dodaj tooltip do przycisku zmiany motywu jeśli istnieje
+        if hasattr(self, 'theme_toggle_btn'):
+            self.theme_toggle_btn.setToolTip("Przełącz tryb ciemny/jasny")
+        # Dodaj tooltip do przycisku eksportu do PDF jeśli istnieje
+        if hasattr(self, 'export_pdf_button'):
+            self.export_pdf_button.setToolTip("Eksportuj aktualną tabelę do PDF")
         
     def button_style(self):
         return """
