@@ -73,7 +73,7 @@ def calculate_workload_for_employee(employee_id, selected_year, selected_unit):
             etat = employment.ETAT
             stanowisko = position.NAZWA
             pensum_uczelniane = position.PENSUM_UCZELNIANE
-            pensum = position.PENSUM_UCZELNIANE
+            pensum = position.PENSUM_UCZELNIANE*etat
             umowa_pocz = employment.UMOWA_POCZ
             umowa_kon = employment.UMOWA_KON
         else:
@@ -190,6 +190,8 @@ def get_group_data(selected_year=None, selected_unit=None, selected_employee=Non
                 "Semestr": didactic_cycle.OPIS,
                 "Prowadzący": f"{person.IMIE} {person.NAZWISKO}" if person else "Nieznany prowadzący",
                 "Nr grupy": group_instructor.GR_NR,
+                "Kod przedmiotu": subject_code,
+                "Dla jednostki": organizational_unit.OPIS if organizational_unit else "Brak jednostki",
             }
             if parsed_code:
                 group_data = {**parsed_code, **group_data}
@@ -269,18 +271,17 @@ def get_academic_year_dates(selected_year):
         print(f"Błąd parsowania roku akademickiego: {e}")
         return None, None
     
-import csv
+import pandas as pd
 import os
 
-def load_stawki_nadgodzin(filepath="stawki_nadgodzin.csv"):
+def load_stawki_nadgodzin(filepath="stawki_nadgodzin.xlsx"):
     stawki = {}
     if not os.path.exists(filepath):
         print(f"Plik {filepath} nie istnieje! Używam pustego słownika stawek.")
         return stawki
-    with open(filepath, encoding="utf-8") as f:
-        reader = csv.DictReader(f)
-        for row in reader:
-            stawki[row["stanowisko"].strip()] = float(row["stawka"])
+    df = pd.read_excel(filepath)
+    for _, row in df.iterrows():
+        stawki[str(row["stanowisko"]).strip()] = float(row["stawka"])
     return stawki
 
 STAWKI_NADGODZIN = load_stawki_nadgodzin()

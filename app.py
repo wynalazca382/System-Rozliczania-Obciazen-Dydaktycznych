@@ -1,6 +1,6 @@
 import sys
 from PyQt5.QtWidgets import (
-    QApplication, QMainWindow, QVBoxLayout, QHBoxLayout, QWidget, QPushButton, QLabel, QComboBox, QListWidget, QTabWidget, QLineEdit, QSpacerItem, QSizePolicy, QListWidgetItem, QFileDialog, QMessageBox, QListWidget, QAbstractItemView, QTableView, QHeaderView
+    QApplication, QMainWindow, QVBoxLayout, QHBoxLayout, QWidget, QPushButton, QLabel, QComboBox, QListWidget, QTabWidget, QLineEdit, QSpacerItem, QSizePolicy, QListWidgetItem, QFileDialog, QMessageBox, QListWidget, QAbstractItemView, QTableView, QHeaderView, QDialog, QVBoxLayout, QCheckBox, QDialogButtonBox, QLabel
 )
 from PyQt5.QtGui import QFont, QIcon, QStandardItemModel, QStandardItem
 from PyQt5.QtCore import Qt, QSortFilterProxyModel
@@ -13,6 +13,9 @@ from models import Employee, GroupInstructor, ThesisSupervisors, Reviewer, Indiv
 from login import LoginWindow
 from openpyxl.styles import Font, Alignment, Border, Side
 from openpyxl.utils.dataframe import dataframe_to_rows
+from PyQt5 import QtCore
+from PyQt5.QtCore import Qt
+from datetime import datetime
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
@@ -31,7 +34,7 @@ class MainWindow(QMainWindow):
         # Pasek nagłówka
         header = QLabel("System Rozliczania Obciążeń Dydaktycznych")
         header.setFont(QFont("Verdana", 20, QFont.Bold))  # Czcionka "Verdana", rozmiar 20
-        header.setAlignment(Qt.AlignCenter)
+        header.setAlignment(Qt.AlignmentFlag.AlignCenter)
         header.setStyleSheet("background-color: #2c3e50; color: white; padding: 10px;")
         main_layout.addWidget(header)
 
@@ -137,8 +140,9 @@ class MainWindow(QMainWindow):
         self.group_proxy.setFilterCaseSensitivity(Qt.CaseInsensitive)
         self.group_proxy.setFilterKeyColumn(-1)  # -1 = wszystkie kolumny
         self.group_table.setModel(self.group_proxy)
-        self.group_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeToContents)
-        self.group_table.setModel(self.group_proxy)
+        header = self.group_table.horizontalHeader()
+        if header is not None:
+            header.setSectionResizeMode(QHeaderView.ResizeToContents)
         self.group_table.setSortingEnabled(True)
         self.groups_layout.addWidget(self.group_table)
         group_label = QLabel("Grupy:")
@@ -148,7 +152,6 @@ class MainWindow(QMainWindow):
                 font-size: 16px;  /* Zwiększony rozmiar czcionki */
             }
         """)
-        self.groups_layout.addWidget(group_label)
         self.group_search = QLineEdit()
         self.group_search.setPlaceholderText("Szukaj w grupach...")
         self.group_search.setStyleSheet("""
@@ -159,7 +162,14 @@ class MainWindow(QMainWindow):
             }
         """)
         self.group_search.textChanged.connect(self.filter_group_list)
-        self.groups_layout.addWidget(self.group_search)
+        # Dodaj przycisk Wyczyść filtr
+        self.clear_group_filter_button = QPushButton("Wyczyść filtr")
+        self.clear_group_filter_button.setStyleSheet(self.button_style())
+        self.clear_group_filter_button.clicked.connect(lambda: self.group_search.clear())
+        group_search_layout = QHBoxLayout()
+        group_search_layout.addWidget(self.group_search)
+        group_search_layout.addWidget(self.clear_group_filter_button)
+        self.groups_layout.addLayout(group_search_layout)
         self.groups_layout.addWidget(self.group_table)
         self.tab_widget.addTab(self.groups_tab, "Grupy")
 
@@ -184,7 +194,14 @@ class MainWindow(QMainWindow):
             }
         """)
         self.instructor_search.textChanged.connect(self.filter_instructor_list)
-        self.instructors_layout.addWidget(self.instructor_search)
+        # Dodaj przycisk Wyczyść filtr
+        self.clear_instructor_filter_button = QPushButton("Wyczyść filtr")
+        self.clear_instructor_filter_button.setStyleSheet(self.button_style())
+        self.clear_instructor_filter_button.clicked.connect(lambda: self.instructor_search.clear())
+        instructor_search_layout = QHBoxLayout()
+        instructor_search_layout.addWidget(self.instructor_search)
+        instructor_search_layout.addWidget(self.clear_instructor_filter_button)
+        self.instructors_layout.addLayout(instructor_search_layout)
         self.instructor_table = QTableView()
         self.instructor_model = QStandardItemModel()
         self.instructor_proxy = QSortFilterProxyModel()
@@ -192,7 +209,9 @@ class MainWindow(QMainWindow):
         self.instructor_proxy.setFilterCaseSensitivity(Qt.CaseInsensitive)
         self.instructor_proxy.setFilterKeyColumn(-1)
         self.instructor_table.setModel(self.instructor_proxy)
-        self.instructor_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeToContents)
+        header = self.instructor_table.horizontalHeader()
+        if header is not None:
+            header.setSectionResizeMode(QHeaderView.ResizeToContents)
         self.instructor_table.setSortingEnabled(True)
         self.instructors_layout.addWidget(self.instructor_table)
         details_label = QLabel("Szczegóły wykładowcy:")
@@ -202,11 +221,12 @@ class MainWindow(QMainWindow):
                 font-size: 16px;
             }
         """)
-        self.instructors_layout.addWidget(details_label)
         self.instructor_details_table = QTableView()
         self.instructor_details_model = QStandardItemModel()
         self.instructor_details_table.setModel(self.instructor_details_model)
-        self.instructor_details_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+        header = self.instructor_details_table.horizontalHeader()
+        if header is not None:
+            header.setSectionResizeMode(QHeaderView.ResizeToContents)
         self.instructors_layout.addWidget(self.instructor_details_table)
         self.tab_widget.addTab(self.instructors_tab, "Wykładowcy")
         self.instructor_table.clicked.connect(self.display_instructor_details)
@@ -225,6 +245,14 @@ class MainWindow(QMainWindow):
         self.summary_search.textChanged.connect(self.filter_summary_list)
         self.summary_layout.addWidget(self.summary_search)
         self.tab_widget.addTab(self.summary_tab, "Zestawienie")
+        # Dodaj przycisk Wyczyść filtr
+        self.clear_summary_filter_button = QPushButton("Wyczyść filtr")
+        self.clear_summary_filter_button.setStyleSheet(self.button_style())
+        self.clear_summary_filter_button.clicked.connect(lambda: self.summary_search.clear())
+        summary_search_layout = QHBoxLayout()
+        summary_search_layout.addWidget(self.summary_search)
+        summary_search_layout.addWidget(self.clear_summary_filter_button)
+        self.summary_layout.addLayout(summary_search_layout)
         self.summary_table = QTableView()
         self.summary_model = QStandardItemModel()
         self.summary_proxy = QSortFilterProxyModel()
@@ -232,7 +260,9 @@ class MainWindow(QMainWindow):
         self.summary_proxy.setFilterCaseSensitivity(Qt.CaseInsensitive)
         self.summary_proxy.setFilterKeyColumn(-1)
         self.summary_table.setModel(self.summary_proxy)
-        self.summary_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+        header = self.summary_table.horizontalHeader()
+        if header is not None:
+            header.setSectionResizeMode(QHeaderView.Stretch)
         self.summary_table.setSortingEnabled(True)
         self.summary_layout.addWidget(self.summary_table)
         summary_label = QLabel("Podsumowanie godzin według specjalności:")
@@ -357,7 +387,7 @@ class MainWindow(QMainWindow):
 
             # Dodaj jednostki do filtra
             for unit in units:
-                self.unit_filter.addItem(unit.OPIS, unit.KOD)
+                self.unit_filter.addItem(str(unit.OPIS), unit.KOD)
         except Exception as e:
             print(f"Błąd podczas ładowania jednostek organizacyjnych: {str(e)}")
         finally:
@@ -416,7 +446,11 @@ class MainWindow(QMainWindow):
         self.instructor_details_model.clear()
         source_index = self.instructor_proxy.mapToSource(index)
         row = source_index.row()
-        nazwisko_imie = self.instructor_model.item(row, 1).text()
+        item = self.instructor_model.item(row, 1)
+        if item is not None:
+            nazwisko_imie = item.text()
+        else:
+            nazwisko_imie = ""
         selected_year = self.year_filter.currentText()
         selected_unit = self.unit_filter.currentData()
         db = SessionLocal()
@@ -463,15 +497,15 @@ class MainWindow(QMainWindow):
             self.instructor_details_model.appendRow(row)
 
             # Zniżki
-            self.instructor_details_model.appendRow([QStandardItem("--- Zniżki ---")] + [QStandardItem("")]*(len(headers)-1))
+            self.instructor_details_model.appendRow([QStandardItem("--- Zniżki ---")] + [QStandardItem("") for _ in range(len(headers)-1)])
             if workload_data.get("typy_znizek") and workload_data["typy_znizek"] != ["Brak zniżek"]:
                 for znizka, godziny in zip(workload_data["typy_znizek"], workload_data.get("godziny_znizek", [])):
-                    self.instructor_details_model.appendRow([QStandardItem(f"{znizka} ({godziny} godz.)")] + [QStandardItem("")]*(len(headers)-1))
+                    self.instructor_details_model.appendRow([QStandardItem(f"{znizka} ({godziny} godz.)")] + [QStandardItem("") for _ in range(len(headers)-1)])
             else:
-                self.instructor_details_model.appendRow([QStandardItem("Brak zniżek")] + [QStandardItem("")]*(len(headers)-1))
+                self.instructor_details_model.appendRow([QStandardItem("Brak zniżek")] + [QStandardItem("") for _ in range(len(headers)-1)])
 
             # Przedmioty
-            self.instructor_details_model.appendRow([QStandardItem("--- Przedmioty ---")] + [QStandardItem("")]*(len(headers)-1))
+            self.instructor_details_model.appendRow([QStandardItem("--- Przedmioty ---")] + [QStandardItem("") for _ in range(len(headers)-1)])
             for group in group_data:
                 self.instructor_details_model.appendRow([
                     QStandardItem(group.get('Przedmiot', '')),
@@ -482,7 +516,7 @@ class MainWindow(QMainWindow):
                     QStandardItem(f"{group.get('Kierunek', '')}"),
                     QStandardItem(f"{group.get('Specjalność', '')}"),
                     QStandardItem(group.get('Tryb', '')),
-                ] + [QStandardItem("")]*(len(headers)-7))
+                ] + [QStandardItem("") for _ in range(len(headers)-7)])
         except Exception as e:
             self.instructor_details_model.setHorizontalHeaderLabels(["Błąd"])
             self.instructor_details_model.appendRow([QStandardItem(f"Błąd: {str(e)}")])
@@ -509,7 +543,7 @@ class MainWindow(QMainWindow):
                 row_items = []
                 for col in headers:
                     value = group.get(col, "")
-                    item = QStandardItem(str(value))
+                    item = QStandardItem(str(value))  # <-- Tworzymy nowy obiekt za każdym razem
                     # Jeśli wartość jest liczbą (int lub float), ustaw dane liczbowe
                     try:
                         num = float(value)
@@ -550,6 +584,7 @@ class MainWindow(QMainWindow):
                     tytul = db2.query(Title).filter_by(ID=person.TYTUL_PRZED).first()
                     organizational_unit = db2.query(OrganizationalUnits).filter_by(KOD=person.JED_ORG_KOD).first()
                     db2.close()
+                    # Tworzymy QStandardItemy
                     row = [
                         QStandardItem(tytul.NAZWA if tytul else "N/A"),
                         QStandardItem(f"{person.NAZWISKO} {person.IMIE}"),
@@ -570,6 +605,18 @@ class MainWindow(QMainWindow):
                         QStandardItem(str(workload_data['stawka'])),
                         QStandardItem(str(workload_data['kwota_nadgodzin'])),
                     ]
+                    # Ustaw dane liczbowe dla kolumn liczbowych
+                    numeric_indices = [7,8,10,11,12,13,14,15,16,17]  # indeksy kolumn liczbowych
+                    numeric_keys = [
+                        'pensum_uczelniane','zniżka','godziny_dydaktyczne_z','godziny_dydaktyczne_l',
+                        'total_workload','pensum','etat','nadgodziny','stawka','kwota_nadgodzin'
+                    ]
+                    for idx, key in zip(numeric_indices, numeric_keys):
+                        try:
+                            value = float(workload_data[key])
+                            row[idx].setData(value, Qt.EditRole)
+                        except (ValueError, TypeError):
+                            pass
                     self.instructor_model.appendRow(row)
             if not results:
                 self.instructor_model.setHorizontalHeaderLabels(["Brak wykładowców do wyświetlenia."])
@@ -712,13 +759,34 @@ class MainWindow(QMainWindow):
     
     from formulas import calculate_workload_for_employee, get_group_data
 
+    def select_columns_dialog(self, columns, title):
+        dialog = QDialog(self)
+        dialog.setWindowTitle(f"Wybierz kolumny do eksportu - {title}")
+        layout = QVBoxLayout(dialog)
+        label = QLabel("Zaznacz kolumny do eksportu:")
+        layout.addWidget(label)
+        checkboxes = []
+        for col in columns:
+            cb = QCheckBox(col)
+            cb.setChecked(True)
+            layout.addWidget(cb)
+            checkboxes.append(cb)
+        buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        layout.addWidget(buttons)
+        buttons.accepted.connect(dialog.accept)
+        buttons.rejected.connect(dialog.reject)
+        if dialog.exec_() == QDialog.Accepted:
+            selected = [cb.text() for cb in checkboxes if cb.isChecked()]
+            return selected
+        else:
+            return None
+
     def generate_report_from_db(self):
-        """Generate an Excel report with improved formatting."""
+        """Generate an Excel report with improved formatting, nagłówek i stopka, wybór kolumn."""
         db = SessionLocal()
         selected_unit = self.unit_filter.currentData()
         selected_year = self.year_filter.currentText()
         selected_employee = self.employee_filter.currentData()
-        
         try:
             # Query employees and filter by the selected unit
             query = (
@@ -730,23 +798,18 @@ class MainWindow(QMainWindow):
                 .join(DidacticCycles, DidacticCycleClasses.CDYD_KOD == DidacticCycles.KOD)
                 .filter(DidacticCycles.OPIS.like(f"%{selected_year}%"))
             )
-            
             if selected_unit:
                 query = query.filter(GroupInstructor.JEDN_KOD == selected_unit)
             if selected_employee:
                 query = query.filter(Employee.ID == selected_employee)
-
             employees = query.all()
             lp = 1
             data = []
             for employee, person in employees:
-                # Get related data for the employee
                 person = db.query(Person).filter_by(ID=person.ID).first()
                 organizational_unit = db.query(OrganizationalUnits).filter_by(KOD=person.JED_ORG_KOD).first()
                 workload_data = calculate_workload_for_employee(employee.ID, selected_year, selected_unit)
                 tytul = db.query(Title).filter_by(ID=person.TYTUL_PRZED).first()
-                
-                # Append data for the report
                 data.append({
                     "Lp.": lp,
                     "Tytuły": tytul.NAZWA if tytul else "N/A",
@@ -769,44 +832,47 @@ class MainWindow(QMainWindow):
                     "Kwota nadgodzin": workload_data["kwota_nadgodzin"],
                 })
                 lp += 1
-
-            # Create DataFrame for the first sheet
-            df1 = pd.DataFrame(data)
-            print(f"Wywołanie get_group_data z parametrami: year={selected_year}, unit={selected_unit}, employee={selected_employee}")
+            # Wybór kolumn dla Wykładowców
+            if data:
+                all_columns = list(data[0].keys())
+                selected_columns = self.select_columns_dialog(all_columns, "Wykładowcy")
+                if not selected_columns:
+                    self.status_label.setText("Status: Anulowano eksport.")
+                    db.close()
+                    return
+                df1 = pd.DataFrame(data)[selected_columns]
+            else:
+                df1 = pd.DataFrame()
+            # Grupy
             data2 = get_group_data(selected_year, selected_unit, selected_employee)
-            print(f"Dane zwrócone przez get_group_data: {data2}")
-            
-            if not data2:
-                print("Brak danych dla drugiej karty raportu.")
-                self.status_label.setText("Status: Brak danych dla drugiej karty raportu.")
-                data2 = [{"Informacja": "Brak danych"}]
-            
-            # Create DataFrame for the second sheet
-            df2 = pd.DataFrame(data2)
+            if data2:
+                all_columns2 = list(data2[0].keys())
+                selected_columns2 = self.select_columns_dialog(all_columns2, "Grupy")
+                if not selected_columns2:
+                    self.status_label.setText("Status: Anulowano eksport.")
+                    db.close()
+                    return
+                df2 = pd.DataFrame(data2)[selected_columns2]
+            else:
+                df2 = pd.DataFrame()
+            # Podsumowanie (bez wyboru kolumn)
             summary_data = []
             group_data = get_group_data(selected_year, selected_unit, selected_employee)
             kierunek_dict = {}
-
             for group in group_data:
                 kierunek = group.get("Kierunek", "Nieznany kierunek")
                 specjalnosc = group.get("Specjalność", "Brak specjalności")
                 hours = group.get("Liczba godzin", 0)
                 semester = group.get("Semestr", "Nieznany semestr")
-
                 if kierunek not in kierunek_dict:
                     kierunek_dict[kierunek] = {}
-
                 if specjalnosc not in kierunek_dict[kierunek]:
                     kierunek_dict[kierunek][specjalnosc] = {"Zimowy": 0, "Letni": 0, "Suma": 0}
-
                 if "zimowy" in semester.lower():
                     kierunek_dict[kierunek][specjalnosc]["Zimowy"] += hours
                 elif "letni" in semester.lower():
                     kierunek_dict[kierunek][specjalnosc]["Letni"] += hours
-
                 kierunek_dict[kierunek][specjalnosc]["Suma"] += hours
-
-            # Tworzenie podsumowania do Excela
             for kierunek, specjalnosci in kierunek_dict.items():
                 suma_kierunku = {"Zimowy": 0, "Letni": 0, "Suma": 0}
                 for specjalnosc, godziny in specjalnosci.items():
@@ -820,7 +886,6 @@ class MainWindow(QMainWindow):
                     suma_kierunku["Zimowy"] += godziny["Zimowy"]
                     suma_kierunku["Letni"] += godziny["Letni"]
                     suma_kierunku["Suma"] += godziny["Suma"]
-                # Dodaj sumę kierunku jako osobny wiersz
                 summary_data.append({
                     "Kierunek": kierunek,
                     "Specjalność": "SUMA kierunku",
@@ -828,19 +893,23 @@ class MainWindow(QMainWindow):
                     "Semestr letni": suma_kierunku["Letni"],
                     "Suma": suma_kierunku["Suma"]
                 })
-
-            # Create DataFrame for the third sheet
             df3 = pd.DataFrame(summary_data)
-            # Save to an Excel file with two sheets
             file_path, _ = QFileDialog.getSaveFileName(self, "Save File", "", "Excel Files (*.xlsx)")
             if file_path:
                 with pd.ExcelWriter(file_path, engine='openpyxl') as writer:
-                    # Write the first sheet
-                    df1.to_excel(writer, sheet_name='Wykładowcy', index=False)
-                    df2.to_excel(writer, sheet_name='Grupy', index=False)
-                    df3.to_excel(writer, sheet_name='Podsumowanie', index=False)
-                
-                # Apply formatting
+                    # Dodaj nagłówek do Wykładowców
+                    if not df1.empty:
+                        df1.to_excel(writer, sheet_name='Wykładowcy', index=False, startrow=2)
+                        ws = writer.sheets['Wykładowcy']
+                        ws.cell(row=1, column=1, value="Raport Wykładowcy - System Rozliczania Obciążeń Dydaktycznych")
+                    if not df2.empty:
+                        df2.to_excel(writer, sheet_name='Grupy', index=False, startrow=2)
+                        ws2 = writer.sheets['Grupy']
+                        ws2.cell(row=1, column=1, value="Raport Grupy - System Rozliczania Obciążeń Dydaktycznych")
+                    if not df3.empty:
+                        df3.to_excel(writer, sheet_name='Podsumowanie', index=False)
+                # Dodaj stopkę z datą do arkuszy
+                self.add_footer_to_excel(file_path)
                 self.format_excel(file_path)
                 self.status_label.setText(f"Status: Raport zapisany do {file_path}")
             else:
@@ -849,6 +918,17 @@ class MainWindow(QMainWindow):
             self.status_label.setText(f"Status: Błąd podczas generowania raportu: {str(e)}")
         finally:
             db.close()
+
+    def add_footer_to_excel(self, file_path):
+        from openpyxl import load_workbook
+        wb = load_workbook(file_path)
+        date_str = datetime.now().strftime("Data wygenerowania raportu: %Y-%m-%d %H:%M")
+        for sheet_name in ["Wykładowcy", "Grupy"]:
+            if sheet_name in wb.sheetnames:
+                ws = wb[sheet_name]
+                last_row = ws.max_row + 2
+                ws.cell(row=last_row, column=1, value=date_str)
+        wb.save(file_path)
 
     def format_excel(self, file_path):
         """Apply formatting to the Excel file, adjust column widths, and add Excel tables with filtering."""
@@ -901,6 +981,7 @@ class MainWindow(QMainWindow):
         wb.save(file_path)
     def filter_group_list(self, text):
         self.group_proxy.setFilterFixedString(text)
+
 
     def filter_instructor_list(self, text):
         self.instructor_proxy.setFilterFixedString(text)
