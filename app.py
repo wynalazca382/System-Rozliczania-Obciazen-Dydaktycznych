@@ -1,6 +1,6 @@
 import sys
 from PyQt5.QtWidgets import (
-    QApplication, QMainWindow, QVBoxLayout, QHBoxLayout, QWidget, QPushButton, QLabel, QComboBox, QListWidget, QTabWidget, QLineEdit, QSpacerItem, QSizePolicy, QListWidgetItem, QFileDialog, QMessageBox, QListWidget, QAbstractItemView, QTableView, QHeaderView, QDialog, QVBoxLayout, QCheckBox, QDialogButtonBox, QLabel
+    QApplication, QMainWindow, QVBoxLayout, QHBoxLayout, QWidget, QPushButton, QLabel, QComboBox, QListWidget, QTabWidget, QLineEdit, QSpacerItem, QSizePolicy, QListWidgetItem, QFileDialog, QMessageBox, QListWidget, QAbstractItemView, QTableView, QHeaderView, QDialog, QVBoxLayout, QCheckBox, QDialogButtonBox, QLabel, QWidgetAction
 )
 from PyQt5.QtGui import QFont, QIcon, QStandardItemModel, QStandardItem
 from PyQt5.QtCore import Qt, QSortFilterProxyModel
@@ -26,6 +26,8 @@ class MainWindow(QMainWindow):
         self.setWindowTitle("System Rozliczania Obciążeń Dydaktycznych")
         self.setGeometry(100, 100, 1000, 700)
         self.showMaximized()
+        self.is_dark_mode = False  # Domyślnie jasny tryb
+
         # Główne okno
         main_widget = QWidget()
         main_layout = QVBoxLayout(main_widget)
@@ -125,14 +127,21 @@ class MainWindow(QMainWindow):
         filters_layout.addLayout(buttons_layout)
         main_layout.addLayout(filters_layout)
 
-        # Zakładki
+        # Utwórz QTabWidget i dodaj do layoutu
         self.tab_widget = QTabWidget()
         self.tab_widget.setStyleSheet(self.tab_style())
         main_layout.addWidget(self.tab_widget)
+        # Przycisk trybu ciemnego/jasnego z ikonką w prawym górnym rogu zakładek
+        self.theme_toggle_btn = QPushButton("🌙")
+        self.theme_toggle_btn.setCheckable(True)
+        self.theme_toggle_btn.setFixedWidth(48)
+        self.theme_toggle_btn.setStyleSheet("font-size: 20px; border-radius: 5px; margin-left: 10px;")
+        self.theme_toggle_btn.clicked.connect(self.toggle_theme)
+        self.tab_widget.setCornerWidget(self.theme_toggle_btn, Qt.Corner.TopRightCorner)
 
         # Zakładka grup
         self.groups_tab = QWidget()
-        self.groups_layout = QVBoxLayout(self.groups_tab) 
+        self.groups_layout = QVBoxLayout(self.groups_tab)
         self.group_table = QTableView()
         self.group_model = QStandardItemModel()
         self.group_proxy = QSortFilterProxyModel()
@@ -231,6 +240,8 @@ class MainWindow(QMainWindow):
         self.tab_widget.addTab(self.instructors_tab, "Wykładowcy")
         self.instructor_table.clicked.connect(self.display_instructor_details)
         self.instructor_table.clicked.connect(self.display_instructor_details)
+
+        # Zakładka zestawienie
         self.summary_tab = QWidget()
         self.summary_layout = QVBoxLayout(self.summary_tab)
         self.summary_search = QLineEdit()
@@ -244,7 +255,6 @@ class MainWindow(QMainWindow):
         """)
         self.summary_search.textChanged.connect(self.filter_summary_list)
         self.summary_layout.addWidget(self.summary_search)
-        self.tab_widget.addTab(self.summary_tab, "Zestawienie")
         # Dodaj przycisk Wyczyść filtr
         self.clear_summary_filter_button = QPushButton("Wyczyść filtr")
         self.clear_summary_filter_button.setStyleSheet(self.button_style())
@@ -271,7 +281,8 @@ class MainWindow(QMainWindow):
                 font-family: 'Verdana';
                 font-size: 16px;
             }
-        """)   
+        """)
+        self.tab_widget.addTab(self.summary_tab, "Zestawienie")
         # Przycisk "Generuj raport" na samym dole
         self.report_button = QPushButton("Generuj raport")
         self.report_button.setStyleSheet(self.button_style())
@@ -547,7 +558,7 @@ class MainWindow(QMainWindow):
                     # Jeśli wartość jest liczbą (int lub float), ustaw dane liczbowe
                     try:
                         num = float(value)
-                        item.setData(num, Qt.EditRole)
+                        item.setData(num, QtCore.Qt.EditRole)
                     except (ValueError, TypeError):
                         pass  # zostaw jako tekst
                     row_items.append(item)
@@ -614,7 +625,7 @@ class MainWindow(QMainWindow):
                     for idx, key in zip(numeric_indices, numeric_keys):
                         try:
                             value = float(workload_data[key])
-                            row[idx].setData(value, Qt.EditRole)
+                            row[idx].setData(value, QtCore.Qt.EditRole)
                         except (ValueError, TypeError):
                             pass
                     self.instructor_model.appendRow(row)
@@ -667,15 +678,15 @@ class MainWindow(QMainWindow):
                     ]
                     # Semestr zimowy
                     item_zimowy = QStandardItem(str(godziny["Zimowy"]))
-                    item_zimowy.setData(godziny["Zimowy"], Qt.EditRole)
+                    item_zimowy.setData(godziny["Zimowy"], QtCore.Qt.EditRole)
                     row.append(item_zimowy)
                     # Semestr letni
                     item_letni = QStandardItem(str(godziny["Letni"]))
-                    item_letni.setData(godziny["Letni"], Qt.EditRole)
+                    item_letni.setData(godziny["Letni"], QtCore.Qt.EditRole)
                     row.append(item_letni)
                     # Suma
                     item_suma = QStandardItem(str(godziny["Suma"]))
-                    item_suma.setData(godziny["Suma"], Qt.EditRole)
+                    item_suma.setData(godziny["Suma"], QtCore.Qt.EditRole)
                     row.append(item_suma)
 
                     self.summary_model.appendRow(row)
@@ -688,13 +699,13 @@ class MainWindow(QMainWindow):
                     QStandardItem("SUMA kierunku"),
                 ]
                 item_zimowy = QStandardItem(str(suma_kierunku["Zimowy"]))
-                item_zimowy.setData(suma_kierunku["Zimowy"], Qt.EditRole)
+                item_zimowy.setData(suma_kierunku["Zimowy"], QtCore.Qt.EditRole)
                 row.append(item_zimowy)
                 item_letni = QStandardItem(str(suma_kierunku["Letni"]))
-                item_letni.setData(suma_kierunku["Letni"], Qt.EditRole)
+                item_letni.setData(suma_kierunku["Letni"], QtCore.Qt.EditRole)
                 row.append(item_letni)
                 item_suma = QStandardItem(str(suma_kierunku["Suma"]))
-                item_suma.setData(suma_kierunku["Suma"], Qt.EditRole)
+                item_suma.setData(suma_kierunku["Suma"], QtCore.Qt.EditRole)
                 row.append(item_suma)
                 self.summary_model.appendRow(row)
 
@@ -897,17 +908,13 @@ class MainWindow(QMainWindow):
             file_path, _ = QFileDialog.getSaveFileName(self, "Save File", "", "Excel Files (*.xlsx)")
             if file_path:
                 with pd.ExcelWriter(file_path, engine='openpyxl') as writer:
-                    # Dodaj nagłówek do Wykładowców
+                    # Eksport bez nagłówków tekstowych i bez nagłówków kolumn
                     if not df1.empty:
-                        df1.to_excel(writer, sheet_name='Wykładowcy', index=False, startrow=2)
-                        ws = writer.sheets['Wykładowcy']
-                        ws.cell(row=1, column=1, value="Raport Wykładowcy - System Rozliczania Obciążeń Dydaktycznych")
+                        df1.to_excel(writer, sheet_name='Wykładowcy', index=False, header=True)
                     if not df2.empty:
-                        df2.to_excel(writer, sheet_name='Grupy', index=False, startrow=2)
-                        ws2 = writer.sheets['Grupy']
-                        ws2.cell(row=1, column=1, value="Raport Grupy - System Rozliczania Obciążeń Dydaktycznych")
+                        df2.to_excel(writer, sheet_name='Grupy', index=False, header=True)
                     if not df3.empty:
-                        df3.to_excel(writer, sheet_name='Podsumowanie', index=False)
+                        df3.to_excel(writer, sheet_name='Podsumowanie', index=False, header=True)
                 # Dodaj stopkę z datą do arkuszy
                 self.add_footer_to_excel(file_path)
                 self.format_excel(file_path)
@@ -1009,9 +1016,13 @@ class MainWindow(QMainWindow):
             file_path, _ = QFileDialog.getSaveFileName(self, "Save File", "", "Excel Files (*.xlsx)")
             if file_path:
                 with pd.ExcelWriter(file_path, engine='openpyxl') as writer:
-                    df1.to_excel(writer, sheet_name='Wykładowcy', index=False)
-                    df2.to_excel(writer, sheet_name='Grupy', index=False)
-                    df3.to_excel(writer, sheet_name='Podsumowanie', index=False)
+                    # Eksport bez nagłówków tekstowych
+                    if not df1.empty:
+                        df1.to_excel(writer, sheet_name='Wykładowcy', index=False)
+                    if not df2.empty:
+                        df2.to_excel(writer, sheet_name='Grupy', index=False)
+                    if not df3.empty:
+                        df3.to_excel(writer, sheet_name='Podsumowanie', index=False)
                 self.format_excel(file_path)
                 self.status_label.setText(f"Status: Raport zapisany do {file_path}")
             else:
@@ -1042,6 +1053,32 @@ class MainWindow(QMainWindow):
             self.generate_report_from_view()
         else:
             self.generate_report_from_db()
+
+    def toggle_theme(self):
+        if self.is_dark_mode:
+            self.setStyleSheet("")
+            self.is_dark_mode = False
+            self.theme_toggle_btn.setText("🌙")
+        else:
+            dark_stylesheet = """
+                QWidget { background-color: #232629; color: #f0f0f0; }
+                QLineEdit, QComboBox, QTableView, QTabWidget, QHeaderView::section {
+                    background-color: #31363b; color: #f0f0f0; border: 1px solid #444;
+                }
+                QPushButton { background-color: #444; color: #f0f0f0; border-radius: 5px; }
+                QPushButton:hover { background-color: #666; }
+                QMenuBar { background-color: #232629; color: #f0f0f0; }
+                QMenu { background-color: #232629; color: #f0f0f0; }
+                QTableView QHeaderView::section { background-color: #31363b; color: #f0f0f0; }
+                QTabBar::tab { background: #31363b; color: #f0f0f0; border: 1px solid #444; min-width: 120px; }
+                QTabBar::tab:selected { background: #444; color: #fff; border-bottom: 2px solid #1abc9c; }
+                QTabBar::tab:!selected { background: #31363b; color: #bbb; }
+                QTabWidget::pane { border: 1px solid #444; }
+            """
+            self.setStyleSheet(dark_stylesheet)
+            self.is_dark_mode = True
+            self.theme_toggle_btn.setText("☀️")
+
 if __name__ == "__main__":
     app = QApplication(sys.argv)
     login_window = LoginWindow()
