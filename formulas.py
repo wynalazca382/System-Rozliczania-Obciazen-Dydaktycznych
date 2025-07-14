@@ -113,9 +113,14 @@ def calculate_workload_for_employee(employee_id, selected_year, selected_unit):
 
         # Przetwarzanie wszystkich zniżek
         for znizka in znizki:
-            laczna_znizka += znizka.ZNIZKA
-            typy_znizek.append(znizka.discount_type.NAZWA)
-            godziny_znizek.append(znizka.ZNIZKA)
+            if znizka.TYP == "O":
+                laczna_znizka += znizka.ZNIZKA  
+                typy_znizek.append(znizka.discount_type.NAZWA)
+                godziny_znizek.append(znizka.ZNIZKA)
+            elif znizka.TYP == "D":
+                laczna_znizka += pensum - znizka.ZNIZKA
+                typy_znizek.append(znizka.discount_type.NAZWA)
+                godziny_znizek.append(laczna_znizka)
 
         # Aktualizacja pensum
         if laczna_znizka > 0:
