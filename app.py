@@ -1129,9 +1129,27 @@ class MainWindow(QMainWindow):
 
     def toggle_theme(self):
         if self.is_dark_mode:
-            self.setStyleSheet("")
+            # Jasny motyw
+            light_stylesheet = """
+                QWidget { background-color: #fff; color: #232629; }
+                QLineEdit, QComboBox, QTableView, QTabWidget, QHeaderView::section {
+                    background-color: #ecf0f1; color: #232629; border: 1px solid #bdc3c7;
+                }
+                QPushButton { background-color: #1abc9c; color: white; border-radius: 5px; }
+                QPushButton:hover { background-color: #16a085; }
+                QMenuBar { background-color: #fff; color: #232629; }
+                QMenu { background-color: #fff; color: #232629; }
+                QTableView QHeaderView::section { background-color: #ecf0f1; color: #232629; }
+                QTabBar::tab { background: #ecf0f1; color: #232629; border: 1px solid #bdc3c7; min-width: 120px; }
+                QTabBar::tab:selected { background: #1abc9c; color: white; }
+                QTabBar::tab:!selected { background: #ecf0f1; color: #232629; }
+                QTabWidget::pane { border: 1px solid #bdc3c7; }
+                QTableCornerButton::section { background-color: #ecf0f1; border: 1px solid #bdc3c7; }
+            """
+            self.setStyleSheet(light_stylesheet)
             self.is_dark_mode = False
             self.theme_toggle_btn.setText(" 🌜 ")
+            self.theme_toggle_btn.setStyleSheet("font-size: 28px; border-radius: 8px; margin-left: 16px; padding: 8px 16px; background-color: #ecf0f1; color: #232629;")
         else:
             dark_stylesheet = """
                 QWidget { background-color: #232629; color: #f0f0f0; }
@@ -1147,10 +1165,12 @@ class MainWindow(QMainWindow):
                 QTabBar::tab:selected { background: #444; color: #fff; border-bottom: 2px solid #1abc9c; }
                 QTabBar::tab:!selected { background: #31363b; color: #bbb; }
                 QTabWidget::pane { border: 1px solid #444; }
+                QTableCornerButton::section { background-color: #31363b; border: 1px solid #444; }
             """
             self.setStyleSheet(dark_stylesheet)
             self.is_dark_mode = True
             self.theme_toggle_btn.setText("☀️")
+            self.theme_toggle_btn.setStyleSheet("font-size: 28px; border-radius: 8px; margin-left: 16px; padding: 8px 16px; background-color: #444; color: #f0f0f0;")
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
