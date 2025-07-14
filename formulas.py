@@ -27,8 +27,10 @@ def calculate_workload_for_employee(employee_id, selected_year, selected_unit):
 
         results = query.all()
         total_workload = 0.0
-        godziny_dydaktyczne_z = 0.0
-        godziny_dydaktyczne_l = 0.0
+        godziny_dydaktyczne_z_stacjonarne = 0.0
+        godziny_dydaktyczne_z_niestacjonarne = 0.0
+        godziny_dydaktyczne_l_stacjonarne = 0.0
+        godziny_dydaktyczne_l_niestacjonarne = 0.0
         pensum = 0.0
         etat = 1.0
         nadgodziny = 0.0
@@ -43,12 +45,22 @@ def calculate_workload_for_employee(employee_id, selected_year, selected_unit):
         for group_instructor, group, didactic_class, subject, didactic_cycle, class_type in results:
             godziny = didactic_class.LICZBA_GODZ or 0
             total_workload += godziny
-
+            parsed_code = parse_subject_code(subject.KOD)
             # Rozdzielenie godzin na semestr zimowy i letni
             if "Semestr zimowy" in didactic_cycle.OPIS:
-                godziny_dydaktyczne_z += godziny
+                godziny_dydaktyczne_z_stacjonarne += godziny
+                if "Stacjonarne" in parsed_code["Tryb"]:
+                    godziny_dydaktyczne_z_stacjonarne += godziny
+                elif "Niestacjonarne" in parsed_code["Tryb"]:
+                    godziny_dydaktyczne_z_niestacjonarne += godziny
             elif "Semestr letni" in didactic_cycle.OPIS:
-                godziny_dydaktyczne_l += godziny
+                godziny_dydaktyczne_l_stacjonarne += godziny
+                if "Stacjonarne" in parsed_code["Tryb"]:
+                    godziny_dydaktyczne_l_stacjonarne += godziny
+                elif "Niestacjonarne" in parsed_code["Tryb"]:
+                    godziny_dydaktyczne_l_niestacjonarne += godziny
+            
+
         pensum_employee = (
         db.query(EmployeePensum)
         .join(PensumSettlement, EmployeePensum.RPENS_KOD == PensumSettlement.KOD)
@@ -113,8 +125,10 @@ def calculate_workload_for_employee(employee_id, selected_year, selected_unit):
         kwota_nadgodzin = nadgodziny * stawka
         return {
             "total_workload": total_workload,
-            "godziny_dydaktyczne_z": godziny_dydaktyczne_z,
-            "godziny_dydaktyczne_l": godziny_dydaktyczne_l,
+            "godziny_dydaktyczne_z_stacjonarne": godziny_dydaktyczne_z_stacjonarne,
+            "godziny_dydaktyczne_z_niestacjonarne": godziny_dydaktyczne_z_niestacjonarne,
+            "godziny_dydaktyczne_l_stacjonarne": godziny_dydaktyczne_l_stacjonarne,
+            "godziny_dydaktyczne_l_niestacjonarne": godziny_dydaktyczne_l_niestacjonarne,
             "pensum": pensum,
             "etat": etat,
             "nadgodziny": nadgodziny,

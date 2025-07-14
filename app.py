@@ -132,10 +132,10 @@ class MainWindow(QMainWindow):
         self.tab_widget.setStyleSheet(self.tab_style())
         main_layout.addWidget(self.tab_widget)
         # Przycisk trybu ciemnego/jasnego z ikonką w prawym górnym rogu zakładek
-        self.theme_toggle_btn = QPushButton("🌙")
+        self.theme_toggle_btn = QPushButton("🌜")
         self.theme_toggle_btn.setCheckable(True)
-        self.theme_toggle_btn.setFixedWidth(48)
-        self.theme_toggle_btn.setStyleSheet("font-size: 20px; border-radius: 5px; margin-left: 10px;")
+        self.theme_toggle_btn.setFixedSize(80, 64)
+        self.theme_toggle_btn.setStyleSheet("font-size: 28px; border-radius: 8px; margin-left: 16px; padding: 8px 16px;")
         self.theme_toggle_btn.clicked.connect(self.toggle_theme)
         self.tab_widget.setCornerWidget(self.theme_toggle_btn, Qt.Corner.TopRightCorner)
 
@@ -146,7 +146,7 @@ class MainWindow(QMainWindow):
         self.group_model = QStandardItemModel()
         self.group_proxy = QSortFilterProxyModel()
         self.group_proxy.setSourceModel(self.group_model)
-        self.group_proxy.setFilterCaseSensitivity(Qt.CaseInsensitive)
+        self.group_proxy.setFilterCaseSensitivity(1)
         self.group_proxy.setFilterKeyColumn(-1)  # -1 = wszystkie kolumny
         self.group_table.setModel(self.group_proxy)
         header = self.group_table.horizontalHeader()
@@ -215,7 +215,7 @@ class MainWindow(QMainWindow):
         self.instructor_model = QStandardItemModel()
         self.instructor_proxy = QSortFilterProxyModel()
         self.instructor_proxy.setSourceModel(self.instructor_model)
-        self.instructor_proxy.setFilterCaseSensitivity(Qt.CaseInsensitive)
+        self.instructor_proxy.setFilterCaseSensitivity(1)
         self.instructor_proxy.setFilterKeyColumn(-1)
         self.instructor_table.setModel(self.instructor_proxy)
         header = self.instructor_table.horizontalHeader()
@@ -267,7 +267,7 @@ class MainWindow(QMainWindow):
         self.summary_model = QStandardItemModel()
         self.summary_proxy = QSortFilterProxyModel()
         self.summary_proxy.setSourceModel(self.summary_model)
-        self.summary_proxy.setFilterCaseSensitivity(Qt.CaseInsensitive)
+        self.summary_proxy.setFilterCaseSensitivity(1)
         self.summary_proxy.setFilterKeyColumn(-1)
         self.summary_table.setModel(self.summary_proxy)
         header = self.summary_table.horizontalHeader()
@@ -313,12 +313,8 @@ class MainWindow(QMainWindow):
         self.summary_search.setToolTip("Wyszukaj w podsumowaniu po dowolnym polu")
         self.clear_summary_filter_button.setToolTip("Wyczyść pole wyszukiwania w podsumowaniu")
         self.report_button.setToolTip("Wygeneruj raport Excel z aktualnych danych")
-        # Dodaj tooltip do przycisku zmiany motywu jeśli istnieje
         if hasattr(self, 'theme_toggle_btn'):
             self.theme_toggle_btn.setToolTip("Przełącz tryb ciemny/jasny")
-        # Dodaj tooltip do przycisku eksportu do PDF jeśli istnieje
-        if hasattr(self, 'export_pdf_button'):
-            self.export_pdf_button.setToolTip("Eksportuj aktualną tabelę do PDF")
         
     def button_style(self):
         return """
@@ -456,13 +452,13 @@ class MainWindow(QMainWindow):
                 print(f"Selected year: {selected_year}")  # Debugging: Log the selected year
                 instructor_query = instructor_query.filter(DidacticCycles.OPIS.like(f"%{selected_year}%"))
             instructors = instructor_query.all()
-            instructors.sort(key=lambda i: (i.Person.NAZWISKO, i.Person.IMIE) if hasattr(i, 'Person') else (db.query(Person).filter_by(ID=i.OS_ID).first().NAZWISKO, db.query(Person).filter_by(ID=i.OS_ID).first().IMIE))
+            instructors.sort(key=lambda i: (getattr(i.Person, 'NAZWISKO', ''), getattr(i.Person, 'IMIE', '')) if hasattr(i, 'Person') and i.Person else (getattr(db.query(Person).filter_by(ID=i.OS_ID).first(), 'NAZWISKO', ''), getattr(db.query(Person).filter_by(ID=i.OS_ID).first(), 'IMIE', '')))
             self.employee_filter.clear()
             self.employee_filter.addItem("Wszyscy wykładowcy", None)
             for instructor in instructors:
                 person = db.query(Person).filter_by(ID=instructor.OS_ID).first()
-                print(f"Adding instructor: {person.NAZWISKO} {person.IMIE} {instructor.ID}")  # Debugging: Log the instructor being added
-                self.employee_filter.addItem(f"{person.NAZWISKO} {person.IMIE}", instructor.ID)
+                print(f"Adding instructor: {getattr(person, 'NAZWISKO', 'Brak')} {getattr(person, 'IMIE', 'Brak')} {instructor.ID}")  # Debugging: Log the instructor being added
+                self.employee_filter.addItem(f"{getattr(person, 'NAZWISKO', 'Brak')} {getattr(person, 'IMIE', 'Brak')}", instructor.ID)
             
             index_to_restore = self.employee_filter.findData(current_instructor)
             if index_to_restore != -1:
@@ -503,8 +499,8 @@ class MainWindow(QMainWindow):
 
             # Dane podstawowe
             headers = [
-                "Stanowisko", "Pensum uczelniane", "Umowa od", "Umowa do", "Pensum", "Godziny Z", "Godziny L",
-                "Nadgodziny/Niedobór", "Łączna zniżka", "Etat", "Czy podstawowe miejsce pracy",
+                "Stanowisko", "Pensum uczelniane", "Umowa od", "Umowa do", "Pensum", "Godziny Z stacjonarne", "Godziny Z niestacjonarne",
+                "Godziny L stacjonarne", "Godziny L niestacjonarne", "Nadgodziny/Niedobór", "Łączna zniżka", "Etat", "Czy podstawowe miejsce pracy",
                 "Stawka", "Kwota nadgodzin"
             ]
             self.instructor_details_model.setHorizontalHeaderLabels(headers)
@@ -514,8 +510,10 @@ class MainWindow(QMainWindow):
                 QStandardItem(str(workload_data.get('umowa_pocz', ''))),
                 QStandardItem(str(workload_data.get('umowa_kon', ''))),
                 QStandardItem(str(workload_data.get('pensum', ''))),
-                QStandardItem(str(workload_data.get('godziny_dydaktyczne_z', ''))),
-                QStandardItem(str(workload_data.get('godziny_dydaktyczne_l', ''))),
+                QStandardItem(str(workload_data.get('godziny_dydaktyczne_z_stacjonarne', ''))),
+                QStandardItem(str(workload_data.get('godziny_dydaktyczne_z_niestacjonarne', ''))),
+                QStandardItem(str(workload_data.get('godziny_dydaktyczne_l_stacjonarne', ''))),
+                QStandardItem(str(workload_data.get('godziny_dydaktyczne_l_niestacjonarne', ''))),
                 QStandardItem(str(workload_data.get('nadgodziny', ''))),
                 QStandardItem(str(workload_data.get('zniżka', ''))),
                 QStandardItem(str(workload_data.get('etat', ''))),
@@ -576,7 +574,7 @@ class MainWindow(QMainWindow):
                     # Jeśli wartość jest liczbą (int lub float), ustaw dane liczbowe
                     try:
                         num = float(value)
-                        item.setData(num, QtCore.Qt.EditRole)
+                        item.setData(num, 2)
                     except (ValueError, TypeError):
                         pass  # zostaw jako tekst
                     row_items.append(item)
@@ -602,8 +600,8 @@ class MainWindow(QMainWindow):
             results.sort(key=lambda pair: (pair[1].NAZWISKO, pair[1].IMIE))
             headers = [
     "Tytuły", "Nazwisko i imię", "J.O.", "Forma", "Stanowisko", "Umowa od", "Umowa do",
-    "Pensum uczelniane", "Zniżka", "Czy podstawowe miejsce pracy", "Godziny dydaktyczne Z",
-    "Godziny dydaktyczne L", "Pensum realne", "Pensum", "Etat", "Nadgodziny", "Stawka", "Kwota nadgodzin"
+    "Pensum uczelniane", "Zniżka", "Czy podstawowe miejsce pracy", "Godziny dydaktyczne Z stacjonarne",
+    "Godziny dydaktyczne Z niestacjonarne", "Godziny dydaktyczne L stacjonarne", "Godziny dydaktyczne L niestacjonarne", "Pensum realne", "Pensum", "Etat", "Nadgodziny", "Stawka", "Kwota nadgodzin"
 ]
             self.instructor_model.setHorizontalHeaderLabels(headers)
             for employee, person in results:
@@ -614,10 +612,14 @@ class MainWindow(QMainWindow):
                     organizational_unit = db2.query(OrganizationalUnits).filter_by(KOD=person.JED_ORG_KOD).first()
                     db2.close()
                     # Tworzymy QStandardItemy
+                    tytul_str = str(tytul.NAZWA) if tytul and hasattr(tytul, 'NAZWA') else "N/A"
+                    nazwisko = getattr(person, 'NAZWISKO', 'Brak') if person else 'Brak'
+                    imie = getattr(person, 'IMIE', 'Brak') if person else 'Brak'
+                    organizational_unit_str = str(organizational_unit.OPIS) if organizational_unit and hasattr(organizational_unit, 'OPIS') else "N/A"
                     row = [
-                        QStandardItem(tytul.NAZWA if tytul else "N/A"),
-                        QStandardItem(f"{person.NAZWISKO} {person.IMIE}"),
-                        QStandardItem(organizational_unit.OPIS if organizational_unit else "N/A"),
+                        QStandardItem(tytul_str),
+                        QStandardItem(f"{nazwisko} {imie}"),
+                        QStandardItem(organizational_unit_str),
                         QStandardItem("etat" if workload_data["umowa_pocz"] != "Brak daty rozpoczęcia umowy" else "umowa zlecenie"),
                         QStandardItem(str(workload_data['stanowisko'])),
                         QStandardItem(str(workload_data['umowa_pocz'])),
@@ -625,8 +627,10 @@ class MainWindow(QMainWindow):
                         QStandardItem(str(workload_data['pensum_uczelniane'])),
                         QStandardItem(str(workload_data['zniżka'])),
                         QStandardItem(str(workload_data['CZY_PODSTAWOWE'])),
-                        QStandardItem(str(workload_data['godziny_dydaktyczne_z'])),
-                        QStandardItem(str(workload_data['godziny_dydaktyczne_l'])),
+                        QStandardItem(str(workload_data['godziny_dydaktyczne_z_stacjonarne'])),
+                        QStandardItem(str(workload_data['godziny_dydaktyczne_z_niestacjonarne'])),
+                        QStandardItem(str(workload_data['godziny_dydaktyczne_l_stacjonarne'])),
+                        QStandardItem(str(workload_data['godziny_dydaktyczne_l_niestacjonarne'])),
                         QStandardItem(str(workload_data['total_workload'])),
                         QStandardItem(str(workload_data['pensum'])),
                         QStandardItem(str(workload_data['etat'])),
@@ -637,13 +641,13 @@ class MainWindow(QMainWindow):
                     # Ustaw dane liczbowe dla kolumn liczbowych
                     numeric_indices = [7,8,10,11,12,13,14,15,16,17]  # indeksy kolumn liczbowych
                     numeric_keys = [
-                        'pensum_uczelniane','zniżka','godziny_dydaktyczne_z','godziny_dydaktyczne_l',
+                        'pensum_uczelniane','zniżka','godziny_dydaktyczne_z_stacjonarne','godziny_dydaktyczne_z_niestacjonarne','godziny_dydaktyczne_l_stacjonarne','godziny_dydaktyczne_l_niestacjonarne',
                         'total_workload','pensum','etat','nadgodziny','stawka','kwota_nadgodzin'
                     ]
                     for idx, key in zip(numeric_indices, numeric_keys):
                         try:
                             value = float(workload_data[key])
-                            row[idx].setData(value, QtCore.Qt.EditRole)
+                            row[idx].setData(value, 2)
                         except (ValueError, TypeError):
                             pass
                     self.instructor_model.appendRow(row)
@@ -667,64 +671,83 @@ class MainWindow(QMainWindow):
             for group in group_data:
                 kierunek = group.get("Kierunek", "Nieznany kierunek")
                 specjalnosc = group.get("Specjalność", "Brak specjalności")
+                tryb = group.get("Tryb", "Nieznany tryb").strip().lower()
                 hours = group.get("Liczba godzin", 0)
-                semester = group.get("Semestr", "Nieznany semestr")
+                semester = group.get("Semestr", "Nieznany semestr").lower()
 
                 if kierunek not in kierunek_dict:
                     kierunek_dict[kierunek] = {}
-
                 if specjalnosc not in kierunek_dict[kierunek]:
-                    kierunek_dict[kierunek][specjalnosc] = {"Zimowy": 0, "Letni": 0, "Suma": 0}
-
-                if "zimowy" in semester.lower():
-                    kierunek_dict[kierunek][specjalnosc]["Zimowy"] += hours
-                elif "letni" in semester.lower():
-                    kierunek_dict[kierunek][specjalnosc]["Letni"] += hours
+                    kierunek_dict[kierunek][specjalnosc] = {
+                        "Zimowy stacjonarne": 0,
+                        "Zimowy niestacjonarne": 0,
+                        "Letni stacjonarne": 0,
+                        "Letni niestacjonarne": 0,
+                        "Suma": 0
+                    }
+                print(f"tryb: {tryb}, semester: {semester}, hours: {hours}, kierunek: {kierunek}, specjalnosc: {specjalnosc}")
+                if "zimowy" in semester and (("niestacjonarne" in tryb) or tryb == "none"):
+                    print("Zimowy niestacjonarne:", kierunek, specjalnosc, hours)
+                    kierunek_dict[kierunek][specjalnosc]["Zimowy niestacjonarne"] += hours
+                elif "zimowy" in semester and "stacjonarne" in tryb:
+                    print("Zimowy stacjonarne:", kierunek, specjalnosc, hours)
+                    kierunek_dict[kierunek][specjalnosc]["Zimowy stacjonarne"] += hours
+                elif "letni" in semester and (("niestacjonarne" in tryb) or tryb == "none"):
+                    print("Letni niestacjonarne:", kierunek, specjalnosc, hours)
+                    kierunek_dict[kierunek][specjalnosc]["Letni niestacjonarne"] += hours
+                elif "letni" in semester and "stacjonarne" in tryb:
+                    print("Letni stacjonarne:", kierunek, specjalnosc, hours)
+                    kierunek_dict[kierunek][specjalnosc]["Letni stacjonarne"] += hours
+                else:
+                    # Jeśli tryb nie jest rozpoznany, możesz dodać do osobnej kolumny lub wyświetlić ostrzeżenie
+                    print(f"Nieznany tryb/semestr: tryb={tryb}, semester={semester}, hours={hours}, kierunek={kierunek}, specjalnosc={specjalnosc}")
 
                 kierunek_dict[kierunek][specjalnosc]["Suma"] += hours
 
-            # Nagłówki
-            headers = ["Kierunek", "Specjalność", "Semestr zimowy", "Semestr letni", "Suma"]
+            headers = [
+                "Kierunek", "Specjalność",
+                "Zimowy stacjonarne", "Zimowy niestacjonarne",
+                "Letni stacjonarne", "Letni niestacjonarne",
+                "Suma"
+            ]
             self.summary_model.setHorizontalHeaderLabels(headers)
 
             for kierunek, specjalnosci in kierunek_dict.items():
-                suma_kierunku = {"Zimowy": 0, "Letni": 0, "Suma": 0}
+                # Sumy dla kierunku
+                suma_kierunku = {
+                    "Zimowy stacjonarne": 0,
+                    "Zimowy niestacjonarne": 0,
+                    "Letni stacjonarne": 0,
+                    "Letni niestacjonarne": 0,
+                    "Suma": 0
+                }
                 for specjalnosc, godziny in specjalnosci.items():
                     row = [
                         QStandardItem(kierunek),
                         QStandardItem(specjalnosc),
+                        QStandardItem(str(godziny["Zimowy stacjonarne"])),
+                        QStandardItem(str(godziny["Zimowy niestacjonarne"])),
+                        QStandardItem(str(godziny["Letni stacjonarne"])),
+                        QStandardItem(str(godziny["Letni niestacjonarne"])),
+                        QStandardItem(str(godziny["Suma"]))
                     ]
-                    # Semestr zimowy
-                    item_zimowy = QStandardItem(str(godziny["Zimowy"]))
-                    item_zimowy.setData(godziny["Zimowy"], QtCore.Qt.EditRole)
-                    row.append(item_zimowy)
-                    # Semestr letni
-                    item_letni = QStandardItem(str(godziny["Letni"]))
-                    item_letni.setData(godziny["Letni"], QtCore.Qt.EditRole)
-                    row.append(item_letni)
-                    # Suma
-                    item_suma = QStandardItem(str(godziny["Suma"]))
-                    item_suma.setData(godziny["Suma"], QtCore.Qt.EditRole)
-                    row.append(item_suma)
-
                     self.summary_model.appendRow(row)
-                    suma_kierunku["Zimowy"] += godziny["Zimowy"]
-                    suma_kierunku["Letni"] += godziny["Letni"]
+                    # Dodaj do sum kierunku
+                    suma_kierunku["Zimowy stacjonarne"] += godziny["Zimowy stacjonarne"]
+                    suma_kierunku["Zimowy niestacjonarne"] += godziny["Zimowy niestacjonarne"]
+                    suma_kierunku["Letni stacjonarne"] += godziny["Letni stacjonarne"]
+                    suma_kierunku["Letni niestacjonarne"] += godziny["Letni niestacjonarne"]
                     suma_kierunku["Suma"] += godziny["Suma"]
-                # Dodaj sumę kierunku jako osobny wiersz
+                # Dodaj wiersz sumujący dla kierunku
                 row = [
                     QStandardItem(kierunek),
                     QStandardItem("SUMA kierunku"),
+                    QStandardItem(str(suma_kierunku["Zimowy stacjonarne"])),
+                    QStandardItem(str(suma_kierunku["Zimowy niestacjonarne"])),
+                    QStandardItem(str(suma_kierunku["Letni stacjonarne"])),
+                    QStandardItem(str(suma_kierunku["Letni niestacjonarne"])),
+                    QStandardItem(str(suma_kierunku["Suma"]))
                 ]
-                item_zimowy = QStandardItem(str(suma_kierunku["Zimowy"]))
-                item_zimowy.setData(suma_kierunku["Zimowy"], QtCore.Qt.EditRole)
-                row.append(item_zimowy)
-                item_letni = QStandardItem(str(suma_kierunku["Letni"]))
-                item_letni.setData(suma_kierunku["Letni"], QtCore.Qt.EditRole)
-                row.append(item_letni)
-                item_suma = QStandardItem(str(suma_kierunku["Suma"]))
-                item_suma.setData(suma_kierunku["Suma"], QtCore.Qt.EditRole)
-                row.append(item_suma)
                 self.summary_model.appendRow(row)
 
             if not kierunek_dict:
@@ -760,8 +783,10 @@ class MainWindow(QMainWindow):
             self.instructor_details.addItem(f"Pensum uczelniane: {workload_data['pensum_uczelniane']}")
             self.instructor_details.addItem(f"Umowa od: {workload_data['umowa_pocz']} do: {workload_data['umowa_kon']}")
             self.instructor_details.addItem(f"Pensum: {workload_data['pensum']}")
-            self.instructor_details.addItem(f"Godziny dydaktyczne Z: {workload_data['godziny_dydaktyczne_z']}")
-            self.instructor_details.addItem(f"Godziny dydaktyczne L: {workload_data['godziny_dydaktyczne_l']}")
+            self.instructor_details.addItem(f"Godziny dydaktyczne Z stacjonarne: {workload_data['godziny_dydaktyczne_z_stacjonarne']}")
+            self.instructor_details.addItem(f"Godziny dydaktyczne Z niestacjonarne: {workload_data['godziny_dydaktyczne_z_niestacjonarne']}")
+            self.instructor_details.addItem(f"Godziny dydaktyczne L stacjonarne: {workload_data['godziny_dydaktyczne_l_stacjonarne']}")
+            self.instructor_details.addItem(f"Godziny dydaktyczne L niestacjonarne: {workload_data['godziny_dydaktyczne_l_niestacjonarne']}")
             self.instructor_details.addItem(f"Nadgodziny/Niedobór: {workload_data['nadgodziny']}")
             self.instructor_details.addItem(f"Łączna zniżka: {workload_data['zniżka']} godzin")
             self.instructor_details.addItem(f"Etat: {workload_data['etat']}")
@@ -851,8 +876,10 @@ class MainWindow(QMainWindow):
                     "Pensum uczelniane": workload_data["pensum_uczelniane"],
                     "Zniżka": workload_data["zniżka"],
                     "Czy podstawowe miejsce pracy": workload_data["CZY_PODSTAWOWE"],
-                    "Godziny dydaktyczne Z": workload_data["godziny_dydaktyczne_z"],
-                    "Godziny dydaktyczne L": workload_data["godziny_dydaktyczne_l"],
+                    "Godziny dydaktyczne Z stacjonarne": workload_data["godziny_dydaktyczne_z_stacjonarne"],
+                    "Godziny dydaktyczne Z niestacjonarne": workload_data["godziny_dydaktyczne_z_niestacjonarne"],
+                    "Godziny dydaktyczne L stacjonarne": workload_data["godziny_dydaktyczne_l_stacjonarne"],
+                    "Godziny dydaktyczne L niestacjonarne": workload_data["godziny_dydaktyczne_l_niestacjonarne"],
                     "Pensum realne": workload_data["total_workload"],
                     "Pensum": workload_data["pensum"],
                     "Etat": workload_data["etat"],
@@ -884,46 +911,71 @@ class MainWindow(QMainWindow):
                 df2 = pd.DataFrame(data2)[selected_columns2]
             else:
                 df2 = pd.DataFrame()
-            # Podsumowanie (bez wyboru kolumn)
+            # Podsumowanie (z sumą kierunku)
             summary_data = []
             group_data = get_group_data(selected_year, selected_unit, selected_employee)
             kierunek_dict = {}
             for group in group_data:
                 kierunek = group.get("Kierunek", "Nieznany kierunek")
                 specjalnosc = group.get("Specjalność", "Brak specjalności")
+                tryb = group.get("Tryb", "Nieznany tryb").strip().lower()
                 hours = group.get("Liczba godzin", 0)
-                semester = group.get("Semestr", "Nieznany semestr")
+                semester = group.get("Semestr", "Nieznany semestr").lower()
                 if kierunek not in kierunek_dict:
                     kierunek_dict[kierunek] = {}
                 if specjalnosc not in kierunek_dict[kierunek]:
-                    kierunek_dict[kierunek][specjalnosc] = {"Zimowy": 0, "Letni": 0, "Suma": 0}
-                if "zimowy" in semester.lower():
-                    kierunek_dict[kierunek][specjalnosc]["Zimowy"] += hours
-                elif "letni" in semester.lower():
-                    kierunek_dict[kierunek][specjalnosc]["Letni"] += hours
+                    kierunek_dict[kierunek][specjalnosc] = {
+                        "Zimowy stacjonarne": 0,
+                        "Zimowy niestacjonarne": 0,
+                        "Letni stacjonarne": 0,
+                        "Letni niestacjonarne": 0,
+                        "Suma": 0
+                    }
+                if "zimowy" in semester and (("niestacjonarne" in tryb) or tryb == "none"):
+                    kierunek_dict[kierunek][specjalnosc]["Zimowy niestacjonarne"] += hours
+                elif "zimowy" in semester and "stacjonarne" in tryb:
+                    kierunek_dict[kierunek][specjalnosc]["Zimowy stacjonarne"] += hours
+                elif "letni" in semester and (("niestacjonarne" in tryb) or tryb == "none"):
+                    kierunek_dict[kierunek][specjalnosc]["Letni niestacjonarne"] += hours
+                elif "letni" in semester and "stacjonarne" in tryb:
+                    kierunek_dict[kierunek][specjalnosc]["Letni stacjonarne"] += hours
                 kierunek_dict[kierunek][specjalnosc]["Suma"] += hours
             for kierunek, specjalnosci in kierunek_dict.items():
-                suma_kierunku = {"Zimowy": 0, "Letni": 0, "Suma": 0}
+                suma_kierunku = {
+                    "Zimowy stacjonarne": 0,
+                    "Zimowy niestacjonarne": 0,
+                    "Letni stacjonarne": 0,
+                    "Letni niestacjonarne": 0,
+                    "Suma": 0
+                }
                 for specjalnosc, godziny in specjalnosci.items():
                     summary_data.append({
                         "Kierunek": kierunek,
                         "Specjalność": specjalnosc,
-                        "Semestr zimowy": godziny["Zimowy"],
-                        "Semestr letni": godziny["Letni"],
+                        "Zimowy stacjonarne": godziny["Zimowy stacjonarne"],
+                        "Zimowy niestacjonarne": godziny["Zimowy niestacjonarne"],
+                        "Letni stacjonarne": godziny["Letni stacjonarne"],
+                        "Letni niestacjonarne": godziny["Letni niestacjonarne"],
                         "Suma": godziny["Suma"]
                     })
-                    suma_kierunku["Zimowy"] += godziny["Zimowy"]
-                    suma_kierunku["Letni"] += godziny["Letni"]
+                    suma_kierunku["Zimowy stacjonarne"] += godziny["Zimowy stacjonarne"]
+                    suma_kierunku["Zimowy niestacjonarne"] += godziny["Zimowy niestacjonarne"]
+                    suma_kierunku["Letni stacjonarne"] += godziny["Letni stacjonarne"]
+                    suma_kierunku["Letni niestacjonarne"] += godziny["Letni niestacjonarne"]
                     suma_kierunku["Suma"] += godziny["Suma"]
                 summary_data.append({
                     "Kierunek": kierunek,
                     "Specjalność": "SUMA kierunku",
-                    "Semestr zimowy": suma_kierunku["Zimowy"],
-                    "Semestr letni": suma_kierunku["Letni"],
+                    "Zimowy stacjonarne": suma_kierunku["Zimowy stacjonarne"],
+                    "Zimowy niestacjonarne": suma_kierunku["Zimowy niestacjonarne"],
+                    "Letni stacjonarne": suma_kierunku["Letni stacjonarne"],
+                    "Letni niestacjonarne": suma_kierunku["Letni niestacjonarne"],
                     "Suma": suma_kierunku["Suma"]
                 })
             df3 = pd.DataFrame(summary_data)
-            file_path, _ = QFileDialog.getSaveFileName(self, "Save File", "", "Excel Files (*.xlsx)")
+            now = datetime.now().strftime("%Y-%m-%d_%H-%M")
+            default_name = f"raport_{now}.xlsx"
+            file_path, _ = QFileDialog.getSaveFileName(self, "Save File", default_name, "Excel Files (*.xlsx)")
             if file_path:
                 with pd.ExcelWriter(file_path, engine='openpyxl') as writer:
                     # Eksport bez nagłówków tekstowych i bez nagłówków kolumn
@@ -981,7 +1033,8 @@ class MainWindow(QMainWindow):
             # Adjust column widths
             for column in sheet.columns:
                 max_length = 0
-                column_letter = column[0].column_letter
+                from openpyxl.utils import get_column_letter
+                column_letter = get_column_letter(column[0].column)
                 for cell in column:
                     try:
                         if cell.value:
@@ -1018,9 +1071,9 @@ class MainWindow(QMainWindow):
 
     def generate_report_from_view(self):
         try:
-            group_headers = [self.group_model.headerData(i, Qt.Horizontal) for i in range(self.group_model.columnCount())]
-            instructor_headers = [self.instructor_model.headerData(i, Qt.Horizontal) for i in range(self.instructor_model.columnCount())]
-            summary_headers = [self.summary_model.headerData(i, Qt.Horizontal) for i in range(self.summary_model.columnCount())]
+            group_headers = [self.group_model.headerData(i, Qt.Orientation.Horizontal) for i in range(self.group_model.columnCount())]
+            instructor_headers = [self.instructor_model.headerData(i, Qt.Orientation.Horizontal) for i in range(self.instructor_model.columnCount())]
+            summary_headers = [self.summary_model.headerData(i, Qt.Orientation.Horizontal) for i in range(self.summary_model.columnCount())]
 
             group_data = self.get_visible_table_data(self.group_proxy, group_headers)
             instructor_data = self.get_visible_table_data(self.instructor_proxy, instructor_headers)
@@ -1031,7 +1084,9 @@ class MainWindow(QMainWindow):
             df2 = pd.DataFrame(group_data)
             df3 = pd.DataFrame(summary_data)
 
-            file_path, _ = QFileDialog.getSaveFileName(self, "Save File", "", "Excel Files (*.xlsx)")
+            now = datetime.now().strftime("%Y-%m-%d_%H-%M")
+            default_name = f"raport_{now}.xlsx"
+            file_path, _ = QFileDialog.getSaveFileName(self, "Save File", default_name, "Excel Files (*.xlsx)")
             if file_path:
                 with pd.ExcelWriter(file_path, engine='openpyxl') as writer:
                     # Eksport bez nagłówków tekstowych
@@ -1076,7 +1131,7 @@ class MainWindow(QMainWindow):
         if self.is_dark_mode:
             self.setStyleSheet("")
             self.is_dark_mode = False
-            self.theme_toggle_btn.setText("🌙")
+            self.theme_toggle_btn.setText(" 🌜 ")
         else:
             dark_stylesheet = """
                 QWidget { background-color: #232629; color: #f0f0f0; }
