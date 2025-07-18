@@ -7,7 +7,7 @@ from sqlalchemy import create_engine
 import os
 from models import PensumRight
 from database import SessionLocal
-
+from cryptography.fernet import Fernet
 
 class LoginWindow(QWidget):
     def __init__(self):
@@ -126,8 +126,12 @@ class LoginWindow(QWidget):
             if not user_right:
                 QMessageBox.warning(self, "Brak uprawnień", "Nie znaleziono prawa dla tego użytkownika.")
                 return
-
-            pensum_engine = create_engine(os.getenv("DATABASE_URL"))
+            username = os.getenv("DB_USER")
+            password = os.getenv("DB_PASSWORD")
+            key = b'oHsfpCOmkXSW_8kurz8Couwvv1xhO0bg3ax2w0gB1WQ='
+            f = Fernet(key)
+            password = f.decrypt(password.encode()).decode()
+            pensum_engine = create_engine(f"oracle+cx_oracle://{username}:{password}@{host}:{port}/{database}")
             pensum_connection = pensum_engine.connect()
             pensum_connection.close()
 
