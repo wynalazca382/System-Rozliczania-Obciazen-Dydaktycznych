@@ -5,10 +5,15 @@ from dotenv import load_dotenv
 from cryptography.fernet import Fernet
 load_dotenv()
 
-key = b'oHsfpCOmkXSW_8kurz8Couwvv1xhO0bg3ax2w0gB1WQ='
+key = b'oHsfpCOmkXSW_8kurz8Couwvv1xhO0bg3ax2w0gB1WQ=' #klucz do szyfrowania hasła produkcja
+#key = b'PL6W1CaC6SwWYv-ITKB2B-oiTgP4Rqpy6ungdLOrHnw=' #klucz do szyfrowania hasła test
 f = Fernet(key)
 username = os.getenv("DB_USER")
 password = os.getenv("DB_PASSWORD")
+
+if password is None:
+    raise ValueError("DB_PASSWORD is not set in the environment variables")
+
 host = os.getenv("DB_HOST")
 port = os.getenv("DB_PORT")
 database = os.getenv("DB_NAME")

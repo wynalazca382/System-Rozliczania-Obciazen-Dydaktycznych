@@ -23,7 +23,7 @@ class LoginWindow(QWidget):
         # Nagłówek
         header_label = QLabel("System Rozliczania Obciążeń Dydaktycznych")
         header_label.setFont(QFont("Arial", 16, QFont.Bold))
-        header_label.setAlignment(Qt.AlignCenter)
+        header_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         header_label.setStyleSheet("color: #2c3e50;")
         layout.addWidget(header_label)
 
@@ -59,6 +59,7 @@ class LoginWindow(QWidget):
         self.login_button.setFont(QFont("Arial", 10, QFont.Bold))
         self.login_button.setStyleSheet(self.button_style())
         self.login_button.clicked.connect(self.handle_login)
+        self.password_input.returnPressed.connect(self.handle_login) # Dodanie obsługi logowania enterem
         button_layout.addSpacerItem(spacer)
         button_layout.addWidget(self.login_button)
         button_layout.addSpacerItem(spacer)
