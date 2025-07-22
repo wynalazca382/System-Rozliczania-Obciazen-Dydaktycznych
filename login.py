@@ -1,3 +1,5 @@
+from config import load_app_config
+load_app_config()
 from PyQt5.QtWidgets import (
     QWidget, QVBoxLayout, QLabel, QLineEdit, QPushButton, QMessageBox, QHBoxLayout, QSpacerItem, QSizePolicy
 )
@@ -129,7 +131,7 @@ class LoginWindow(QWidget):
                 return
             username = os.getenv("DB_USER")
             password = os.getenv("DB_PASSWORD")
-            key = b'oHsfpCOmkXSW_8kurz8Couwvv1xhO0bg3ax2w0gB1WQ='
+            key = os.getenv("DB_KEY")
             f = Fernet(key)
             password = f.decrypt(password.encode()).decode()
             pensum_engine = create_engine(f"oracle+cx_oracle://{username}:{password}@{host}:{port}/{database}")

@@ -5,8 +5,7 @@ from dotenv import load_dotenv
 from cryptography.fernet import Fernet
 load_dotenv()
 
-key = b'oHsfpCOmkXSW_8kurz8Couwvv1xhO0bg3ax2w0gB1WQ=' #klucz do szyfrowania hasła produkcja
-#key = b'PL6W1CaC6SwWYv-ITKB2B-oiTgP4Rqpy6ungdLOrHnw=' #klucz do szyfrowania hasła test
+key = os.getenv("DB_KEY")
 f = Fernet(key)
 username = os.getenv("DB_USER")
 password = os.getenv("DB_PASSWORD")

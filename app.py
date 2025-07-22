@@ -1,3 +1,5 @@
+from config import load_app_config
+load_app_config()
 import sys
 from PyQt5.QtWidgets import (
     QApplication, QMainWindow, QVBoxLayout, QHBoxLayout, QWidget, QPushButton, QLabel, QComboBox, QListWidget, QTabWidget, QLineEdit, QSpacerItem, QSizePolicy, QListWidgetItem, QFileDialog, QMessageBox, QListWidget, QAbstractItemView, QTableView, QHeaderView, QDialog, QVBoxLayout, QCheckBox, QDialogButtonBox, QLabel, QWidgetAction
@@ -16,6 +18,7 @@ from openpyxl.utils.dataframe import dataframe_to_rows
 from PyQt5 import QtCore
 from PyQt5.QtCore import Qt
 from datetime import datetime
+
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
