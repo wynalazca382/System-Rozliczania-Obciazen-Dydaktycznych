@@ -174,13 +174,25 @@ class MainWindow(QMainWindow):
             }
         """)
         self.group_search.textChanged.connect(self.filter_group_list)
+        self.group_filter_column_combo = QComboBox()
+        self.group_filter_column_combo.setStyleSheet("""
+            QComboBox {
+                font-family: 'Verdana';
+                font-size: 16px;
+            }
+        """)
+        self.group_filter_column_combo.setMinimumHeight(30)
+        self.group_filter_column_combo.addItem("Wszystkie kolumny", -1)
+        self.group_filter_column_combo.currentIndexChanged.connect(self.on_group_filter_column_changed)
         # Dodaj przycisk Wyczyść filtr
         self.clear_group_filter_button = QPushButton("Wyczyść filtr")
         self.clear_group_filter_button.setStyleSheet(self.button_style())
         self.clear_group_filter_button.clicked.connect(lambda: self.group_search.clear())
         group_search_layout = QHBoxLayout()
+        group_search_layout.addWidget(self.group_filter_column_combo)
         group_search_layout.addWidget(self.group_search)
         group_search_layout.addWidget(self.clear_group_filter_button)
+        self.groups_layout.addLayout(group_search_layout)
         self.groups_layout.addLayout(group_search_layout)
         self.groups_layout.addWidget(self.group_table)
         self.tab_widget.addTab(self.groups_tab, "Grupy")
@@ -568,7 +580,7 @@ class MainWindow(QMainWindow):
             # Ustal nagłówki na podstawie kluczy pierwszego rekordu
             headers = list(group_data[0].keys())
             self.group_model.setHorizontalHeaderLabels(headers)
-
+            self.update_group_filter_columns(headers)
             for group in group_data:
                 row_items = []
                 for col in headers:
@@ -1069,6 +1081,18 @@ class MainWindow(QMainWindow):
 
     def filter_summary_list(self, text):
         self.summary_proxy.setFilterFixedString(text)
+    
+    def on_group_filter_column_changed(self, index):
+        column = self.group_filter_column_combo.currentData()
+        self.group_proxy.setFilterKeyColumn(column)
+
+    def update_group_filter_columns(self, headers):
+        self.group_filter_column_combo.blockSignals(True)
+        self.group_filter_column_combo.clear()
+        self.group_filter_column_combo.addItem("Wszystkie kolumny", -1)
+        for i, header in enumerate(headers):
+            self.group_filter_column_combo.addItem(header, i)
+        self.group_filter_column_combo.blockSignals(False)
 
     from PyQt5.QtWidgets import QMessageBox
 
