@@ -218,11 +218,22 @@ class MainWindow(QMainWindow):
             }
         """)
         self.instructor_search.textChanged.connect(self.filter_instructor_list)
+        self.instructor_filter_column_combo = QComboBox()
+        self.instructor_filter_column_combo.setStyleSheet("""
+            QComboBox {
+                font-family: 'Verdana';
+                font-size: 16px;
+            }
+        """)
+        self.instructor_filter_column_combo.setMinimumHeight(30)
+        self.instructor_filter_column_combo.addItem("Wszystkie kolumny", -1)
+        self.instructor_filter_column_combo.currentIndexChanged.connect(self.on_instructor_filter_column_changed)
         # Dodaj przycisk Wyczyść filtr
         self.clear_instructor_filter_button = QPushButton("Wyczyść filtr")
         self.clear_instructor_filter_button.setStyleSheet(self.button_style())
         self.clear_instructor_filter_button.clicked.connect(lambda: self.instructor_search.clear())
         instructor_search_layout = QHBoxLayout()
+        instructor_search_layout.addWidget(self.instructor_filter_column_combo)
         instructor_search_layout.addWidget(self.instructor_search)
         instructor_search_layout.addWidget(self.clear_instructor_filter_button)
         self.instructors_layout.addLayout(instructor_search_layout)
@@ -269,12 +280,23 @@ class MainWindow(QMainWindow):
             }
         """)
         self.summary_search.textChanged.connect(self.filter_summary_list)
+        self.summary_filter_column_combo = QComboBox()
+        self.summary_filter_column_combo.setStyleSheet("""
+            QComboBox {
+                font-family: 'Verdana';
+                font-size: 16px;
+            }
+        """)
+        self.summary_filter_column_combo.setMinimumHeight(30)
+        self.summary_filter_column_combo.addItem("Wszystkie kolumny", -1)
+        self.summary_filter_column_combo.currentIndexChanged.connect(self.on_summary_filter_column_changed)
         self.summary_layout.addWidget(self.summary_search)
         # Dodaj przycisk Wyczyść filtr
         self.clear_summary_filter_button = QPushButton("Wyczyść filtr")
         self.clear_summary_filter_button.setStyleSheet(self.button_style())
         self.clear_summary_filter_button.clicked.connect(lambda: self.summary_search.clear())
         summary_search_layout = QHBoxLayout()
+        summary_search_layout.addWidget(self.summary_filter_column_combo)
         summary_search_layout.addWidget(self.summary_search)
         summary_search_layout.addWidget(self.clear_summary_filter_button)
         self.summary_layout.addLayout(summary_search_layout)
@@ -619,6 +641,7 @@ class MainWindow(QMainWindow):
     "Godziny dydaktyczne Z niestacjonarne", "Godziny dydaktyczne L stacjonarne", "Godziny dydaktyczne L niestacjonarne", "Pensum realne", "Pensum", "Etat", "Nadgodziny", "Stawka", "Kwota nadgodzin"
 ]
             self.instructor_model.setHorizontalHeaderLabels(headers)
+            self.update_instructor_filter_columns(headers)
             for employee, person in results:
                 workload_data = calculate_workload_for_employee(employee.ID, selected_year, selected_unit)
                 if workload_data["total_workload"] > 0:
@@ -726,6 +749,7 @@ class MainWindow(QMainWindow):
                 "Suma"
             ]
             self.summary_model.setHorizontalHeaderLabels(headers)
+            self.update_summary_filter_columns(headers)
 
             for kierunek, specjalnosci in kierunek_dict.items():
                 # Sumy dla kierunku
@@ -1093,6 +1117,30 @@ class MainWindow(QMainWindow):
         for i, header in enumerate(headers):
             self.group_filter_column_combo.addItem(header, i)
         self.group_filter_column_combo.blockSignals(False)
+    
+    def on_instructor_filter_column_changed(self, index):
+        column = self.instructor_filter_column_combo.currentData()
+        self.instructor_proxy.setFilterKeyColumn(column)
+
+    def on_summary_filter_column_changed(self, index):
+        column = self.summary_filter_column_combo.currentData()
+        self.summary_proxy.setFilterKeyColumn(column)
+
+    def update_instructor_filter_columns(self, headers):
+        self.instructor_filter_column_combo.blockSignals(True)
+        self.instructor_filter_column_combo.clear()
+        self.instructor_filter_column_combo.addItem("Wszystkie kolumny", -1)
+        for i, header in enumerate(headers):
+            self.instructor_filter_column_combo.addItem(header, i)
+        self.instructor_filter_column_combo.blockSignals(False)
+
+    def update_summary_filter_columns(self, headers):
+        self.summary_filter_column_combo.blockSignals(True)
+        self.summary_filter_column_combo.clear()
+        self.summary_filter_column_combo.addItem("Wszystkie kolumny", -1)
+        for i, header in enumerate(headers):
+            self.summary_filter_column_combo.addItem(header, i)
+        self.summary_filter_column_combo.blockSignals(False)
 
     from PyQt5.QtWidgets import QMessageBox
 
