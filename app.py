@@ -185,7 +185,6 @@ class MainWindow(QMainWindow):
             }
         """)
         self.group_filter_column_combo.setMinimumHeight(30)
-        self.group_filter_column_combo.addItem("Wszystkie kolumny", -1)
         self.group_filter_column_combo.currentIndexChanged.connect(self.on_group_filter_column_changed)
         # Dodaj przycisk Wyczyść filtr
         self.clear_group_filter_button = QPushButton("Wyczyść filtry")
@@ -195,6 +194,9 @@ class MainWindow(QMainWindow):
         group_search_layout.addWidget(self.group_filter_column_combo)
         group_search_layout.addWidget(self.group_search)
         group_search_layout.addWidget(self.clear_group_filter_button)
+        self.group_active_filters_widget = QWidget()
+        self.group_active_filters_layout = QVBoxLayout(self.group_active_filters_widget)
+        self.groups_layout.addWidget(self.group_active_filters_widget)
         self.groups_layout.addLayout(group_search_layout)
         self.groups_layout.addLayout(group_search_layout)
         self.groups_layout.addWidget(self.group_table)
@@ -203,14 +205,6 @@ class MainWindow(QMainWindow):
         # Zakładka wykładowców
         self.instructors_tab = QWidget()
         self.instructors_layout = QVBoxLayout(self.instructors_tab)
-        instructor_label = QLabel("Wykładowcy:")
-        instructor_label.setStyleSheet("""
-            QLabel {
-                font-family: 'Verdana';
-                font-size: 16px;
-            }
-        """)
-        self.instructors_layout.addWidget(instructor_label)
         self.instructor_search = QLineEdit()
         self.instructor_search.setPlaceholderText("Szukaj w wykładowcach...")
         self.instructor_search.setStyleSheet("""
@@ -221,6 +215,9 @@ class MainWindow(QMainWindow):
             }
         """)
         self.instructor_search.textChanged.connect(self.filter_instructor_list)
+        self.instructor_active_filters_widget = QWidget()
+        self.instructor_active_filters_layout = QVBoxLayout(self.instructor_active_filters_widget)
+        self.instructors_layout.addWidget(self.instructor_active_filters_widget)
         self.instructor_filter_column_combo = QComboBox()
         self.instructor_filter_column_combo.setStyleSheet("""
             QComboBox {
@@ -229,7 +226,6 @@ class MainWindow(QMainWindow):
             }
         """)
         self.instructor_filter_column_combo.setMinimumHeight(30)
-        self.instructor_filter_column_combo.addItem("Wszystkie kolumny", -1)
         self.instructor_filter_column_combo.currentIndexChanged.connect(self.on_instructor_filter_column_changed)
         # Dodaj przycisk Wyczyść filtr
         self.clear_instructor_filter_button = QPushButton("Wyczyść filtry")
@@ -283,6 +279,9 @@ class MainWindow(QMainWindow):
             }
         """)
         self.summary_search.textChanged.connect(self.filter_summary_list)
+        self.summary_active_filters_widget = QWidget()
+        self.summary_active_filters_layout = QVBoxLayout(self.summary_active_filters_widget)
+        self.summary_layout.addWidget(self.summary_active_filters_widget)
         self.summary_filter_column_combo = QComboBox()
         self.summary_filter_column_combo.setStyleSheet("""
             QComboBox {
@@ -291,7 +290,6 @@ class MainWindow(QMainWindow):
             }
         """)
         self.summary_filter_column_combo.setMinimumHeight(30)
-        self.summary_filter_column_combo.addItem("Wszystkie kolumny", -1)
         self.summary_filter_column_combo.currentIndexChanged.connect(self.on_summary_filter_column_changed)
         self.summary_layout.addWidget(self.summary_search)
         # Dodaj przycisk Wyczyść filtr
@@ -1103,17 +1101,20 @@ class MainWindow(QMainWindow):
         column = self.group_filter_column_combo.currentData()
         self.group_filter_texts[column] = text
         self.group_proxy.setColumnFilter(column, text)
+        self.update_group_active_filters()
 
 
     def filter_instructor_list(self, text):
         column = self.instructor_filter_column_combo.currentData()
         self.instructor_filter_texts[column] = text
         self.instructor_proxy.setColumnFilter(column,text)
+        self.update_instructor_active_filters()
 
     def filter_summary_list(self, text):
         column = self.summary_filter_column_combo.currentData()
         self.summary_filter_texts[column] = text
         self.summary_proxy.setColumnFilter(column,text)
+        self.update_summary_active_filters()
     
     def on_group_filter_column_changed(self, index):
         column = self.group_filter_column_combo.currentData()
@@ -1121,11 +1122,11 @@ class MainWindow(QMainWindow):
         self.group_search.blockSignals(True)
         self.group_search.setText(self.group_filter_texts.get(column, ""))
         self.group_search.blockSignals(False)
+        self.update_group_active_filters()
 
     def update_group_filter_columns(self, headers):
         self.group_filter_column_combo.blockSignals(True)
         self.group_filter_column_combo.clear()
-        self.group_filter_column_combo.addItem("Wszystkie kolumny", -1)
         for i, header in enumerate(headers):
             self.group_filter_column_combo.addItem(header, i)
         self.group_filter_column_combo.blockSignals(False)
@@ -1136,6 +1137,7 @@ class MainWindow(QMainWindow):
         self.instructor_search.blockSignals(True)
         self.instructor_search.setText(self.instructor_filter_texts.get(column, ""))
         self.instructor_search.blockSignals(False)
+        self.update_instructor_active_filters()
 
     def on_summary_filter_column_changed(self, index):
         column = self.summary_filter_column_combo.currentData()
@@ -1143,11 +1145,11 @@ class MainWindow(QMainWindow):
         self.summary_search.blockSignals(True)
         self.summary_search.setText(self.summary_filter_texts.get(column, ""))
         self.summary_search.blockSignals(False)
+        self.update_summary_active_filters()
 
     def update_instructor_filter_columns(self, headers):
         self.instructor_filter_column_combo.blockSignals(True)
         self.instructor_filter_column_combo.clear()
-        self.instructor_filter_column_combo.addItem("Wszystkie kolumny", -1)
         for i, header in enumerate(headers):
             self.instructor_filter_column_combo.addItem(header, i)
         self.instructor_filter_column_combo.blockSignals(False)
@@ -1155,7 +1157,6 @@ class MainWindow(QMainWindow):
     def update_summary_filter_columns(self, headers):
         self.summary_filter_column_combo.blockSignals(True)
         self.summary_filter_column_combo.clear()
-        self.summary_filter_column_combo.addItem("Wszystkie kolumny", -1)
         for i, header in enumerate(headers):
             self.summary_filter_column_combo.addItem(header, i)
         self.summary_filter_column_combo.blockSignals(False)
@@ -1167,6 +1168,7 @@ class MainWindow(QMainWindow):
         self.group_search.clear()
         self.group_search.blockSignals(False)
         self.group_filter_column_combo.setCurrentIndex(0)
+        self.update_group_active_filters()
     
     def clear_instructor_filters(self):
         self.instructor_proxy.clearAllFilters()
@@ -1175,6 +1177,7 @@ class MainWindow(QMainWindow):
         self.instructor_search.clear()
         self.instructor_search.blockSignals(False)
         self.instructor_filter_column_combo.setCurrentIndex(0)
+        self.update_instructor_active_filters()
 
     def clear_summary_filters(self):
         self.summary_proxy.clearAllFilters()
@@ -1183,6 +1186,112 @@ class MainWindow(QMainWindow):
         self.summary_search.clear()
         self.summary_search.blockSignals(False)
         self.summary_filter_column_combo.setCurrentIndex(0)
+        self.update_summary_active_filters()
+
+    def update_group_active_filters(self):
+        # Usuń stare etykietki
+        for i in reversed(range(self.group_active_filters_layout.count())):
+            widget = self.group_active_filters_layout.itemAt(i).widget()
+            if widget:
+                widget.setParent(None)
+        # Dodaj etykietki dla aktywnych filtrów
+        for col, text in self.group_filter_texts.items():
+            if text:
+                idx = self.group_filter_column_combo.findData(col)
+                col_name = self.group_filter_column_combo.itemText(idx) if idx != -1 else str(col)
+                label = QLabel(f"{col_name}: {text}")
+                label.setStyleSheet("font-size: 17px; font-weight: bold; color: #222; font-family: Verdana;")
+                btn = QPushButton("x")
+                btn.setFixedSize(20, 20)
+                btn.setStyleSheet("QPushButton { font-weight: bold; color: #fff; background: #e74c3c; border-radius: 10px; }")
+                btn.clicked.connect(lambda _, c=col: self.remove_group_filter(c))
+                filter_widget = QWidget()
+                filter_layout = QHBoxLayout(filter_widget)
+                filter_layout.setContentsMargins(2, 2, 2, 2)
+                filter_layout.setSpacing(2)
+                filter_layout.addWidget(label)
+                filter_layout.addWidget(btn)
+                self.group_active_filters_layout.addWidget(filter_widget)
+
+    def remove_group_filter(self, column):
+        self.group_filter_texts.pop(column, None)
+        self.group_proxy.setColumnFilter(column, "")
+        # Jeśli aktualnie wybrana kolumna, wyczyść pole wyszukiwania
+        if self.group_filter_column_combo.currentData() == column:
+            self.group_search.blockSignals(True)
+            self.group_search.clear()
+            self.group_search.blockSignals(False)
+        self.update_group_active_filters()
+    
+    def update_instructor_active_filters(self):
+        # Usuń stare etykietki
+        for i in reversed(range(self.instructor_active_filters_layout.count())):
+            widget = self.instructor_active_filters_layout.itemAt(i).widget()
+            if widget:
+                widget.setParent(None)
+        # Dodaj etykietki dla aktywnych filtrów
+        for col, text in self.instructor_filter_texts.items():
+            if text:
+                idx = self.instructor_filter_column_combo.findData(col)
+                col_name = self.instructor_filter_column_combo.itemText(idx) if idx != -1 else str(col)
+                label = QLabel(f"{col_name}: {text}")
+                label.setStyleSheet("font-size: 17px; font-weight: bold; color: #222; font-family: Verdana;")
+                btn = QPushButton("x")
+                btn.setFixedSize(20, 20)
+                btn.setStyleSheet("QPushButton { font-weight: bold; color: #fff; background: #e74c3c; border-radius: 10px; }")
+                btn.clicked.connect(lambda _, c=col: self.remove_instructor_filter(c))
+                filter_widget = QWidget()
+                filter_layout = QHBoxLayout(filter_widget)
+                filter_layout.setContentsMargins(2, 2, 2, 2)
+                filter_layout.setSpacing(2)
+                filter_layout.addWidget(label)
+                filter_layout.addWidget(btn)
+                self.instructor_active_filters_layout.addWidget(filter_widget)
+                
+    def remove_instructor_filter(self, column):
+        self.instructor_filter_texts.pop(column, None)
+        self.instructor_proxy.setColumnFilter(column, "")
+        # Jeśli aktualnie wybrana kolumna, wyczyść pole wyszukiwania
+        if self.instructor_filter_column_combo.currentData() == column:
+            self.instructor_search.blockSignals(True)
+            self.instructor_search.clear()
+            self.instructor_search.blockSignals(False)
+        self.update_instructor_active_filters()
+
+    def update_summary_active_filters(self):
+        # Usuń stare etykietki
+        for i in reversed(range(self.summary_active_filters_layout.count())):
+            widget = self.summary_active_filters_layout.itemAt(i).widget()
+            if widget:
+                widget.setParent(None)
+        # Dodaj etykietki dla aktywnych filtrów
+        for col, text in self.summary_filter_texts.items():
+            if text:
+                idx = self.summary_filter_column_combo.findData(col)
+                col_name = self.summary_filter_column_combo.itemText(idx) if idx != -1 else str(col)
+                label = QLabel(f"{col_name}: {text}")
+                label.setStyleSheet("font-size: 17px; font-weight: bold; color: #222; font-family: Verdana;")
+                btn = QPushButton("x")
+                btn.setFixedSize(20, 20)
+                btn.setStyleSheet("QPushButton { font-weight: bold; color: #fff; background: #e74c3c; border-radius: 10px; }")
+                btn.clicked.connect(lambda _, c=col: self.remove_summary_filter(c))
+                filter_widget = QWidget()
+                filter_layout = QHBoxLayout(filter_widget)
+                filter_layout.setContentsMargins(2, 2, 2, 2)
+                filter_layout.setSpacing(2)
+                filter_layout.addWidget(label)
+                filter_layout.addWidget(btn)
+                self.summary_active_filters_layout.addWidget(filter_widget)
+                
+    def remove_summary_filter(self, column):
+        self.summary_filter_texts.pop(column, None)
+        self.summary_proxy.setColumnFilter(column, "")
+        # Jeśli aktualnie wybrana kolumna, wyczyść pole wyszukiwania
+        if self.summary_filter_column_combo.currentData() == column:
+            self.summary_search.blockSignals(True)
+            self.summary_search.clear()
+            self.summary_search.blockSignals(False)
+        self.update_summary_active_filters()
 
     from PyQt5.QtWidgets import QMessageBox
 
