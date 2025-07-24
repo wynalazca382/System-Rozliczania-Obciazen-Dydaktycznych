@@ -147,7 +147,7 @@ class MainWindow(QMainWindow):
         self.groups_layout = QVBoxLayout(self.groups_tab)
         self.group_table = QTableView()
         self.group_model = QStandardItemModel()
-        self.group_proxy = QSortFilterProxyModel()
+        self.group_proxy = MultiValueFilterProxyModel()
         self.group_proxy.setSourceModel(self.group_model)
         self.group_proxy.setFilterCaseSensitivity(1)
         self.group_proxy.setFilterKeyColumn(-1)  # -1 = wszystkie kolumny
@@ -239,7 +239,7 @@ class MainWindow(QMainWindow):
         self.instructors_layout.addLayout(instructor_search_layout)
         self.instructor_table = QTableView()
         self.instructor_model = QStandardItemModel()
-        self.instructor_proxy = QSortFilterProxyModel()
+        self.instructor_proxy = MultiValueFilterProxyModel()
         self.instructor_proxy.setSourceModel(self.instructor_model)
         self.instructor_proxy.setFilterCaseSensitivity(1)
         self.instructor_proxy.setFilterKeyColumn(-1)
@@ -302,7 +302,7 @@ class MainWindow(QMainWindow):
         self.summary_layout.addLayout(summary_search_layout)
         self.summary_table = QTableView()
         self.summary_model = QStandardItemModel()
-        self.summary_proxy = QSortFilterProxyModel()
+        self.summary_proxy = MultiValueFilterProxyModel()
         self.summary_proxy.setSourceModel(self.summary_model)
         self.summary_proxy.setFilterCaseSensitivity(1)
         self.summary_proxy.setFilterKeyColumn(-1)
@@ -1097,14 +1097,14 @@ class MainWindow(QMainWindow):
 
         wb.save(file_path)
     def filter_group_list(self, text):
-        self.group_proxy.setFilterFixedString(text)
+        self.group_proxy.setFilterText(text)
 
 
     def filter_instructor_list(self, text):
-        self.instructor_proxy.setFilterFixedString(text)
+        self.instructor_proxy.setFilterText(text)
 
     def filter_summary_list(self, text):
-        self.summary_proxy.setFilterFixedString(text)
+        self.summary_proxy.setFilterText(text)
     
     def on_group_filter_column_changed(self, index):
         column = self.group_filter_column_combo.currentData()
@@ -1252,3 +1252,31 @@ if __name__ == "__main__":
     login_window = LoginWindow()
     login_window.show()
     sys.exit(app.exec_())
+
+from PyQt5.QtCore import QSortFilterProxyModel
+
+class MultiValueFilterProxyModel(QSortFilterProxyModel):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.filter_values = []
+
+    def setFilterText(self, text):
+        # Rozdziel po przecinku i usuń spacje
+        self.filter_values = [v.strip().lower() for v in text.split(",") if v.strip()]
+        self.invalidateFilter()
+
+    def filterAcceptsRow(self, source_row, source_parent):
+        if not self.filter_values:
+            return True
+        model = self.sourceModel()
+        col = self.filterKeyColumn()
+        if col < 0:
+            # Wszystkie kolumny
+            for c in range(model.columnCount()):
+                data = str(model.index(source_row, c, source_parent).data()).lower()
+                if any(val in data for val in self.filter_values):
+                    return True
+            return False
+        else:
+            data = str(model.index(source_row, col, source_parent).data()).lower()
+            return any(val in data for val in self.filter_values)
