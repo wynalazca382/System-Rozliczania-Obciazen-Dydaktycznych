@@ -188,9 +188,9 @@ class MainWindow(QMainWindow):
         self.group_filter_column_combo.addItem("Wszystkie kolumny", -1)
         self.group_filter_column_combo.currentIndexChanged.connect(self.on_group_filter_column_changed)
         # Dodaj przycisk Wyczyść filtr
-        self.clear_group_filter_button = QPushButton("Wyczyść filtr")
+        self.clear_group_filter_button = QPushButton("Wyczyść filtry")
         self.clear_group_filter_button.setStyleSheet(self.button_style())
-        self.clear_group_filter_button.clicked.connect(lambda: self.group_search.clear())
+        self.clear_group_filter_button.clicked.connect(self.clear_group_filters)
         group_search_layout = QHBoxLayout()
         group_search_layout.addWidget(self.group_filter_column_combo)
         group_search_layout.addWidget(self.group_search)
@@ -232,9 +232,9 @@ class MainWindow(QMainWindow):
         self.instructor_filter_column_combo.addItem("Wszystkie kolumny", -1)
         self.instructor_filter_column_combo.currentIndexChanged.connect(self.on_instructor_filter_column_changed)
         # Dodaj przycisk Wyczyść filtr
-        self.clear_instructor_filter_button = QPushButton("Wyczyść filtr")
+        self.clear_instructor_filter_button = QPushButton("Wyczyść filtry")
         self.clear_instructor_filter_button.setStyleSheet(self.button_style())
-        self.clear_instructor_filter_button.clicked.connect(lambda: self.instructor_search.clear())
+        self.clear_instructor_filter_button.clicked.connect(self.clear_instructor_filters)
         instructor_search_layout = QHBoxLayout()
         instructor_search_layout.addWidget(self.instructor_filter_column_combo)
         instructor_search_layout.addWidget(self.instructor_search)
@@ -297,7 +297,7 @@ class MainWindow(QMainWindow):
         # Dodaj przycisk Wyczyść filtr
         self.clear_summary_filter_button = QPushButton("Wyczyść filtr")
         self.clear_summary_filter_button.setStyleSheet(self.button_style())
-        self.clear_summary_filter_button.clicked.connect(lambda: self.summary_search.clear())
+        self.clear_summary_filter_button.clicked.connect(self.clear_summary_filters)
         summary_search_layout = QHBoxLayout()
         summary_search_layout.addWidget(self.summary_filter_column_combo)
         summary_search_layout.addWidget(self.summary_search)
@@ -1159,6 +1159,30 @@ class MainWindow(QMainWindow):
         for i, header in enumerate(headers):
             self.summary_filter_column_combo.addItem(header, i)
         self.summary_filter_column_combo.blockSignals(False)
+    
+    def clear_group_filters(self):
+        self.group_proxy.clearAllFilters()
+        self.group_filter_texts.clear()
+        self.group_search.blockSignals(True)
+        self.group_search.clear()
+        self.group_search.blockSignals(False)
+        self.group_filter_column_combo.setCurrentIndex(0)
+    
+    def clear_instructor_filters(self):
+        self.instructor_proxy.clearAllFilters()
+        self.instructor_filter_texts.clear()
+        self.instructor_search.blockSignals(True)
+        self.instructor_search.clear()
+        self.instructor_search.blockSignals(False)
+        self.instructor_filter_column_combo.setCurrentIndex(0)
+
+    def clear_summary_filters(self):
+        self.summary_proxy.clearAllFilters()
+        self.summary_filter_texts.clear()
+        self.summary_search.blockSignals(True)
+        self.summary_search.clear()
+        self.summary_search.blockSignals(False)
+        self.summary_filter_column_combo.setCurrentIndex(0)
 
     from PyQt5.QtWidgets import QMessageBox
 
