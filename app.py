@@ -53,19 +53,7 @@ class MainWindow(QMainWindow):
         # Filtry: Rok akademicki
         year_layout = QHBoxLayout()
         year_label = QLabel("Rok akademicki:")
-        year_label.setStyleSheet("""
-            QLabel {
-                font-family: 'Verdana';
-                font-size: 16px;  /* Zwiększony rozmiar czcionki */
-            }
-        """)
         self.year_filter = QComboBox(self)
-        self.year_filter.setStyleSheet("""
-            QComboBox {
-                font-family: 'Verdana';
-                font-size: 16px;  /* Zwiększony rozmiar czcionki */
-            }
-        """)
         self.year_filter.setMinimumHeight(30)
         self.populate_years()
         year_layout.addWidget(year_label)
@@ -75,19 +63,7 @@ class MainWindow(QMainWindow):
         # Filtry: Jednostka organizacyjna
         unit_layout = QHBoxLayout()
         unit_label = QLabel("Jednostka organizacyjna:")
-        unit_label.setStyleSheet("""
-            QLabel {
-                font-family: 'Verdana';
-                font-size: 16px;  /* Zwiększony rozmiar czcionki */
-            }
-        """)
         self.unit_filter = QComboBox(self)
-        self.unit_filter.setStyleSheet("""
-            QComboBox {
-                font-family: 'Verdana';
-                font-size: 16px;  /* Zwiększony rozmiar czcionki */
-            }
-        """)
         self.unit_filter.setMinimumHeight(30)
         self.unit_filter.addItem("Wszystkie jednostki")
         self.populate_units()
@@ -98,19 +74,7 @@ class MainWindow(QMainWindow):
         # Filtry: Wykładowca
         employee_layout = QHBoxLayout()
         employee_label = QLabel("Wykładowca:")
-        employee_label.setStyleSheet("""
-            QLabel {
-                font-family: 'Verdana';
-                font-size: 16px;  /* Zwiększony rozmiar czcionki */
-            }
-        """)
         self.employee_filter = QComboBox(self)
-        self.employee_filter.setStyleSheet("""
-            QComboBox {
-                font-family: 'Verdana';
-                font-size: 16px;  /* Zwiększony rozmiar czcionki */
-            }
-        """)
         self.employee_filter.setMinimumHeight(30)
         self.employee_filter.addItem("Wszyscy wykładowcy")
         self.filter_instructors()
@@ -121,12 +85,10 @@ class MainWindow(QMainWindow):
         # Przyciski "Filtruj" i "Odśwież"
         buttons_layout = QHBoxLayout()
         self.filter_button = QPushButton("Filtruj")
-        self.filter_button.setStyleSheet(self.button_style())
         self.filter_button.clicked.connect(self.apply_filters)
         buttons_layout.addWidget(self.filter_button)
 
         self.refresh_button = QPushButton("Odśwież")
-        self.refresh_button.setStyleSheet(self.button_style())
         self.refresh_button.clicked.connect(self.refresh_data)
         buttons_layout.addWidget(self.refresh_button)
 
@@ -135,13 +97,11 @@ class MainWindow(QMainWindow):
 
         # Utwórz QTabWidget i dodaj do layoutu
         self.tab_widget = QTabWidget()
-        self.tab_widget.setStyleSheet(self.tab_style())
         main_layout.addWidget(self.tab_widget)
         # Przycisk trybu ciemnego/jasnego z ikonką w prawym górnym rogu zakładek
         self.theme_toggle_btn = QPushButton("🌜")
         self.theme_toggle_btn.setCheckable(True)
         self.theme_toggle_btn.setFixedSize(80, 64)
-        self.theme_toggle_btn.setStyleSheet("font-size: 28px; border-radius: 8px; margin-left: 16px; padding: 8px 16px;")
         self.theme_toggle_btn.clicked.connect(self.toggle_theme)
         self.tab_widget.setCornerWidget(self.theme_toggle_btn, Qt.Corner.TopRightCorner)
 
@@ -161,34 +121,14 @@ class MainWindow(QMainWindow):
         self.group_table.setSortingEnabled(True)
         self.groups_layout.addWidget(self.group_table)
         group_label = QLabel("Grupy:")
-        group_label.setStyleSheet("""
-            QLabel {
-                font-family: 'Verdana';
-                font-size: 16px;  /* Zwiększony rozmiar czcionki */
-            }
-        """)
         self.group_search = QLineEdit()
         self.group_search.setPlaceholderText("Szukaj w grupach...")
-        self.group_search.setStyleSheet("""
-            QLineEdit {
-                font-family: 'Verdana';
-                font-size: 16px;
-                padding: 5px;
-            }
-        """)
         self.group_search.textChanged.connect(self.filter_group_list)
         self.group_filter_column_combo = QComboBox()
-        self.group_filter_column_combo.setStyleSheet("""
-            QComboBox {
-                font-family: 'Verdana';
-                font-size: 16px;
-            }
-        """)
         self.group_filter_column_combo.setMinimumHeight(30)
         self.group_filter_column_combo.currentIndexChanged.connect(self.on_group_filter_column_changed)
         # Dodaj przycisk Wyczyść filtr
         self.clear_group_filter_button = QPushButton("Wyczyść filtry")
-        self.clear_group_filter_button.setStyleSheet(self.button_style())
         self.clear_group_filter_button.clicked.connect(self.clear_group_filters)
         group_search_layout = QHBoxLayout()
         group_search_layout.addWidget(self.group_filter_column_combo)
@@ -207,29 +147,15 @@ class MainWindow(QMainWindow):
         self.instructors_layout = QVBoxLayout(self.instructors_tab)
         self.instructor_search = QLineEdit()
         self.instructor_search.setPlaceholderText("Szukaj w wykładowcach...")
-        self.instructor_search.setStyleSheet("""
-            QLineEdit {
-                font-family: 'Verdana';
-                font-size: 16px;
-                padding: 5px;
-            }
-        """)
         self.instructor_search.textChanged.connect(self.filter_instructor_list)
         self.instructor_active_filters_widget = QWidget()
         self.instructor_active_filters_layout = QVBoxLayout(self.instructor_active_filters_widget)
         self.instructors_layout.addWidget(self.instructor_active_filters_widget)
         self.instructor_filter_column_combo = QComboBox()
-        self.instructor_filter_column_combo.setStyleSheet("""
-            QComboBox {
-                font-family: 'Verdana';
-                font-size: 16px;
-            }
-        """)
         self.instructor_filter_column_combo.setMinimumHeight(30)
         self.instructor_filter_column_combo.currentIndexChanged.connect(self.on_instructor_filter_column_changed)
         # Dodaj przycisk Wyczyść filtr
         self.clear_instructor_filter_button = QPushButton("Wyczyść filtry")
-        self.clear_instructor_filter_button.setStyleSheet(self.button_style())
         self.clear_instructor_filter_button.clicked.connect(self.clear_instructor_filters)
         instructor_search_layout = QHBoxLayout()
         instructor_search_layout.addWidget(self.instructor_filter_column_combo)
@@ -249,12 +175,6 @@ class MainWindow(QMainWindow):
         self.instructor_table.setSortingEnabled(True)
         self.instructors_layout.addWidget(self.instructor_table)
         details_label = QLabel("Szczegóły wykładowcy:")
-        details_label.setStyleSheet("""
-            QLabel {
-                font-family: 'Verdana';
-                font-size: 16px;
-            }
-        """)
         self.instructor_details_table = QTableView()
         self.instructor_details_model = QStandardItemModel()
         self.instructor_details_table.setModel(self.instructor_details_model)
@@ -271,30 +191,16 @@ class MainWindow(QMainWindow):
         self.summary_layout = QVBoxLayout(self.summary_tab)
         self.summary_search = QLineEdit()
         self.summary_search.setPlaceholderText("Szukaj w podsumowaniu...")
-        self.summary_search.setStyleSheet("""
-            QLineEdit {
-                font-family: 'Verdana';
-                font-size: 16px;
-                padding: 5px;
-            }
-        """)
         self.summary_search.textChanged.connect(self.filter_summary_list)
         self.summary_active_filters_widget = QWidget()
         self.summary_active_filters_layout = QVBoxLayout(self.summary_active_filters_widget)
         self.summary_layout.addWidget(self.summary_active_filters_widget)
         self.summary_filter_column_combo = QComboBox()
-        self.summary_filter_column_combo.setStyleSheet("""
-            QComboBox {
-                font-family: 'Verdana';
-                font-size: 16px;
-            }
-        """)
         self.summary_filter_column_combo.setMinimumHeight(30)
         self.summary_filter_column_combo.currentIndexChanged.connect(self.on_summary_filter_column_changed)
         self.summary_layout.addWidget(self.summary_search)
         # Dodaj przycisk Wyczyść filtr
         self.clear_summary_filter_button = QPushButton("Wyczyść filtr")
-        self.clear_summary_filter_button.setStyleSheet(self.button_style())
         self.clear_summary_filter_button.clicked.connect(self.clear_summary_filters)
         summary_search_layout = QHBoxLayout()
         summary_search_layout.addWidget(self.summary_filter_column_combo)
@@ -314,22 +220,14 @@ class MainWindow(QMainWindow):
         self.summary_table.setSortingEnabled(True)
         self.summary_layout.addWidget(self.summary_table)
         summary_label = QLabel("Podsumowanie godzin według specjalności:")
-        summary_label.setStyleSheet("""
-            QLabel {
-                font-family: 'Verdana';
-                font-size: 16px;
-            }
-        """)
         self.tab_widget.addTab(self.summary_tab, "Zestawienie")
         # Przycisk "Generuj raport" na samym dole
         self.report_button = QPushButton("Generuj raport")
-        self.report_button.setStyleSheet(self.button_style())
         self.report_button.clicked.connect(self.generate_report)
         main_layout.addWidget(self.report_button)
 
         # Status bar
         self.status_label = QLabel("Status: Oczekiwanie na akcję")
-        self.status_label.setStyleSheet("background-color: #2c3e50; color: white; padding: 5px;")
         main_layout.addWidget(self.status_label)
 
         self.setCentralWidget(main_widget)
@@ -351,47 +249,150 @@ class MainWindow(QMainWindow):
         self.summary_search.setToolTip("Wyszukaj w podsumowaniu po dowolnym polu")
         self.clear_summary_filter_button.setToolTip("Wyczyść pole wyszukiwania w podsumowaniu")
         self.report_button.setToolTip("Wygeneruj raport Excel z aktualnych danych")
+        self.theme_toggle_btn = QPushButton("🌜")
+        self.theme_toggle_btn.setObjectName("ThemeToggle")
+        self.theme_toggle_btn.setFixedSize(80, 64)
+        self.theme_toggle_btn.setCheckable(True)
+        self.theme_toggle_btn.clicked.connect(self.toggle_theme)
+        self.tab_widget.setCornerWidget(self.theme_toggle_btn, Qt.Corner.TopRightCorner)
+        self.theme_toggle_btn.setToolTip("Przełącz tryb ciemny/jasny")
         if hasattr(self, 'theme_toggle_btn'):
             self.theme_toggle_btn.setToolTip("Przełącz tryb ciemny/jasny")
+        self.setStyleSheet("""
+QWidget {
+    background-color: #fff;
+    color: #232629;
+    font-family: 'Verdana';
+    font-size: 16px;
+}
+QLabel {
+    font-family: 'Verdana';
+    font-size: 16px;
+    color: #232629;
+}
+QComboBox {
+    font-family: 'Verdana';
+    font-size: 16px;
+    min-height: 30px;
+    background-color: #ecf0f1;
+    color: #232629;
+    border: 1px solid #bdc3c7;
+    border-radius: 5px;
+}
+QLineEdit {
+    font-family: 'Verdana';
+    font-size: 16px;
+    padding: 5px;
+    background-color: #ecf0f1;
+    color: #232629;
+    border: 1px solid #bdc3c7;
+    border-radius: 5px;
+}
+QPushButton {
+    background-color: #1abc9c;
+    color: white;
+    border: none;
+    padding: 10px;
+    border-radius: 5px;
+    font-family: 'Verdana';
+    font-size: 14px;
+    font-weight: bold;
+    transition: background 0.2s;
+}
+QPushButton:hover {
+    background-color: #16a085;
+}
+QTabWidget::pane {
+    border: 1px solid #bdc3c7;
+    border-radius: 5px;
+}
+QTabBar::tab {
+    background: #ecf0f1;
+    border: 1px solid #bdc3c7;
+    padding: 10px 15px;
+    margin: 15px 15px;
+    border-top-left-radius: 5px;
+    border-top-right-radius: 5px;
+    font-family: 'Verdana';
+    font-size: 15px;
+    min-width: 150px;
+    color: #232629;
+}
+QTabBar::tab:selected {
+    background: #1abc9c;
+    color: white;
+}
+QTabBar::tab:!selected {
+    background: #ecf0f1;
+    color: #232629;
+}
+QTableView {
+    background-color: #ecf0f1;
+    color: #232629;
+    gridline-color: #bdc3c7;
+    selection-background-color: #1abc9c;
+    selection-color: #fff;
+    border-radius: 5px;
+    font-family: 'Verdana';
+    font-size: 16px;
+}
+QHeaderView::section {
+    background-color: #ecf0f1;
+    color: #232629;
+    font-family: 'Verdana';
+    font-size: 16px;
+    border: 1px solid #bdc3c7;
+    padding: 5px;
+}
+QTableCornerButton::section {
+    background-color: #ecf0f1;
+    border: 1px solid #bdc3c7;
+}
+QToolTip {
+    background-color: #1abc9c;
+    color: #fff;
+    font-family: 'Verdana';
+    font-size: 14px;
+    border-radius: 5px;
+    padding: 5px;
+}
+QListWidget {
+    font-family: 'Verdana';
+    font-size: 16px;
+}
+QLabel#StatusLabel {
+    background-color: #2c3e50;
+    color: white;
+    padding: 5px;
+}
+QPushButton#FilterRemove {
+    background-color: #e74c3c;
+    color: #fff;
+    border: none;
+    font-weight: bold;
+    font-size: 16px;
+    border-radius: 10px;
+    min-width: 24px;
+    min-height: 24px;
+    max-width: 24px;
+    max-height: 24px;
+    padding: 0;
+}
+QPushButton#FilterRemove:hover {
+    background-color: #c0392b;
+}
+QPushButton#ThemeToggle {
+    font-size: 28px;
+    border-radius: 8px;
+    margin: 0;
+    padding: 8px 16px;
+    min-width: 64px;
+    min-height: 48px;
+    max-width: 80px;
+    max-height: 64px;
+}
+""")
         
-    def button_style(self):
-        return """
-            QPushButton {
-                background-color: #1abc9c;
-                color: white;
-                border: none;
-                padding: 10px;
-                border-radius: 5px;
-                font-family: 'Verdana';
-                font-size: 14px;  /* Zwiększony rozmiar czcionki */
-            }
-            QPushButton:hover {
-                background-color: #16a085;
-            }
-        """
-
-    def tab_style(self):
-        return """
-            QTabWidget::pane {
-                border: 1px solid #bdc3c7;
-                border-radius: 5px;
-            }
-            QTabBar::tab {
-                background: #ecf0f1;
-                border: 1px solid #bdc3c7;
-                padding: 10px;  /* Zwiększony padding: góra-dół 10px, lewo-prawo 15px */
-                margin: 15px 15px;  /* Zwiększony padding: góra-dół 25px, lewo-prawo 15px */
-                border-top-left-radius: 5px;
-                border-top-right-radius: 5px;
-                font-family: 'Verdana';
-                font-size: 15px;  /* Zwiększony rozmiar czcionki */
-                min-width: 150px;  /* Minimalna szerokość zakładki */
-            }
-            QTabBar::tab:selected {
-                background: #1abc9c;
-                color: white;
-            }
-        """
     def refresh_data(self):
         """Refresh data in both tabs without changing filters."""
         self.populate_groups()
@@ -798,12 +799,6 @@ class MainWindow(QMainWindow):
     def display_employee_workload(self, item):
         """Display workload data for the selected employee."""
         self.instructor_details.clear()
-        self.instructor_details.setStyleSheet("""
-            QListWidget {
-                font-family: 'Verdana';
-                font-size: 16px;
-            }
-        """)
         selected_employee_id = item.data(1)
         selected_year = self.year_filter.currentText()
         selected_unit = self.unit_filter.currentData()
@@ -1200,10 +1195,9 @@ class MainWindow(QMainWindow):
                 idx = self.group_filter_column_combo.findData(col)
                 col_name = self.group_filter_column_combo.itemText(idx) if idx != -1 else str(col)
                 label = QLabel(f"{col_name}: {text}")
-                label.setStyleSheet("font-size: 17px; font-weight: bold; color: #222; font-family: Verdana;")
-                btn = QPushButton("x")
-                btn.setFixedSize(20, 20)
-                btn.setStyleSheet("QPushButton { font-weight: bold; color: #fff; background: #e74c3c; border-radius: 10px; }")
+                btn = QPushButton("✖")
+                btn.setObjectName("FilterRemove")
+                btn.setFixedSize(24, 24)
                 btn.clicked.connect(lambda _, c=col: self.remove_group_filter(c))
                 filter_widget = QWidget()
                 filter_layout = QHBoxLayout(filter_widget)
@@ -1235,10 +1229,9 @@ class MainWindow(QMainWindow):
                 idx = self.instructor_filter_column_combo.findData(col)
                 col_name = self.instructor_filter_column_combo.itemText(idx) if idx != -1 else str(col)
                 label = QLabel(f"{col_name}: {text}")
-                label.setStyleSheet("font-size: 17px; font-weight: bold; color: #222; font-family: Verdana;")
-                btn = QPushButton("x")
-                btn.setFixedSize(20, 20)
-                btn.setStyleSheet("QPushButton { font-weight: bold; color: #fff; background: #e74c3c; border-radius: 10px; }")
+                btn = QPushButton("✖")
+                btn.setObjectName("FilterRemove")
+                btn.setFixedSize(24, 24)
                 btn.clicked.connect(lambda _, c=col: self.remove_instructor_filter(c))
                 filter_widget = QWidget()
                 filter_layout = QHBoxLayout(filter_widget)
@@ -1270,10 +1263,9 @@ class MainWindow(QMainWindow):
                 idx = self.summary_filter_column_combo.findData(col)
                 col_name = self.summary_filter_column_combo.itemText(idx) if idx != -1 else str(col)
                 label = QLabel(f"{col_name}: {text}")
-                label.setStyleSheet("font-size: 17px; font-weight: bold; color: #222; font-family: Verdana;")
-                btn = QPushButton("x")
-                btn.setFixedSize(20, 20)
-                btn.setStyleSheet("QPushButton { font-weight: bold; color: #fff; background: #e74c3c; border-radius: 10px; }")
+                btn = QPushButton("✖")
+                btn.setObjectName("FilterRemove")
+                btn.setFixedSize(24, 24)
                 btn.clicked.connect(lambda _, c=col: self.remove_summary_filter(c))
                 filter_widget = QWidget()
                 filter_layout = QHBoxLayout(filter_widget)
@@ -1354,49 +1346,283 @@ class MainWindow(QMainWindow):
             self.generate_report_from_db()
 
     def toggle_theme(self):
+        light_stylesheet = """
+        QWidget {
+            background-color: #fff;
+            color: #232629;
+            font-family: 'Verdana';
+            font-size: 16px;
+        }
+        QLabel {
+            font-family: 'Verdana';
+            font-size: 16px;
+            color: #232629;
+        }
+        QComboBox {
+            font-family: 'Verdana';
+            font-size: 16px;
+            min-height: 30px;
+            background-color: #ecf0f1;
+            color: #232629;
+            border: 1px solid #bdc3c7;
+            border-radius: 5px;
+        }
+        QLineEdit {
+            font-family: 'Verdana';
+            font-size: 16px;
+            padding: 5px;
+            background-color: #ecf0f1;
+            color: #232629;
+            border: 1px solid #bdc3c7;
+            border-radius: 5px;
+        }
+        QPushButton {
+            background-color: #1abc9c;
+            color: white;
+            border: none;
+            padding: 10px;
+            border-radius: 5px;
+            font-family: 'Verdana';
+            font-size: 14px;
+            font-weight: bold;
+            transition: background 0.2s;
+        }
+        QPushButton:hover {
+            background-color: #16a085;
+        }
+        QTabWidget::pane {
+            border: 1px solid #bdc3c7;
+            border-radius: 5px;
+        }
+        QTabBar::tab {
+            background: #ecf0f1;
+            border: 1px solid #bdc3c7;
+            padding: 10px 15px;
+            margin: 15px 15px;
+            border-top-left-radius: 5px;
+            border-top-right-radius: 5px;
+            font-family: 'Verdana';
+            font-size: 15px;
+            min-width: 150px;
+            color: #232629;
+        }
+        QTabBar::tab:selected {
+            background: #1abc9c;
+            color: white;
+        }
+        QTabBar::tab:!selected {
+            background: #ecf0f1;
+            color: #232629;
+        }
+        QTableView {
+            background-color: #ecf0f1;
+            color: #232629;
+            gridline-color: #bdc3c7;
+            selection-background-color: #1abc9c;
+            selection-color: #fff;
+            border-radius: 5px;
+            font-family: 'Verdana';
+            font-size: 16px;
+        }
+        QHeaderView::section {
+            background-color: #ecf0f1;
+            color: #232629;
+            font-family: 'Verdana';
+            font-size: 16px;
+            border: 1px solid #bdc3c7;
+            padding: 5px;
+        }
+        QTableCornerButton::section {
+            background-color: #ecf0f1;
+            border: 1px solid #bdc3c7;
+        }
+        QToolTip {
+            background-color: #1abc9c;
+            color: #fff;
+            font-family: 'Verdana';
+            font-size: 14px;
+            border-radius: 5px;
+            padding: 5px;
+        }
+        QListWidget {
+            font-family: 'Verdana';
+            font-size: 16px;
+        }
+        QLabel#StatusLabel {
+            background-color: #2c3e50;
+            color: white;
+            padding: 5px;
+        }
+        QPushButton#ThemeToggle {
+    font-size: 28px;
+    border-radius: 8px;
+    margin: 0;
+    padding: 8px 16px;
+    min-width: 64px;
+    min-height: 48px;
+    max-width: 80px;
+    max-height: 64px;
+}
+        QPushButton#FilterRemove {
+    background-color: #e74c3c;
+    color: #fff;
+    border: none;
+    font-weight: bold;
+    font-size: 16px;
+    border-radius: 10px;
+    min-width: 24px;
+    min-height: 24px;
+    max-width: 24px;
+    max-height: 24px;
+    padding: 0;
+}
+QPushButton#FilterRemove:hover {
+    background-color: #c0392b;
+}
+        """
+
+        dark_stylesheet = """
+        QWidget {
+            background-color: #232629;
+            color: #f0f0f0;
+            font-family: 'Verdana';
+            font-size: 16px;
+        }
+        QLabel {
+            font-family: 'Verdana';
+            font-size: 16px;
+            color: #f0f0f0;
+        }
+        QComboBox {
+            font-family: 'Verdana';
+            font-size: 16px;
+            min-height: 30px;
+            background-color: #31363b;
+            color: #f0f0f0;
+            border: 1px solid #444;
+            border-radius: 5px;
+        }
+        QLineEdit {
+            font-family: 'Verdana';
+            font-size: 16px;
+            padding: 5px;
+            background-color: #31363b;
+            color: #f0f0f0;
+            border: 1px solid #444;
+            border-radius: 5px;
+        }
+        QPushButton {
+            background-color: #1abc9c;
+            color: #fff;
+            border: none;
+            padding: 10px;
+            border-radius: 5px;
+            font-family: 'Verdana';
+            font-size: 14px;
+            font-weight: bold;
+            transition: background 0.2s;
+        }
+        QPushButton:hover {
+            background-color: #16a085;
+        }
+        QTabWidget::pane {
+            border: 1px solid #444;
+            border-radius: 5px;
+        }
+        QTabBar::tab {
+            background: #31363b;
+            border: 1px solid #444;
+            padding: 10px 15px;
+            margin: 15px 15px;
+            border-top-left-radius: 5px;
+            border-top-right-radius: 5px;
+            font-family: 'Verdana';
+            font-size: 15px;
+            min-width: 150px;
+            color: #f0f0f0;
+        }
+        QTabBar::tab:selected {
+            background: #1abc9c;
+            color: #fff;
+        }
+        QTabBar::tab:!selected {
+            background: #31363b;
+            color: #bbb;
+        }
+        QTableView {
+            background-color: #31363b;
+            color: #f0f0f0;
+            gridline-color: #444;
+            selection-background-color: #1abc9c;
+            selection-color: #fff;
+            border-radius: 5px;
+            font-family: 'Verdana';
+            font-size: 16px;
+        }
+        QHeaderView::section {
+            background-color: #31363b;
+            color: #f0f0f0;
+            font-family: 'Verdana';
+            font-size: 16px;
+            border: 1px solid #444;
+            padding: 5px;
+        }
+        QTableCornerButton::section {
+            background-color: #31363b;
+            border: 1px solid #444;
+        }
+        QToolTip {
+            background-color: #1abc9c;
+            color: #fff;
+            font-family: 'Verdana';
+            font-size: 14px;
+            border-radius: 5px;
+            padding: 5px;
+        }
+        QListWidget {
+            font-family: 'Verdana';
+            font-size: 16px;
+        }
+        QLabel#StatusLabel {
+            background-color: #2c3e50;
+            color: white;
+            padding: 5px;
+        }
+        QPushButton#FilterRemove {
+    background-color: #e74c3c;
+    color: #fff;
+    border: none;
+    font-weight: bold;
+    font-size: 16px;
+    border-radius: 10px;
+    min-width: 24px;
+    min-height: 24px;
+    max-width: 24px;
+    max-height: 24px;
+    padding: 0;
+}
+QPushButton#FilterRemove:hover {
+    background-color: #c0392b;
+}
+QPushButton#ThemeToggle {
+    font-size: 28px;
+    border-radius: 8px;
+    margin: 0;
+    padding: 8px 16px;
+    min-width: 64px;
+    min-height: 48px;
+    max-width: 80px;
+    max-height: 64px;
+}
+        """
         if self.is_dark_mode:
-            # Jasny motyw
-            light_stylesheet = """
-                QWidget { background-color: #fff; color: #232629; }
-                QLineEdit, QComboBox, QTableView, QTabWidget, QHeaderView::section {
-                    background-color: #ecf0f1; color: #232629; border: 1px solid #bdc3c7;
-                }
-                QPushButton { background-color: #1abc9c; color: white; border-radius: 5px; }
-                QPushButton:hover { background-color: #16a085; }
-                QMenuBar { background-color: #fff; color: #232629; }
-                QMenu { background-color: #fff; color: #232629; }
-                QTableView QHeaderView::section { background-color: #ecf0f1; color: #232629; }
-                QTabBar::tab { background: #ecf0f1; color: #232629; border: 1px solid #bdc3c7; min-width: 120px; }
-                QTabBar::tab:selected { background: #1abc9c; color: white; }
-                QTabBar::tab:!selected { background: #ecf0f1; color: #232629; }
-                QTabWidget::pane { border: 1px solid #bdc3c7; }
-                QTableCornerButton::section { background-color: #ecf0f1; border: 1px solid #bdc3c7; }
-            """
             self.setStyleSheet(light_stylesheet)
             self.is_dark_mode = False
-            self.theme_toggle_btn.setText(" 🌜 ")
-            self.theme_toggle_btn.setStyleSheet("font-size: 28px; border-radius: 8px; margin-left: 16px; padding: 8px 16px; background-color: #ecf0f1; color: #232629;")
+            self.theme_toggle_btn.setText("🌜")
         else:
-            dark_stylesheet = """
-                QWidget { background-color: #232629; color: #f0f0f0; }
-                QLineEdit, QComboBox, QTableView, QTabWidget, QHeaderView::section {
-                    background-color: #31363b; color: #f0f0f0; border: 1px solid #444;
-                }
-                QPushButton { background-color: #444; color: #f0f0f0; border-radius: 5px; }
-                QPushButton:hover { background-color: #666; }
-                QMenuBar { background-color: #232629; color: #f0f0f0; }
-                QMenu { background-color: #232629; color: #f0f0f0; }
-                QTableView QHeaderView::section { background-color: #31363b; color: #f0f0f0; }
-                QTabBar::tab { background: #31363b; color: #f0f0f0; border: 1px solid #444; min-width: 120px; }
-                QTabBar::tab:selected { background: #444; color: #fff; border-bottom: 2px solid #1abc9c; }
-                QTabBar::tab:!selected { background: #31363b; color: #bbb; }
-                QTabWidget::pane { border: 1px solid #444; }
-                QTableCornerButton::section { background-color: #31363b; border: 1px solid #444; }
-            """
             self.setStyleSheet(dark_stylesheet)
             self.is_dark_mode = True
             self.theme_toggle_btn.setText("☀️")
-            self.theme_toggle_btn.setStyleSheet("font-size: 28px; border-radius: 8px; margin-left: 16px; padding: 8px 16px; background-color: #444; color: #f0f0f0;")
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
