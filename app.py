@@ -1007,7 +1007,15 @@ QPushButton#ThemeToggle {
                     "Letni niestacjonarne": suma_kierunku["Letni niestacjonarne"],
                     "Suma": suma_kierunku["Suma"]
                 })
-            df3 = pd.DataFrame(summary_data)
+            if summary_data:
+                all_columns3 = list(summary_data[0].keys())
+                selected_columns3 = self.select_columns_dialog(all_columns3, "Podsumowanie")
+                if not selected_columns3:
+                    self.status_label.setText("Status: Anulowano eksport.")
+                    db.close()
+                    return
+                else:
+                    df3 = pd.DataFrame(summary_data)[selected_columns3]
             now = datetime.now().strftime("%Y-%m-%d_%H-%M")
             default_name = f"raport_{now}.xlsx"
             file_path, _ = QFileDialog.getSaveFileName(self, "Save File", default_name, "Excel Files (*.xlsx)")
@@ -1296,12 +1304,33 @@ QPushButton#ThemeToggle {
             group_data = self.get_visible_table_data(self.group_proxy, group_headers)
             instructor_data = self.get_visible_table_data(self.instructor_proxy, instructor_headers)
             summary_data = self.get_visible_table_data(self.summary_proxy, summary_headers)
-
-            import pandas as pd
-            df1 = pd.DataFrame(instructor_data)
-            df2 = pd.DataFrame(group_data)
-            df3 = pd.DataFrame(summary_data)
-
+            if group_data:
+                all_columns = list(instructor_data[0].keys())
+                selected_colums = self.select_columns_dialog(all_columns, "Wykładowcy")
+                if not selected_colums:
+                    self.status_label.setText("Status: Anulowano zapis raportu")
+                    return
+                df1 = pd.DataFrame(instructor_data)[selected_colums]
+            else:
+                df1 = pd.DataFrame()
+            if group_data:
+                all_columns = list(group_data[0].keys())
+                selected_colums = self.select_columns_dialog(all_columns, "Grupy")
+                if not selected_colums:
+                    self.status_label.setText("Status: Anulowano zapis raportu")
+                    return
+                df2 = pd.DataFrame(group_data)[selected_colums]
+            else:
+                df2 = pd.DataFrame()
+            if summary_data:
+                all_columns = list(summary_data[0].keys())
+                selected_colums = self.select_columns_dialog(all_columns, "Podsumowanie")
+                if not selected_colums:
+                    self.status_label.setText("Status: Anulowano zapis raportu")
+                    return
+                df3 = pd.DataFrame(summary_data)[selected_colums]
+            else:
+                df3 = pd.DataFrame()
             now = datetime.now().strftime("%Y-%m-%d_%H-%M")
             default_name = f"raport_{now}.xlsx"
             file_path, _ = QFileDialog.getSaveFileName(self, "Save File", default_name, "Excel Files (*.xlsx)")
@@ -1314,11 +1343,13 @@ QPushButton#ThemeToggle {
                         df2.to_excel(writer, sheet_name='Grupy', index=False)
                     if not df3.empty:
                         df3.to_excel(writer, sheet_name='Podsumowanie', index=False)
+                self.add_footer_to_excel(file_path)
                 self.format_excel(file_path)
                 self.status_label.setText(f"Status: Raport zapisany do {file_path}")
             else:
                 self.status_label.setText("Status: Anulowano zapis raportu")
         except Exception as e:
+            print(e)
             self.status_label.setText(f"Status: Błąd podczas generowania raportu: {str(e)}")
 
     def get_visible_table_data(self, proxy_model, headers):
@@ -1629,8 +1660,6 @@ if __name__ == "__main__":
     login_window = LoginWindow()
     login_window.show()
     sys.exit(app.exec_())
-
-from PyQt5.QtCore import QSortFilterProxyModel
 
 from PyQt5.QtCore import QSortFilterProxyModel
 
