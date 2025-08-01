@@ -33,6 +33,7 @@ class MainWindow(QMainWindow):
         self.current_filtered_groups = []
         self.current_filtered_instructors = []
         self.current_filtered_summary = []
+        self.changeFlag = False
         self.setWindowTitle("System Rozliczania Obciążeń Dydaktycznych")
         self.setGeometry(100, 100, 1000, 700)
         self.showMaximized()
@@ -268,13 +269,16 @@ class MainWindow(QMainWindow):
             self.theme_toggle_btn.setToolTip("Przełącz tryb ciemny/jasny")
         self.setStyleSheet(light_stylesheet)
         self.tab_widget.currentChanged.connect(self.refresh_data)
+        self.chceckbox.stateChanged.connect(self.refresh_data)
         
     def refresh_data(self):
         """Refresh data in both tabs without changing filters."""
-        self.populate_groups()
-        self.populate_employees()
-        self.populate_summary()
-        self.status_label.setText("Status: Dane zostały odświeżone.")
+        if self.changeFlag == True:
+            self.populate_groups()
+            self.populate_employees()
+            self.populate_summary()
+            self.changeFlag = False
+            self.status_label.setText("Status: Dane zostały odświeżone.")
     def on_tab_changed(self, index):
         """Handle tab change events."""
         if self.tab_widget.tabText(index) == "Wykładowcy":
@@ -990,6 +994,8 @@ class MainWindow(QMainWindow):
         self.group_proxy.setColumnFilter(column, text)
         self.update_group_active_filters()
         self.save_current_filtered_groups()
+        if self.chceckbox.isChecked():
+            self.changeFlag = True
 
 
     def filter_instructor_list(self, text):
@@ -998,6 +1004,8 @@ class MainWindow(QMainWindow):
         self.instructor_proxy.setColumnFilter(column,text)
         self.update_instructor_active_filters()
         self.save_current_filtered_instructors()
+        if self.chceckbox.isChecked():
+            self.changeFlag = True
 
     def filter_summary_list(self, text):
         column = self.summary_filter_column_combo.currentData()
@@ -1005,6 +1013,8 @@ class MainWindow(QMainWindow):
         self.summary_proxy.setColumnFilter(column,text)
         self.update_summary_active_filters()
         self.save_current_filtered_summary()
+        if self.chceckbox.isChecked():
+            self.changeFlag = True
     
     def on_group_filter_column_changed(self, index):
         column = self.group_filter_column_combo.currentData()
@@ -1013,6 +1023,8 @@ class MainWindow(QMainWindow):
         self.group_search.setText(self.group_filter_texts.get(column, ""))
         self.group_search.blockSignals(False)
         self.update_group_active_filters()
+        if self.chceckbox.isChecked():
+            self.changeFlag = True
 
     def update_group_filter_columns(self, headers):
         self.group_filter_column_combo.blockSignals(True)
@@ -1020,6 +1032,8 @@ class MainWindow(QMainWindow):
         for i, header in enumerate(headers):
             self.group_filter_column_combo.addItem(header, i)
         self.group_filter_column_combo.blockSignals(False)
+        if self.chceckbox.isChecked():
+            self.changeFlag = True
     
     def on_instructor_filter_column_changed(self, index):
         column = self.instructor_filter_column_combo.currentData()
@@ -1028,6 +1042,8 @@ class MainWindow(QMainWindow):
         self.instructor_search.setText(self.instructor_filter_texts.get(column, ""))
         self.instructor_search.blockSignals(False)
         self.update_instructor_active_filters()
+        if self.chceckbox.isChecked():
+            self.changeFlag = True
 
     def on_summary_filter_column_changed(self, index):
         column = self.summary_filter_column_combo.currentData()
@@ -1036,6 +1052,8 @@ class MainWindow(QMainWindow):
         self.summary_search.setText(self.summary_filter_texts.get(column, ""))
         self.summary_search.blockSignals(False)
         self.update_summary_active_filters()
+        if self.chceckbox.isChecked():
+            self.changeFlag = True
 
     def update_instructor_filter_columns(self, headers):
         self.instructor_filter_column_combo.blockSignals(True)
@@ -1043,6 +1061,8 @@ class MainWindow(QMainWindow):
         for i, header in enumerate(headers):
             self.instructor_filter_column_combo.addItem(header, i)
         self.instructor_filter_column_combo.blockSignals(False)
+        if self.chceckbox.isChecked():
+            self.changeFlag = True
 
     def update_summary_filter_columns(self, headers):
         self.summary_filter_column_combo.blockSignals(True)
@@ -1050,6 +1070,8 @@ class MainWindow(QMainWindow):
         for i, header in enumerate(headers):
             self.summary_filter_column_combo.addItem(header, i)
         self.summary_filter_column_combo.blockSignals(False)
+        if self.chceckbox.isChecked():
+            self.changeFlag = True
     
     def clear_group_filters(self):
         self.group_proxy.clearAllFilters()
@@ -1060,6 +1082,8 @@ class MainWindow(QMainWindow):
         self.group_filter_column_combo.setCurrentIndex(0)
         self.update_group_active_filters()
         self.save_current_filtered_groups()
+        if self.chceckbox.isChecked():
+            self.changeFlag = True
     
     def clear_instructor_filters(self):
         self.instructor_proxy.clearAllFilters()
@@ -1070,6 +1094,8 @@ class MainWindow(QMainWindow):
         self.instructor_filter_column_combo.setCurrentIndex(0)
         self.update_instructor_active_filters()
         self.save_current_filtered_instructors()
+        if self.chceckbox.isChecked():
+            self.changeFlag = True
 
     def clear_summary_filters(self):
         self.summary_proxy.clearAllFilters()
@@ -1080,6 +1106,8 @@ class MainWindow(QMainWindow):
         self.summary_filter_column_combo.setCurrentIndex(0)
         self.update_summary_active_filters()
         self.save_current_filtered_summary()
+        if self.chceckbox.isChecked():
+            self.changeFlag = True
 
     def update_group_active_filters(self):
         # Usuń stare etykietki
@@ -1104,6 +1132,8 @@ class MainWindow(QMainWindow):
                 filter_layout.addWidget(label)
                 filter_layout.addWidget(btn)
                 self.group_active_filters_layout.addWidget(filter_widget)
+                if self.chceckbox.isChecked():
+                    self.changeFlag = True
 
     def remove_group_filter(self, column):
         self.group_filter_texts.pop(column, None)
@@ -1114,6 +1144,8 @@ class MainWindow(QMainWindow):
             self.group_search.clear()
             self.group_search.blockSignals(False)
         self.update_group_active_filters()
+        if self.chceckbox.isChecked():
+            self.changeFlag = True
     
     def update_instructor_active_filters(self):
         # Usuń stare etykietki
@@ -1138,6 +1170,8 @@ class MainWindow(QMainWindow):
                 filter_layout.addWidget(label)
                 filter_layout.addWidget(btn)
                 self.instructor_active_filters_layout.addWidget(filter_widget)
+                if self.chceckbox.isChecked():
+                    self.changeFlag = True
                 
     def remove_instructor_filter(self, column):
         self.instructor_filter_texts.pop(column, None)
@@ -1148,6 +1182,8 @@ class MainWindow(QMainWindow):
             self.instructor_search.clear()
             self.instructor_search.blockSignals(False)
         self.update_instructor_active_filters()
+        if self.chceckbox.isChecked():
+            self.changeFlag = True
 
     def update_summary_active_filters(self):
         # Usuń stare etykietki
@@ -1172,6 +1208,8 @@ class MainWindow(QMainWindow):
                 filter_layout.addWidget(label)
                 filter_layout.addWidget(btn)
                 self.summary_active_filters_layout.addWidget(filter_widget)
+                if self.chceckbox.isChecked():
+                    self.changeFlag = True
                 
     def remove_summary_filter(self, column):
         self.summary_filter_texts.pop(column, None)
@@ -1182,6 +1220,8 @@ class MainWindow(QMainWindow):
             self.summary_search.clear()
             self.summary_search.blockSignals(False)
         self.update_summary_active_filters()
+        if self.chceckbox.isChecked():
+            self.changeFlag = True
 
     from PyQt5.QtWidgets import QMessageBox
 
