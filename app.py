@@ -97,7 +97,11 @@ class MainWindow(QMainWindow):
         buttons_layout.addWidget(self.refresh_button)
 
         filters_layout.addLayout(buttons_layout)
+        self.checkbox_layout = QHBoxLayout()
+        self.chceckbox = QCheckBox("Synchronizuj filtry")
+        self.checkbox_layout.addWidget(self.chceckbox)
         main_layout.addLayout(filters_layout)
+        main_layout.addLayout(self.checkbox_layout)
 
         # Utwórz QTabWidget i dodaj do layoutu
         self.tab_widget = QTabWidget()
@@ -263,6 +267,7 @@ class MainWindow(QMainWindow):
         if hasattr(self, 'theme_toggle_btn'):
             self.theme_toggle_btn.setToolTip("Przełącz tryb ciemny/jasny")
         self.setStyleSheet(light_stylesheet)
+        self.tab_widget.currentChanged.connect(self.refresh_data)
         
     def refresh_data(self):
         """Refresh data in both tabs without changing filters."""
@@ -356,10 +361,8 @@ class MainWindow(QMainWindow):
                 .join(DidacticCycles, DidacticCycleClasses.CDYD_KOD == DidacticCycles.KOD)
             )
             if selected_unit:
-                print(f"Selected unit: {selected_unit}")  # Debugging: Log the selected unit
                 instructor_query = instructor_query.filter(GroupInstructor.JEDN_KOD == selected_unit)
             if selected_year:
-                print(f"Selected year: {selected_year}")  # Debugging: Log the selected year
                 instructor_query = instructor_query.filter(DidacticCycles.OPIS.like(f"%{selected_year}%"))
             instructors = instructor_query.all()
             instructors.sort(key=lambda i: (getattr(i.Person, 'NAZWISKO', ''), getattr(i.Person, 'IMIE', '')) if hasattr(i, 'Person') and i.Person else (getattr(db.query(Person).filter_by(ID=i.OS_ID).first(), 'NAZWISKO', ''), getattr(db.query(Person).filter_by(ID=i.OS_ID).first(), 'IMIE', '')))
@@ -367,7 +370,6 @@ class MainWindow(QMainWindow):
             self.employee_filter.addItem("Wszyscy wykładowcy", None)
             for instructor in instructors:
                 person = db.query(Person).filter_by(ID=instructor.OS_ID).first()
-                print(f"Adding instructor: {getattr(person, 'NAZWISKO', 'Brak')} {getattr(person, 'IMIE', 'Brak')} {instructor.ID}")  # Debugging: Log the instructor being added
                 self.employee_filter.addItem(f"{getattr(person, 'NAZWISKO', 'Brak')} {getattr(person, 'IMIE', 'Brak')}", instructor.ID)
             
             index_to_restore = self.employee_filter.findData(current_instructor)
@@ -405,7 +407,9 @@ class MainWindow(QMainWindow):
             selected_employee_id = employee.ID
 
             group_data = get_group_data(selected_year, selected_unit, selected_employee_id)
-            workload_data = calculate_workload_for_employee(selected_employee_id, selected_year, selected_unit)
+            filtered_groups = self.current_filtered_groups if self.chceckbox.isChecked() else None
+            workload_data = calculate_workload_for_employee(employee.ID, selected_year, selected_unit, filtered_groups)
+
 
             # Dane podstawowe
             headers = [
@@ -464,13 +468,16 @@ class MainWindow(QMainWindow):
         selected_unit = self.unit_filter.currentData()
         selected_year = self.year_filter.currentText()
         selected_employee = self.employee_filter.currentData()
+        selected_employees = self.get_instructors_id(self.current_filtered_instructors)
 
-        try:
-            # Pobierz dane grup z get_group_data
-            group_data = get_group_data(selected_year, selected_unit, selected_employee)
-            if not group_data:
-                self.group_model.setHorizontalHeaderLabels(["Brak grup do wyświetlenia."])
-                return
+        try:     
+            if selected_employee is not None:
+                group_data = get_group_data(selected_year, selected_unit, [selected_employee])
+            elif self.chceckbox.isChecked() and selected_employees:
+                group_data = get_group_data(selected_year, selected_unit, selected_employees)
+            else:
+                group_data = get_group_data(selected_year, selected_unit, None)
+
 
             # Ustal nagłówki na podstawie kluczy pierwszego rekordu
             headers = list(group_data[0].keys())
@@ -516,7 +523,8 @@ class MainWindow(QMainWindow):
             self.instructor_model.setHorizontalHeaderLabels(headers)
             self.update_instructor_filter_columns(headers)
             for employee, person in results:
-                workload_data = calculate_workload_for_employee(employee.ID, selected_year, selected_unit)
+                filtered_groups = self.current_filtered_groups if self.chceckbox.isChecked() else None
+                workload_data = calculate_workload_for_employee(employee.ID, selected_year, selected_unit, filtered_groups)
                 if workload_data["total_workload"] > 0:
                     db2 = SessionLocal()
                     tytul = db2.query(Title).filter_by(ID=person.TYTUL_PRZED).first()
@@ -575,9 +583,16 @@ class MainWindow(QMainWindow):
         selected_unit = self.unit_filter.currentData()
         selected_year = self.year_filter.currentText()
         selected_employee = self.employee_filter.currentData()
+        selected_employees = self.get_instructors_id(self.current_filtered_instructors)
 
-        try:
-            group_data = get_group_data(selected_year, selected_unit, selected_employee)
+        try:     
+            if selected_employee is not None:
+                group_data = get_group_data(selected_year, selected_unit, [selected_employee])
+            elif self.chceckbox.isChecked() and selected_employees:
+                group_data = get_group_data(selected_year, selected_unit, selected_employees)
+            else:
+                group_data = get_group_data(selected_year, selected_unit, None)
+
             kierunek_dict = {}
 
             for group in group_data:
@@ -597,18 +612,13 @@ class MainWindow(QMainWindow):
                         "Letni niestacjonarne": 0,
                         "Suma": 0
                     }
-                print(f"tryb: {tryb}, semester: {semester}, hours: {hours}, kierunek: {kierunek}, specjalnosc: {specjalnosc}")
                 if "zimowy" in semester and (("niestacjonarne" in tryb) or tryb == "none"):
-                    print("Zimowy niestacjonarne:", kierunek, specjalnosc, hours)
                     kierunek_dict[kierunek][specjalnosc]["Zimowy niestacjonarne"] += hours
                 elif "zimowy" in semester and "stacjonarne" in tryb:
-                    print("Zimowy stacjonarne:", kierunek, specjalnosc, hours)
                     kierunek_dict[kierunek][specjalnosc]["Zimowy stacjonarne"] += hours
                 elif "letni" in semester and (("niestacjonarne" in tryb) or tryb == "none"):
-                    print("Letni niestacjonarne:", kierunek, specjalnosc, hours)
                     kierunek_dict[kierunek][specjalnosc]["Letni niestacjonarne"] += hours
                 elif "letni" in semester and "stacjonarne" in tryb:
-                    print("Letni stacjonarne:", kierunek, specjalnosc, hours)
                     kierunek_dict[kierunek][specjalnosc]["Letni stacjonarne"] += hours
                 else:
                     # Jeśli tryb nie jest rozpoznany, możesz dodać do osobnej kolumny lub wyświetlić ostrzeżenie
@@ -684,7 +694,8 @@ class MainWindow(QMainWindow):
         try:
             group_data = get_group_data(selected_year, selected_unit, selected_employee_id)
 
-            workload_data = calculate_workload_for_employee(selected_employee_id, selected_year, selected_unit)
+            filtered_groups = self.current_filtered_groups if self.chceckbox.isChecked() else None
+            workload_data = calculate_workload_for_employee(selected_employee_id, selected_year, selected_unit, filtered_groups)
 
             # Wyświetl szczegóły obciążenia dydaktycznego
             self.instructor_details.addItem(f"Stanowisko: {workload_data['stanowisko']}")
@@ -1312,6 +1323,25 @@ class MainWindow(QMainWindow):
         
         print(f"Zapisano stan tabeli podsumowania: {len(self.current_filtered_summary)} wierszy")
         self.status_label.setText(f"Status: Przefiltrowano podsumowanie - {len(self.current_filtered_summary)} wierszy")
+    
+    def get_instructors_id(self, current_filtered_instructors):
+        db = SessionLocal()
+        """Zwraca listę ID wykładowców z aktualnie przefiltrowanej tabeli"""
+        try:
+            instructor_ids = []
+            for instructor in current_filtered_instructors:
+                name = instructor.get("Nazwisko i imię", "")
+                if name:
+                    person = db.query(Employee).join(Person, Person.ID==Employee.OS_ID).filter(Person.NAZWISKO==name.split()[0]).filter(Person.IMIE==name.split()[1]).first()
+                    if person:
+                        instructor_ids.append(person.ID)
+            return instructor_ids
+        except Exception as e:
+            print(f"Błąd podczas pobierania ID wykładowców: {str(e)}")
+            return []
+        finally:
+            db.close()
+
 if __name__ == "__main__":
     app = QApplication(sys.argv)
     login_window = LoginWindow()

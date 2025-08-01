@@ -2,7 +2,7 @@ from models import Employee, GroupInstructor, ThesisSupervisors, Reviewer, Indiv
 from sqlalchemy import and_
 from database import SessionLocal
 
-def calculate_workload_for_employee(employee_id, selected_year, selected_unit):
+def calculate_workload_for_employee(employee_id, selected_year, selected_unit, filtered_groups=None):
     db = SessionLocal()
     try:
         # Pobierz zajęcia dydaktyczne dla pracownika z filtrowaniem po roku akademickim i jednostce organizacyjnej
@@ -26,6 +26,14 @@ def calculate_workload_for_employee(employee_id, selected_year, selected_unit):
             query = query.filter(GroupInstructor.JEDN_KOD == selected_unit)
 
         results = query.all()
+        
+        if filtered_groups:
+            allowed_group_keys = {(g["Kod przedmiotu"], g["Nr grupy"]) for g in filtered_groups}
+            results = [
+                r for r in results
+                if (r[3].KOD, r[1].NR) in allowed_group_keys
+            ]
+
         total_workload = 0.0
         godziny_dydaktyczne_z_stacjonarne = 0.0
         godziny_dydaktyczne_z_niestacjonarne = 0.0
@@ -179,8 +187,13 @@ def get_group_data(selected_year=None, selected_unit=None, selected_employee=Non
         if selected_unit:
             query = query.filter(GroupInstructor.JEDN_KOD == selected_unit)
 
+        
         if selected_employee:
-            query = query.filter(GroupInstructor.PRAC_ID == selected_employee)
+            if not isinstance(selected_employee, list):
+                selected_employee = [selected_employee]
+            if selected_employee:  # tylko jeśli lista nie jest pusta
+                query = query.filter(GroupInstructor.PRAC_ID.in_(selected_employee))
+
 
         results = query.all()
         data = []
