@@ -30,6 +30,9 @@ class MainWindow(QMainWindow):
         self.group_filter_texts = {}         # {column_index: text}
         self.instructor_filter_texts = {}
         self.summary_filter_texts = {}
+        self.current_filtered_groups = []
+        self.current_filtered_instructors = []
+        self.current_filtered_summary = []
         self.setWindowTitle("System Rozliczania Obciążeń Dydaktycznych")
         self.setGeometry(100, 100, 1000, 700)
         self.showMaximized()
@@ -486,7 +489,7 @@ class MainWindow(QMainWindow):
                         pass  # zostaw jako tekst
                     row_items.append(item)
                 self.group_model.appendRow(row_items)
-
+            self.save_current_filtered_groups()
         except Exception as e:
             self.group_model.setHorizontalHeaderLabels(["Błąd"])
             self.group_model.appendRow([QStandardItem(f"Błąd: {str(e)}")])
@@ -561,6 +564,7 @@ class MainWindow(QMainWindow):
                     self.instructor_model.appendRow(row)
             if not results:
                 self.instructor_model.setHorizontalHeaderLabels(["Brak wykładowców do wyświetlenia."])
+            self.save_current_filtered_instructors()
         except Exception as e:
             self.instructor_model.setHorizontalHeaderLabels(["Błąd"])
             self.instructor_model.appendRow([QStandardItem(f"Błąd: {str(e)}")])
@@ -661,6 +665,7 @@ class MainWindow(QMainWindow):
 
             if not kierunek_dict:
                 self.summary_model.setHorizontalHeaderLabels(["Brak danych do wyświetlenia."])
+            self.save_current_filtered_summary()
         except Exception as e:
             self.summary_model.setHorizontalHeaderLabels(["Błąd"])
             self.summary_model.appendRow([QStandardItem(f"Błąd: {str(e)}")])
@@ -973,6 +978,7 @@ class MainWindow(QMainWindow):
         self.group_filter_texts[column] = text
         self.group_proxy.setColumnFilter(column, text)
         self.update_group_active_filters()
+        self.save_current_filtered_groups()
 
 
     def filter_instructor_list(self, text):
@@ -980,12 +986,14 @@ class MainWindow(QMainWindow):
         self.instructor_filter_texts[column] = text
         self.instructor_proxy.setColumnFilter(column,text)
         self.update_instructor_active_filters()
+        self.save_current_filtered_instructors()
 
     def filter_summary_list(self, text):
         column = self.summary_filter_column_combo.currentData()
         self.summary_filter_texts[column] = text
         self.summary_proxy.setColumnFilter(column,text)
         self.update_summary_active_filters()
+        self.save_current_filtered_summary()
     
     def on_group_filter_column_changed(self, index):
         column = self.group_filter_column_combo.currentData()
@@ -1040,6 +1048,7 @@ class MainWindow(QMainWindow):
         self.group_search.blockSignals(False)
         self.group_filter_column_combo.setCurrentIndex(0)
         self.update_group_active_filters()
+        self.save_current_filtered_groups()
     
     def clear_instructor_filters(self):
         self.instructor_proxy.clearAllFilters()
@@ -1049,6 +1058,7 @@ class MainWindow(QMainWindow):
         self.instructor_search.blockSignals(False)
         self.instructor_filter_column_combo.setCurrentIndex(0)
         self.update_instructor_active_filters()
+        self.save_current_filtered_instructors()
 
     def clear_summary_filters(self):
         self.summary_proxy.clearAllFilters()
@@ -1058,6 +1068,7 @@ class MainWindow(QMainWindow):
         self.summary_search.blockSignals(False)
         self.summary_filter_column_combo.setCurrentIndex(0)
         self.update_summary_active_filters()
+        self.save_current_filtered_summary()
 
     def update_group_active_filters(self):
         # Usuń stare etykietki
@@ -1253,7 +1264,54 @@ class MainWindow(QMainWindow):
             self.setStyleSheet(dark_stylesheet)
             self.is_dark_mode = True
             self.theme_toggle_btn.setText("☀️")
+    def save_current_filtered_groups(self):
+        """Zapisuje aktualny stan przefiltrowanej tabeli grup"""
+        self.current_filtered_groups = []
+        headers = [self.group_model.headerData(i, Qt.Orientation.Horizontal) 
+                for i in range(self.group_model.columnCount())]
+        
+        for row in range(self.group_proxy.rowCount()):
+            row_data = {}
+            for col, header in enumerate(headers):
+                index = self.group_proxy.index(row, col)
+                row_data[header] = self.group_proxy.data(index)
+            self.current_filtered_groups.append(row_data)
+        
+        # Opcjonalnie wyświetl informację o liczbie wierszy
+        print(f"Zapisano stan tabeli grup: {len(self.current_filtered_groups)} wierszy")
+        self.status_label.setText(f"Status: Przefiltrowano grupy - {len(self.current_filtered_groups)} wierszy")
 
+    def save_current_filtered_instructors(self):
+        """Zapisuje aktualny stan przefiltrowanej tabeli wykładowców"""
+        self.current_filtered_instructors = []
+        headers = [self.instructor_model.headerData(i, Qt.Orientation.Horizontal) 
+                for i in range(self.instructor_model.columnCount())]
+        
+        for row in range(self.instructor_proxy.rowCount()):
+            row_data = {}
+            for col, header in enumerate(headers):
+                index = self.instructor_proxy.index(row, col)
+                row_data[header] = self.instructor_proxy.data(index)
+            self.current_filtered_instructors.append(row_data)
+        
+        print(f"Zapisano stan tabeli wykładowców: {len(self.current_filtered_instructors)} wierszy")
+        self.status_label.setText(f"Status: Przefiltrowano wykładowców - {len(self.current_filtered_instructors)} wierszy")
+
+    def save_current_filtered_summary(self):
+        """Zapisuje aktualny stan przefiltrowanej tabeli podsumowania"""
+        self.current_filtered_summary = []
+        headers = [self.summary_model.headerData(i, Qt.Orientation.Horizontal) 
+                for i in range(self.summary_model.columnCount())]
+        
+        for row in range(self.summary_proxy.rowCount()):
+            row_data = {}
+            for col, header in enumerate(headers):
+                index = self.summary_proxy.index(row, col)
+                row_data[header] = self.summary_proxy.data(index)
+            self.current_filtered_summary.append(row_data)
+        
+        print(f"Zapisano stan tabeli podsumowania: {len(self.current_filtered_summary)} wierszy")
+        self.status_label.setText(f"Status: Przefiltrowano podsumowanie - {len(self.current_filtered_summary)} wierszy")
 if __name__ == "__main__":
     app = QApplication(sys.argv)
     login_window = LoginWindow()
