@@ -193,7 +193,6 @@ class MainWindow(QMainWindow):
         self.instructors_layout.addWidget(self.instructor_details_table)
         self.tab_widget.addTab(self.instructors_tab, "Wykładowcy")
         self.instructor_table.clicked.connect(self.display_instructor_details)
-        self.instructor_table.clicked.connect(self.display_instructor_details)
 
         # Zakładka zestawienie
         self.summary_tab = QWidget()
@@ -269,15 +268,20 @@ class MainWindow(QMainWindow):
             self.theme_toggle_btn.setToolTip("Przełącz tryb ciemny/jasny")
         self.setStyleSheet(light_stylesheet)
         self.tab_widget.currentChanged.connect(self.refresh_data)
-        self.chceckbox.stateChanged.connect(self.refresh_data)
-        
+        self.chceckbox.stateChanged.connect(self.toogle_checkbox)
+
+    def toogle_checkbox(self):
+        """Toggle the checkbox state."""
+        self.changeFlag = True
+        self.refresh_data()    
     def refresh_data(self):
         """Refresh data in both tabs without changing filters."""
-        self.populate_groups()
-        self.populate_employees()
-        self.populate_summary()
-        self.changeFlag = False
-        self.status_label.setText("Status: Dane zostały odświeżone.")
+        if self.changeFlag == True:
+            self.populate_groups()
+            self.populate_employees()
+            self.populate_summary()
+            self.changeFlag = False
+            self.status_label.setText("Status: Dane zostały odświeżone.")
     def on_tab_changed(self, index):
         """Handle tab change events."""
         if self.tab_widget.tabText(index) == "Wykładowcy":
