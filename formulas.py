@@ -56,17 +56,19 @@ def calculate_workload_for_employee(employee_id, selected_year, selected_unit, f
             parsed_code = parse_subject_code(subject.KOD)
             # Rozdzielenie godzin na semestr zimowy i letni
             if "Semestr zimowy" in didactic_cycle.OPIS:
-                godziny_dydaktyczne_z_stacjonarne += godziny
                 if "Stacjonarne" in parsed_code["Tryb"]:
                     godziny_dydaktyczne_z_stacjonarne += godziny
                 elif "Niestacjonarne" in parsed_code["Tryb"]:
                     godziny_dydaktyczne_z_niestacjonarne += godziny
+                else:
+                    godziny_dydaktyczne_z_stacjonarne += godziny
             elif "Semestr letni" in didactic_cycle.OPIS:
-                godziny_dydaktyczne_l_stacjonarne += godziny
                 if "Stacjonarne" in parsed_code["Tryb"]:
                     godziny_dydaktyczne_l_stacjonarne += godziny
                 elif "Niestacjonarne" in parsed_code["Tryb"]:
                     godziny_dydaktyczne_l_niestacjonarne += godziny
+                else:
+                    godziny_dydaktyczne_l_stacjonarne += godziny
             
 
         pensum_employee = (

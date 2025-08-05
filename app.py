@@ -273,12 +273,11 @@ class MainWindow(QMainWindow):
         
     def refresh_data(self):
         """Refresh data in both tabs without changing filters."""
-        if self.changeFlag == True:
-            self.populate_groups()
-            self.populate_employees()
-            self.populate_summary()
-            self.changeFlag = False
-            self.status_label.setText("Status: Dane zostały odświeżone.")
+        self.populate_groups()
+        self.populate_employees()
+        self.populate_summary()
+        self.changeFlag = False
+        self.status_label.setText("Status: Dane zostały odświeżone.")
     def on_tab_changed(self, index):
         """Handle tab change events."""
         if self.tab_widget.tabText(index) == "Wykładowcy":
@@ -412,6 +411,8 @@ class MainWindow(QMainWindow):
 
             group_data = get_group_data(selected_year, selected_unit, selected_employee_id)
             filtered_groups = self.current_filtered_groups if self.chceckbox.isChecked() else None
+            if filtered_groups:
+                group_data = [group for group in group_data if group in filtered_groups]
             workload_data = calculate_workload_for_employee(employee.ID, selected_year, selected_unit, filtered_groups)
 
 
