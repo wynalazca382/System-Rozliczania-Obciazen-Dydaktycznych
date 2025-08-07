@@ -121,14 +121,13 @@ class ChartWidget(QWidget):
         self.canvas.draw()
     
     def create_kierunek_pie_chart(self):
-        """Wykres kołowy - rozkład godzin według kierunków"""
+        """Wykres kołowy - rozkład godzin według kierunków (obwarzanek z białymi przerwami)"""
         kierunek_sum = {}
         
         for row in self.chart_data:
             kierunek = row.get("Kierunek", "Nieznany")
             suma = row.get("Suma", 0)
             
-            # Pomiń wiersze z sumą kierunku
             if "SUMA kierunku" in str(row.get("Specjalność", "")):
                 continue
             
@@ -144,7 +143,7 @@ class ChartWidget(QWidget):
         if not kierunek_sum or all(v == 0 for v in kierunek_sum.values()):
             ax = self.figure.add_subplot(111)
             ax.text(0.5, 0.5, 'Brak danych do wyświetlenia w wykresie kołowym', 
-                   ha='center', va='center', transform=ax.transAxes, fontsize=12) # Zwiększona czcionka
+                ha='center', va='center', transform=ax.transAxes, fontsize=12)
             return
             
         ax = self.figure.add_subplot(111)
@@ -154,19 +153,47 @@ class ChartWidget(QWidget):
         
         labels = list(kierunek_sum.keys())
         sizes = list(kierunek_sum.values())
+        total = sum(sizes)
+        
+        # Generuj kolory
         colors = plt.cm.Set3(np.linspace(0, 1, len(labels)))
         
-        wedges, texts, autotexts = ax.pie(sizes, labels=labels, autopct='%1.1f%%', 
-                                         colors=colors, startangle=90, textprops={'fontsize': 10}) # Zwiększona czcionka etykiet
+        # Najpierw rysujemy biały pasek (tworzący efekt obwarzanka)
+        wedges, _ = ax.pie([1], radius=0.8, colors=['white'], 
+                        wedgeprops=dict(width=0.2, edgecolor='w'))
         
-        ax.set_title('Rozkład godzin według kierunków', fontsize=16, fontweight='bold', pad=20) # Zwiększona czcionka nagłówka
+        # Następnie rysujemy właściwy wykres z białymi przerwami
+        wedges, texts, autotexts = ax.pie(
+            sizes, 
+            labels=labels, 
+            autopct=lambda p: f'{p:.1f}%\n({int(p/100*total)}h)' if p > 5 else '',
+            colors=colors,
+            startangle=90,
+            textprops={'fontsize': 10, 'fontweight': 'bold'},
+            wedgeprops={'linewidth': 1.5, 'edgecolor': 'white', 'width': 0.6},
+            pctdistance=0.85  # Odległość procentów od środka
+        )
         
-        # Dodaj legendę z wartościami
-        legend_labels = [f"{label}: {int(size)}h" for label, size in zip(labels, sizes)]
-        ax.legend(wedges, legend_labels, title="Kierunki", loc="center left", 
-                 bbox_to_anchor=(1, 0, 0.5, 1), fontsize=10, title_fontsize=12) # Zwiększona czcionka legendy
+        ax.set_title('Rozkład godzin według kierunków', fontsize=16, fontweight='bold', pad=20)
         
-        plt.tight_layout(rect=[0, 0, 0.85, 1]) # Dostosowanie marginesów, aby legenda się zmieściła
+        # Legenda z wartościami - tylko dla dużych segmentów
+        legend_labels = []
+        for label, size in zip(labels, sizes):
+            if (size/total)*100 > 5:  # Tylko dla segmentów >5%
+                legend_labels.append(f"{label}: {int(size)}h")
+        
+        ax.legend(
+            [w for i,w in enumerate(wedges) if (sizes[i]/total)*100 > 5],
+            legend_labels,
+            title="Kierunki (godziny)",
+            loc="center left",
+            bbox_to_anchor=(1, 0, 0.5, 1),
+            fontsize=10,
+            title_fontsize=12
+        )
+        
+        plt.tight_layout(rect=[0, 0, 0.85, 1])
+
     
     def create_semestr_bar_chart(self):
         """Wykres słupkowy - porównanie semestrów zimowego i letniego"""
@@ -274,7 +301,7 @@ class ChartWidget(QWidget):
             except (ValueError, TypeError):
                 suma = 0
             
-            key = f"{kierunek}\n{spec}"
+            key = f"{kierunek} - {spec}"  # Zmiana formatu, aby uniknąć nowej linii
             if key not in spec_sum:
                 spec_sum[key] = 0
             spec_sum[key] += suma
@@ -282,7 +309,7 @@ class ChartWidget(QWidget):
         if not spec_sum or all(v == 0 for v in spec_sum.values()):
             ax = self.figure.add_subplot(111)
             ax.text(0.5, 0.5, 'Brak danych do wyświetlenia', 
-                   ha='center', va='center', transform=ax.transAxes, fontsize=12) # Zwiększona czcionka
+                ha='center', va='center', transform=ax.transAxes, fontsize=12)  # Zwiększona czcionka
             return
             
         ax = self.figure.add_subplot(111)
@@ -292,23 +319,25 @@ class ChartWidget(QWidget):
         sorted_items = sorted(spec_sum.items(), key=lambda x: x[1], reverse=True)
         labels, values = zip(*sorted_items) if sorted_items else ([], [])
         
-        bars = ax.barh(range(len(labels)), values, color=plt.cm.viridis(np.linspace(0, 1, len(labels))))
+        # Zwiększenie odstępu między słupkami
+        bar_width = 0.4  # Szerokość słupków
+        bars = ax.barh(range(len(labels)), values, color=plt.cm.viridis(np.linspace(0, 1, len(labels))), height=bar_width)
         
-        ax.set_xlabel('Liczba godzin', fontsize=12) # Zwiększona czcionka
-        ax.set_ylabel('Kierunek / Specjalność', fontsize=12) # Zwiększona czcionka
-        ax.set_title('Godziny według specjalności', fontsize=16, fontweight='bold') # Zwiększona czcionka nagłówka
+        ax.set_xlabel('Liczba godzin', fontsize=12)
+        ax.set_ylabel('Kierunek / Specjalność', fontsize=12)
+        ax.set_title('Godziny według specjalności', fontsize=16, fontweight='bold')
         ax.set_yticks(range(len(labels)))
-        ax.set_yticklabels(labels, fontsize=9) # Zwiększona czcionka
-        ax.tick_params(axis='x', labelsize=10) # Zwiększona czcionka
+        ax.set_yticklabels(labels, fontsize=9)
+        ax.tick_params(axis='x', labelsize=10)
         ax.grid(True, alpha=0.3, axis='x')
         
-        # Dodaj etykiety na słupkach
         for bar, value in zip(bars, values):
             if value > 0:
-                ax.text(bar.get_width() + max(values)*0.01, bar.get_y() + bar.get_height()/2.,
-                       f'{int(value)}', ha='left', va='center', fontsize=9, fontweight='bold') # Zwiększona czcionka
+                ax.text(bar.get_width() + max(values) * 0.01, bar.get_y() + bar.get_height() / 2.,
+                    f'{int(value)}', ha='left', va='center', fontsize=9, fontweight='bold')
         
         plt.tight_layout()
+
     
     def create_combined_stacked_chart(self):
         """Wykres skumulowany - kierunki z podziałem na tryby"""
@@ -338,7 +367,7 @@ class ChartWidget(QWidget):
         if not kierunek_data:
             ax = self.figure.add_subplot(111)
             ax.text(0.5, 0.5, 'Brak danych do wyświetlenia', 
-                   ha='center', va='center', transform=ax.transAxes, fontsize=12) # Zwiększona czcionka
+                   ha='center', va='center', transform=ax.transAxes, fontsize=12)
             return
             
         ax = self.figure.add_subplot(111)
@@ -351,14 +380,14 @@ class ChartWidget(QWidget):
         bars2 = ax.bar(kierunki, niestacjonarne, bottom=stacjonarne, 
                       label='Niestacjonarne', color='#e74c3c', alpha=0.8)
         
-        ax.set_xlabel('Kierunki', fontsize=12) # Zwiększona czcionka
-        ax.set_ylabel('Liczba godzin', fontsize=12) # Zwiększona czcionka
-        ax.set_title('Rozkład godzin według kierunków i trybów (skumulowany)', fontsize=16, fontweight='bold') # Zwiększona czcionka nagłówka
-        ax.legend(fontsize=10) # Zwiększona czcionka
+        ax.set_xlabel('Kierunki', fontsize=12)
+        ax.set_ylabel('Liczba godzin', fontsize=12)
+        ax.set_title('Rozkład godzin według kierunków i trybów (skumulowany)', fontsize=16, fontweight='bold')
+        ax.legend(fontsize=10)
         ax.grid(True, alpha=0.3, axis='y')
         
-        plt.setp(ax.get_xticklabels(), rotation=45, ha='right', fontsize=9) # Zwiększona czcionka i rotacja
-        ax.tick_params(axis='y', labelsize=10) # Zwiększona czcionka
+        plt.setp(ax.get_xticklabels(), rotation=45, ha='right', fontsize=9)
+        ax.tick_params(axis='y', labelsize=10)
         
         # Dodaj etykiety z sumą
         for i, kierunek in enumerate(kierunki):
