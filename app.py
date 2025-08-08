@@ -19,8 +19,8 @@ from PyQt5 import QtCore
 from PyQt5.QtCore import Qt
 from datetime import datetime
 from style.style import light_stylesheet, dark_stylesheet
-
-
+from openpyxl.drawing.image import Image as ExcelImage
+from io import BytesIO
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
@@ -631,7 +631,9 @@ class MainWindow(QMainWindow):
         self.summary_search = QLineEdit()
         self.summary_search.setPlaceholderText("Szukaj w podsumowaniu...")
         self.summary_search.textChanged.connect(self.filter_summary_list)
-        
+        self.summary_active_filters_widget = QWidget()
+        self.summary_active_filters_layout = QVBoxLayout(self.summary_active_filters_widget)
+        self.summary_layout.addWidget(self.summary_active_filters_widget)
         self.summary_filter_column_combo = QComboBox()
         self.summary_filter_column_combo.setMinimumHeight(30)
         self.summary_filter_column_combo.currentIndexChanged.connect(self.on_summary_filter_column_changed)
@@ -830,7 +832,10 @@ class MainWindow(QMainWindow):
                 return
             selected_employee_id = employee.ID
 
-            group_data = get_group_data(selected_year, selected_unit, selected_employee_id, self.current_filtered_groups)
+            if self.chceckbox.isChecked():
+                group_data = get_group_data(selected_year, selected_unit, selected_employee_id, self.current_filtered_groups)
+            else:
+                group_data = get_group_data(selected_year, selected_unit, selected_employee_id, None)
             filtered_groups = self.current_filtered_groups if self.chceckbox.isChecked() else None
             if filtered_groups:
                 group_data = [group for group in group_data if group in filtered_groups]
@@ -896,10 +901,10 @@ class MainWindow(QMainWindow):
         selected_employee = self.employee_filter.currentData()
 
         try:     
-            if selected_employee is not None:
+            if self.chceckbox.isChecked():
                 group_data = get_group_data(selected_year, selected_unit, selected_employee, self.current_filtered_groups)
             else:
-                group_data = get_group_data(selected_year, selected_unit, None, self.current_filtered_groups)
+                group_data = get_group_data(selected_year, selected_unit, selected_employee, None)
 
 
             # Ustal nagłówki na podstawie kluczy pierwszego rekordu
@@ -1008,10 +1013,10 @@ class MainWindow(QMainWindow):
         selected_employee = self.employee_filter.currentData()
 
         try:     
-            if selected_employee is not None:
+            if self.chceckbox.isChecked():
                 group_data = get_group_data(selected_year, selected_unit, selected_employee, self.current_filtered_groups)
             else:
-                group_data = get_group_data(selected_year, selected_unit, None, self.current_filtered_groups)
+                group_data = get_group_data(selected_year, selected_unit, selected_employee, None)
 
             kierunek_dict = {}
             specjalnosc_display_names = {}
@@ -1133,7 +1138,10 @@ class MainWindow(QMainWindow):
 
         db = SessionLocal()
         try:
-            group_data = get_group_data(selected_year, selected_unit, selected_employee_id, self.current_filtered_groups)
+            if self.chceckbox.isChecked():
+                group_data = get_group_data(selected_year, selected_unit, selected_employee_id, self.current_filtered_groups)
+            else:
+                group_data = get_group_data(selected_year, selected_unit, selected_employee_id, None)
 
             filtered_groups = self.current_filtered_groups if self.chceckbox.isChecked() else None
             workload_data = calculate_workload_for_employee(selected_employee_id, selected_year, selected_unit, filtered_groups)
@@ -1202,6 +1210,7 @@ class MainWindow(QMainWindow):
         selected_year = self.year_filter.currentText()
         selected_employee = self.employee_filter.currentData()
         try:
+            self.populate_summary()
             # Query employees and filter by the selected unit
             query = (
                 db.query(Employee, Person)
@@ -1356,6 +1365,7 @@ class MainWindow(QMainWindow):
                 # Dodaj stopkę z datą do arkuszy
                 self.add_footer_to_excel(file_path)
                 self.format_excel(file_path)
+                self.add_charts_to_excel(file_path)
                 self.status_label.setText(f"Status: Raport zapisany do {file_path}")
             else:
                 self.status_label.setText("Status: Anulowano zapis raportu")
@@ -1732,6 +1742,7 @@ class MainWindow(QMainWindow):
                         df3.to_excel(writer, sheet_name='Podsumowanie', index=False)
                 self.add_footer_to_excel(file_path)
                 self.format_excel(file_path)
+                self.add_charts_to_excel(file_path)
                 self.status_label.setText(f"Status: Raport zapisany do {file_path}")
             else:
                 self.status_label.setText("Status: Anulowano zapis raportu")
@@ -1739,6 +1750,65 @@ class MainWindow(QMainWindow):
             print(e)
             self.status_label.setText(f"Status: Błąd podczas generowania raportu: {str(e)}")
 
+    def add_charts_to_excel(self, file_path):
+        """Generuje wszystkie wykresy i dodaje je do nowego arkusza w pliku Excel."""
+        from openpyxl import load_workbook
+        wb = load_workbook(file_path)
+        # Utwórz nowy arkusz dla wykresów
+        if "Wykresy" in wb.sheetnames:
+            ws_charts = wb["Wykresy"]
+        else:
+            ws_charts = wb.create_sheet("Wykresy")
+        # Ustaw dane dla wykresów (te same, co w zakładce podsumowania)
+        chart_data = []
+        for row_idx in range(self.summary_proxy.rowCount()):
+            row_data = {}
+            for col_idx in range(self.summary_proxy.columnCount()):
+                header = self.summary_model.headerData(col_idx, Qt.Horizontal)
+                item_index = self.summary_proxy.index(row_idx, col_idx)
+                value = self.summary_proxy.data(item_index)
+                if value:
+                    try:
+                        value = float(value) if str(value).replace('.', '').isdigit() else value
+                    except:
+                        pass
+                    row_data[header] = value
+            chart_data.append(row_data)
+        
+        self.chart_widget.set_data(chart_data) # Upewnij się, że dane są ustawione w ChartWidget
+        chart_types = self.chart_widget.chart_buttons.keys()
+        current_row = 1
+        
+        for chart_type in chart_types:
+            try:
+                self.chart_widget.update_chart(chart_type) # Wygeneruj wykres
+                
+                # Zapisz wykres do bufora jako obraz PNG
+                img_buffer = BytesIO()
+                self.chart_widget.figure.savefig(img_buffer, format='png', bbox_inches='tight', dpi=300)
+                img_buffer.seek(0) # Przewiń bufor na początek
+                
+                # Utwórz obiekt obrazu openpyxl
+                img = ExcelImage(img_buffer)
+                
+                # Ustaw rozmiar obrazu (opcjonalnie, dostosuj do potrzeb)
+                # img.width = self.chart_widget.figure.get_figwidth() * self.chart_widget.figure.dpi
+                # img.height = self.chart_widget.figure.get_figheight() * self.chart_widget.figure.dpi
+                
+                # Dodaj obraz do arkusza
+                cell_ref = f"A{current_row}"
+                ws_charts.add_image(img, cell_ref)
+                
+                # Przesuń wiersz dla następnego wykresu (dodaj margines)
+                current_row += int(img.height / 15) + 5 # Przybliżona wysokość wierszy
+                
+            except Exception as e:
+                print(f"Błąd podczas eksportowania wykresu {chart_type}: {e}")
+                ws_charts.cell(row=current_row, column=1, value=f"Błąd eksportu wykresu {chart_type}: {e}")
+                current_row += 2 # Przesuń wiersz w przypadku błędu
+        wb.save(file_path)
+        print(f"Wykresy zostały dodane do pliku Excel: {file_path}")
+    
     def get_visible_table_data(self, proxy_model, headers):
         data = []
         for row in range(proxy_model.rowCount()):
