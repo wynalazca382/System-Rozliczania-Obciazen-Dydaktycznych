@@ -1020,18 +1020,21 @@ class MainWindow(QMainWindow):
                 group_data = get_group_data(selected_year, selected_unit, None)
 
             kierunek_dict = {}
+            specjalnosc_display_names = {}
 
             for group in group_data:
                 kierunek = group.get("Kierunek", "Nieznany kierunek")
                 specjalnosc = group.get("Specjalność", "Brak specjalności")
+                specjalnosc_key = specjalnosc.strip().lower()
+                specjalnosc_display_names[(kierunek, specjalnosc_key)] = specjalnosc
                 tryb = group.get("Tryb", "Nieznany tryb").strip().lower()
                 hours = group.get("Liczba godzin", 0)
                 semester = group.get("Semestr", "Nieznany semestr").lower()
 
                 if kierunek not in kierunek_dict:
                     kierunek_dict[kierunek] = {}
-                if specjalnosc not in kierunek_dict[kierunek]:
-                    kierunek_dict[kierunek][specjalnosc] = {
+                if specjalnosc_key not in kierunek_dict[kierunek]:
+                    kierunek_dict[kierunek][specjalnosc_key] = {
                         "Zimowy stacjonarne": 0,
                         "Zimowy niestacjonarne": 0,
                         "Letni stacjonarne": 0,
@@ -1039,18 +1042,18 @@ class MainWindow(QMainWindow):
                         "Suma": 0
                     }
                 if "zimowy" in semester and (("niestacjonarne" in tryb) or tryb == "none"):
-                    kierunek_dict[kierunek][specjalnosc]["Zimowy niestacjonarne"] += hours
+                    kierunek_dict[kierunek][specjalnosc_key]["Zimowy niestacjonarne"] += hours
                 elif "zimowy" in semester and "stacjonarne" in tryb:
-                    kierunek_dict[kierunek][specjalnosc]["Zimowy stacjonarne"] += hours
+                    kierunek_dict[kierunek][specjalnosc_key]["Zimowy stacjonarne"] += hours
                 elif "letni" in semester and (("niestacjonarne" in tryb) or tryb == "none"):
-                    kierunek_dict[kierunek][specjalnosc]["Letni niestacjonarne"] += hours
+                    kierunek_dict[kierunek][specjalnosc_key]["Letni niestacjonarne"] += hours
                 elif "letni" in semester and "stacjonarne" in tryb:
-                    kierunek_dict[kierunek][specjalnosc]["Letni stacjonarne"] += hours
+                    kierunek_dict[kierunek][specjalnosc_key]["Letni stacjonarne"] += hours
                 else:
                     # Jeśli tryb nie jest rozpoznany, możesz dodać do osobnej kolumny lub wyświetlić ostrzeżenie
                     print(f"Nieznany tryb/semestr: tryb={tryb}, semester={semester}, hours={hours}, kierunek={kierunek}, specjalnosc={specjalnosc}")
 
-                kierunek_dict[kierunek][specjalnosc]["Suma"] += hours
+                kierunek_dict[kierunek][specjalnosc_key]["Suma"] += hours
 
             headers = [
                 "Kierunek", "Specjalność",
@@ -1070,7 +1073,8 @@ class MainWindow(QMainWindow):
                     "Letni niestacjonarne": 0,
                     "Suma": 0
                 }
-                for specjalnosc, godziny in specjalnosci.items():
+                for specjalnosc_key, godziny in specjalnosci.items():
+                    specjalnosc = specjalnosc_display_names.get((kierunek, specjalnosc_key), specjalnosc_key)
                     row = [
                         QStandardItem(kierunek),
                         QStandardItem(specjalnosc),
