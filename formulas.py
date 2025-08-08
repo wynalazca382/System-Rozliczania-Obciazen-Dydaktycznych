@@ -161,7 +161,7 @@ def calculate_workload_for_employee(employee_id, selected_year, selected_unit, f
     finally:
         db.close()
 
-def get_group_data(selected_year=None, selected_unit=None, selected_employee=None):
+def get_group_data(selected_year=None, selected_unit=None, selected_employee=None, current_filtered_groups=None):
     db = SessionLocal()
     try:
         # Pobierz dane grup z powiązanymi informacjami
@@ -191,13 +191,18 @@ def get_group_data(selected_year=None, selected_unit=None, selected_employee=Non
 
         
         if selected_employee:
-            if not isinstance(selected_employee, list):
-                selected_employee = [selected_employee]
-            if selected_employee:  # tylko jeśli lista nie jest pusta
-                query = query.filter(GroupInstructor.PRAC_ID.in_(selected_employee))
+            if selected_employee:
+                query = query.filter(GroupInstructor.PRAC_ID==selected_employee)
 
 
         results = query.all()
+
+        if current_filtered_groups:
+            allowed_group_keys = {(g["Kod przedmiotu"], g["Nr grupy"]) for g in current_filtered_groups}
+            results = [
+                r for r in results
+                if (r[3].KOD, r[1].NR) in allowed_group_keys
+            ]
         data = []
         institute_mapping = {
             "1": "IIS",

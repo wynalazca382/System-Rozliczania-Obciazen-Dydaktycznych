@@ -830,7 +830,7 @@ class MainWindow(QMainWindow):
                 return
             selected_employee_id = employee.ID
 
-            group_data = get_group_data(selected_year, selected_unit, selected_employee_id)
+            group_data = get_group_data(selected_year, selected_unit, selected_employee_id, self.current_filtered_groups)
             filtered_groups = self.current_filtered_groups if self.chceckbox.isChecked() else None
             if filtered_groups:
                 group_data = [group for group in group_data if group in filtered_groups]
@@ -894,15 +894,12 @@ class MainWindow(QMainWindow):
         selected_unit = self.unit_filter.currentData()
         selected_year = self.year_filter.currentText()
         selected_employee = self.employee_filter.currentData()
-        selected_employees = self.get_instructors_id(self.current_filtered_instructors)
 
         try:     
             if selected_employee is not None:
-                group_data = get_group_data(selected_year, selected_unit, [selected_employee])
-            elif self.chceckbox.isChecked() and selected_employees:
-                group_data = get_group_data(selected_year, selected_unit, selected_employees)
+                group_data = get_group_data(selected_year, selected_unit, selected_employee, self.current_filtered_groups)
             else:
-                group_data = get_group_data(selected_year, selected_unit, None)
+                group_data = get_group_data(selected_year, selected_unit, None, self.current_filtered_groups)
 
 
             # Ustal nagłówki na podstawie kluczy pierwszego rekordu
@@ -1009,15 +1006,12 @@ class MainWindow(QMainWindow):
         selected_unit = self.unit_filter.currentData()
         selected_year = self.year_filter.currentText()
         selected_employee = self.employee_filter.currentData()
-        selected_employees = self.get_instructors_id(self.current_filtered_instructors)
 
         try:     
             if selected_employee is not None:
-                group_data = get_group_data(selected_year, selected_unit, [selected_employee])
-            elif self.chceckbox.isChecked() and selected_employees:
-                group_data = get_group_data(selected_year, selected_unit, selected_employees)
+                group_data = get_group_data(selected_year, selected_unit, selected_employee, self.current_filtered_groups)
             else:
-                group_data = get_group_data(selected_year, selected_unit, None)
+                group_data = get_group_data(selected_year, selected_unit, None, self.current_filtered_groups)
 
             kierunek_dict = {}
             specjalnosc_display_names = {}
@@ -1139,7 +1133,7 @@ class MainWindow(QMainWindow):
 
         db = SessionLocal()
         try:
-            group_data = get_group_data(selected_year, selected_unit, selected_employee_id)
+            group_data = get_group_data(selected_year, selected_unit, selected_employee_id, self.current_filtered_groups)
 
             filtered_groups = self.current_filtered_groups if self.chceckbox.isChecked() else None
             workload_data = calculate_workload_for_employee(selected_employee_id, selected_year, selected_unit, filtered_groups)
