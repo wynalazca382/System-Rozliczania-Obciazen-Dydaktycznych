@@ -211,18 +211,18 @@ def get_group_data(selected_year=None, selected_unit=None, selected_employee=Non
         data = []
         institute_mapping = {
             "1": "IIS",
-            "2": "IE",
+            "4": "IE",
             "3": "IP",
-            "4": "IPJ"
+            "2": "IPJ"
         }
         # Przetwarzanie wyników
         for group_instructor, group, didactic_class, subject, didactic_cycle, class_type, organizational_unit, person in results:
             godziny = didactic_class.LICZBA_GODZ or 0
             subject_code = subject.KOD if subject else "N/A"
             parsed_code = parse_subject_code(subject_code)
-            if parsed_code and "Kod instytutu" in parsed_code:
-                institute_code = parsed_code.pop("Kod instytutu")
-                parsed_code["Instytut"] = institute_mapping.get(institute_code, "Nieznany instytut")
+            if parsed_code and "Instytut dla którego jest prowadzony przedmiot" in parsed_code:
+                institute_code = parsed_code.pop("Instytut dla którego jest prowadzony przedmiot")
+                parsed_code["Instytut dla którego jest prowadzony przedmiot"] = institute_mapping.get(institute_code, "Nieznany instytut")
             group_data = {
                 "Przedmiot": subject.NAZWA,
                 "Typ zajęć": class_type.OPIS,
@@ -231,7 +231,7 @@ def get_group_data(selected_year=None, selected_unit=None, selected_employee=Non
                 "Prowadzący": f"{person.IMIE} {person.NAZWISKO}" if person else "Nieznany prowadzący",
                 "Nr grupy": group_instructor.GR_NR,
                 "Kod przedmiotu": subject_code,
-                "Dla jednostki": organizational_unit.OPIS if organizational_unit else "Brak jednostki",
+                "Instytut w którym jest rozliczany przedmiot": organizational_unit.OPIS if organizational_unit else "Brak jednostki",
             }
             if parsed_code:
                 group_data = {**parsed_code, **group_data}
@@ -272,14 +272,14 @@ def parse_subject_code(subject_code):
             if len(tryb_stopien_rok_semestr) != 4:
                 raise ValueError("Nieprawidłowy format sekcji trybu, stopnia, roku i semestru.")
 
-            tryb = "Stacjonarne" if tryb_stopien_rok_semestr[0] == "N" else "Niestacjonarne"
+            tryb = "Stacjonarne" if tryb_stopien_rok_semestr[0] == "S" else "Niestacjonarne"
             stopien_map = {"1": "I stopień", "2": "II stopień", "M": "Magisterskie"}
             stopien = stopien_map.get(tryb_stopien_rok_semestr[1], "Nieznany stopień")
             rok = f"{tryb_stopien_rok_semestr[2]} rok"
             semestr = f"{tryb_stopien_rok_semestr[3]} semestr"
 
         result = {
-            "Kod instytutu": institute_code,
+            "Instytut dla którego jest prowadzony przedmiot": institute_code,
             "Kierunek": kierunek,
             "Specjalność": specjalnosc,
             "Tryb": tryb,

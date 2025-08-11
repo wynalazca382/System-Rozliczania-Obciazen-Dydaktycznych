@@ -742,11 +742,11 @@ class MainWindow(QMainWindow):
                 units = db.query(OrganizationalUnits).filter(OrganizationalUnits.OPIS.like("Instytut %")).all()
             elif self.user_right == 1:  # Dostęp tylko do Instytutu Informatyki Stosowanej
                 units = db.query(OrganizationalUnits).filter(OrganizationalUnits.OPIS == "Instytut Informatyki Stosowanej im. Krzysztofa Brzeskiego").all()
-            elif self.user_right == 2:  # Dostęp tylko do Instytutu Ekonomicznego
+            elif self.user_right == 4:  # Dostęp tylko do Instytutu Ekonomicznego
                 units = db.query(OrganizationalUnits).filter(OrganizationalUnits.OPIS == "Instytut Ekonomiczny").all()
             elif self.user_right == 3:  # Dostęp tylko do Instytutu Politechnicznego
                 units = db.query(OrganizationalUnits).filter(OrganizationalUnits.OPIS == "Instytut Politechniczny").all()
-            elif self.user_right == 4:  # Dostęp tylko do Instytutu Pedagogiczno-Językowego
+            elif self.user_right == 2:  # Dostęp tylko do Instytutu Pedagogiczno-Językowego
                 units = db.query(OrganizationalUnits).filter(OrganizationalUnits.OPIS == "Instytut Pedagogiczno- Językowy").all()
             else:
                 units = []  # Brak dostępu do żadnych jednostek
