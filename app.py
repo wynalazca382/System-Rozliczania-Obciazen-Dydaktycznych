@@ -176,14 +176,12 @@ class ChartWidget(QWidget):
         
         ax.set_title('Rozkład godzin według kierunków', fontsize=16, fontweight='bold', pad=20)
         
-        # Legenda z wartościami - tylko dla dużych segmentów
         legend_labels = []
         for label, size in zip(labels, sizes):
-            if (size/total)*100 > 5:  # Tylko dla segmentów >5%
-                legend_labels.append(f"{label}: {int(size)}h")
+            legend_labels.append(f"{label}: {int(size)}h ({size/total*100:.1f}%)")
         
         ax.legend(
-            [w for i,w in enumerate(wedges) if (sizes[i]/total)*100 > 5],
+            [w for i,w in enumerate(wedges)],
             legend_labels,
             title="Kierunki (godziny)",
             loc="center left",
@@ -611,18 +609,16 @@ class MainWindow(QMainWindow):
         self.tab_widget.currentChanged.connect(self.refresh_data)
         self.chceckbox.stateChanged.connect(self.toogle_checkbox)
     def setup_summary_tab_with_charts(self):
-        """Metoda dla zakładki zestawienia z wykresami do przesuwania"""
+        """Metoda dla zakładki zestawienia z wykresami w osobnych zakładkach"""
         self.summary_tab = QWidget()
         self.summary_layout = QVBoxLayout(self.summary_tab)
+
+        # Utwórz QTabWidget do przechowywania zakładek
+        self.summary_tab_widget = QTabWidget()
         
-        # Utwórz splitter do podziału na tabelę (stałą) i wykresy (przesuwalne)
-        summary_splitter = QSplitter(Qt.Vertical)
-        
-        # GÓRNA CZĘŚĆ - TABELA (STAŁA WYSOKOŚĆ)
+        # ZAKŁADKA 1 - TABELA
         table_container = QWidget()
         table_layout = QVBoxLayout(table_container)
-        table_container.setMinimumHeight(100)
-        table_container.setMaximumHeight(600)
         
         # Filtry dla tabeli
         filter_container = QWidget()
@@ -661,32 +657,27 @@ class MainWindow(QMainWindow):
         self.summary_table.setSortingEnabled(True)
         
         table_layout.addWidget(self.summary_table)
-        summary_splitter.addWidget(table_container)
+        table_container.setLayout(table_layout)
         
-        # DOLNA CZĘŚĆ - WYKRESY (PRZESUWALNE)
+        # Dodaj zakładkę z tabelą
+        self.summary_tab_widget.addTab(table_container, "Tabela")
+
+        # ZAKŁADKA 2 - WYKRESY
         self.chart_widget = ChartWidget()
         self.chart_widget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
-        summary_splitter.addWidget(self.chart_widget)
         
-        # Ustawienia splittera
-        summary_splitter.setChildrenCollapsible(False)  # Obie części zawsze widoczne
-        summary_splitter.setHandleWidth(10)  # Grubość uchwytu do przesuwania
-        summary_splitter.setStyleSheet("""
-            QSplitter::handle {
-                background: #ccc;
-                height: 5px;
-            }
-        """)
+        # Dodaj zakładkę z wykresami
+        self.summary_tab_widget.addTab(self.chart_widget, "Wykresy")
         
-        # Ustaw początkowy podział przestrzeni (40% tabela, 60% wykresy)
-        self.summary_layout.addWidget(summary_splitter)
-        self.summary_splitter = summary_splitter  # Zapisz referencję, jeśli będzie potrzebna później
-        
+        # Dodaj QTabWidget do layoutu
+        self.summary_layout.addWidget(self.summary_tab_widget)
+
         # Tooltips
         self.summary_search.setToolTip("Wyszukaj w podsumowaniu po dowolnym polu")
         self.clear_summary_filter_button.setToolTip("Wyczyść pole wyszukiwania w podsumowaniu")
-        
+
         self.tab_widget.addTab(self.summary_tab, "Zestawienia")
+
 
 
     def toogle_checkbox(self):
@@ -1792,8 +1783,8 @@ class MainWindow(QMainWindow):
                 img = ExcelImage(img_buffer)
                 
                 # Ustaw rozmiar obrazu (opcjonalnie, dostosuj do potrzeb)
-                # img.width = self.chart_widget.figure.get_figwidth() * self.chart_widget.figure.dpi
-                # img.height = self.chart_widget.figure.get_figheight() * self.chart_widget.figure.dpi
+                #img.width = self.chart_widget.figure.get_figwidth() * self.chart_widget.figure.dpi
+                #img.height = img.width
                 
                 # Dodaj obraz do arkusza
                 cell_ref = f"A{current_row}"
@@ -1820,13 +1811,12 @@ class MainWindow(QMainWindow):
         return data
     
     def generate_report(self):
-        msg = QMessageBox(self)
-        msg.setWindowTitle("Wybierz tryb raportu")
-        msg.setText("Z jakiego źródła wygenerować raport?")
-        widok_btn = msg.addButton("Z widoku (to co w tabelach)", QMessageBox.AcceptRole)
-        baza_btn = msg.addButton("Z bazy (pełne dane)", QMessageBox.DestructiveRole)
-        msg.setDefaultButton(widok_btn)
-        msg.exec_()
+        msg = QMessageBox()
+        msg.setWindowTitle("Wybór źródła danych")
+        msg.setText("Wybierz źródło danych, z którego chcesz wygenerować raport:")
+        widok_btn = msg.addButton("Z widoku (wyświetlane dane w tabelach)", QMessageBox.AcceptRole)
+        baza_btn = msg.addButton("Z bazy (wszystkie dostępne dane)", QMessageBox.DestructiveRole)
+        msg.exec()
 
         if msg.clickedButton() == widok_btn:
             self.generate_report_from_view()
