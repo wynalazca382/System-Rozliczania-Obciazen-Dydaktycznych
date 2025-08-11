@@ -161,7 +161,7 @@ def calculate_workload_for_employee(employee_id, selected_year, selected_unit, f
     finally:
         db.close()
 
-def get_group_data(selected_year=None, selected_unit=None, selected_employee=None, current_filtered_groups=None):
+def get_group_data(selected_year=None, selected_unit=None, selected_employee=None, current_filtered_groups=None, filtered_employee_ids=None):
     db = SessionLocal()
     try:
         # Pobierz dane grup z powiązanymi informacjami
@@ -193,6 +193,11 @@ def get_group_data(selected_year=None, selected_unit=None, selected_employee=Non
         if selected_employee:
             if selected_employee:
                 query = query.filter(GroupInstructor.PRAC_ID==selected_employee)
+        
+        if filtered_employee_ids is not None and len(filtered_employee_ids) > 0:
+            query = query.filter(GroupInstructor.PRAC_ID.in_(filtered_employee_ids))
+        elif filtered_employee_ids is not None and len(filtered_employee_ids) == 0:
+            query = query.filter(False)
 
 
         results = query.all()
@@ -212,10 +217,6 @@ def get_group_data(selected_year=None, selected_unit=None, selected_employee=Non
         }
         # Przetwarzanie wyników
         for group_instructor, group, didactic_class, subject, didactic_cycle, class_type, organizational_unit, person in results:
-            if person is None:
-                print("Błąd: Brak danych dla osoby!")
-            else:
-                print(f"Prowadzący: {person.IMIE} {person.NAZWISKO}")
             godziny = didactic_class.LICZBA_GODZ or 0
             subject_code = subject.KOD if subject else "N/A"
             parsed_code = parse_subject_code(subject_code)
@@ -242,7 +243,6 @@ def get_group_data(selected_year=None, selected_unit=None, selected_employee=Non
 
 def parse_subject_code(subject_code):
     try:
-        print(f"Przetwarzanie kodu przedmiotu: {subject_code}")
         parts = subject_code.split("-")
         if len(parts) < 4:
             #raise ValueError("Nieprawidłowy format kodu przedmiotu.")

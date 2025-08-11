@@ -683,15 +683,26 @@ class MainWindow(QMainWindow):
     def toogle_checkbox(self):
         """Toggle the checkbox state."""
         self.changeFlag = True
+        print("Checkbox został zmieniony, odświeżam dane.")
         self.refresh_data()    
     def refresh_data(self):
-        """Refresh data in both tabs without changing filters."""
         if self.changeFlag == True:
-            self.populate_groups()
+            print("Odświeżam dane...")  # Sprawdzenie, czy refresh_data() jest wywoływana
+            
+            # 1. Pobierz ID aktualnie widocznych wykładowców
+            filtered_employee_ids = []
+            if self.chceckbox.isChecked():
+                print("Checkbox jest zaznaczony, pobieram ID wykładowców.")  # Sprawdzenie, czy checkbox jest zaznaczony
+                filtered_employee_ids = self.get_instructors_id(self.instructor_proxy)
+                print(f"Przefiltrowane ID wykładowców do synchronizacji: {filtered_employee_ids}")
+            # 2. Przekaż te ID do populate_groups
+            self.populate_groups(filtered_employee_ids=filtered_employee_ids)
             self.populate_employees()
             self.populate_summary()
             self.changeFlag = False
-            self.status_label.setText("Status: Dane zostały odświeżone.")
+            self.status_label.setText("Dane odświeżone.")
+        else:
+            print("Brak zmian, nie odświeżam danych.")
     def on_tab_changed(self, index):
         """Handle tab change events."""
         if self.tab_widget.tabText(index) == "Wykładowcy":
@@ -885,7 +896,7 @@ class MainWindow(QMainWindow):
             self.instructor_details_model.appendRow([QStandardItem(f"Błąd: {str(e)}")])
         finally:
             db.close()
-    def populate_groups(self):
+    def populate_groups(self, filtered_employee_ids=None):
         self.group_model.clear()
         selected_unit = self.unit_filter.currentData()
         selected_year = self.year_filter.currentText()
@@ -893,11 +904,14 @@ class MainWindow(QMainWindow):
 
         try:     
             if self.chceckbox.isChecked():
-                group_data = get_group_data(selected_year, selected_unit, selected_employee, self.current_filtered_groups)
+                # Gdy synchronizujemy z listą wykładowców, nie zawężaj dodatkowo po pojedynczym selected_employee
+                group_data = get_group_data(selected_year, selected_unit, None, self.current_filtered_groups, filtered_employee_ids)
             else:
                 group_data = get_group_data(selected_year, selected_unit, selected_employee, None)
 
-
+            if not group_data:
+                self.group_model.setHorizontalHeaderLabels(["Brak danych do wyświetlenia."])
+                return
             # Ustal nagłówki na podstawie kluczy pierwszego rekordu
             headers = list(group_data[0].keys())
             self.group_model.setHorizontalHeaderLabels(headers)
@@ -1444,6 +1458,12 @@ class MainWindow(QMainWindow):
         self.save_current_filtered_instructors()
         if self.chceckbox.isChecked():
             self.changeFlag = True
+            # Jeśli po zmianie tekstu wszystkie filtry są puste, wyzwól odświeżenie przez przełączenie checkboxa
+            if not any(v for v in self.instructor_filter_texts.values()):
+                self.chceckbox.blockSignals(True)
+                self.chceckbox.setChecked(False)
+                self.chceckbox.setChecked(True)
+                self.chceckbox.blockSignals(False)
 
     def filter_summary_list(self, text):
         column = self.summary_filter_column_combo.currentData()
@@ -1650,10 +1670,10 @@ class MainWindow(QMainWindow):
             self.instructor_search.blockSignals(False)
         self.update_instructor_active_filters()
         if self.chceckbox.isChecked():
-            self.chceckbox.blockSignals(True)  # Blokujemy sygnały aby uniknąć rekurencji
-            self.chceckbox.setChecked(False)
-            self.chceckbox.setChecked(True)  # Automatycznie wywoła refresh_data()
-            self.chceckbox.blockSignals(False)
+            # Jeśli po usunięciu filtra nie ma już żadnych aktywnych filtrów, przełącz checkbox (z sygnałami)
+            if not any(v for v in self.instructor_filter_texts.values()):
+                self.chceckbox.setChecked(False)
+                self.chceckbox.setChecked(True)
 
     def update_summary_active_filters(self):
         # Usuń stare etykietki
@@ -1893,23 +1913,55 @@ class MainWindow(QMainWindow):
         print(f"Zapisano stan tabeli podsumowania: {len(self.current_filtered_summary)} wierszy")
         self.status_label.setText(f"Status: Przefiltrowano podsumowanie - {len(self.current_filtered_summary)} wierszy")
     
-    def get_instructors_id(self, current_filtered_instructors):
-        db = SessionLocal()
+    def get_instructors_id(self, instructor_proxy):
         """Zwraca listę ID wykładowców z aktualnie przefiltrowanej tabeli"""
+        db = SessionLocal()
         try:
+            print(f"Pobieranie ID wykładowców z tabeli: {instructor_proxy.rowCount()} wierszy")
+            # Znajdź indeks kolumny po nagłówku "Nazwisko i imię"
+            name_col = None
+            for col in range(self.instructor_model.columnCount()):
+                header = self.instructor_model.headerData(col, Qt.Horizontal)
+                if header == "Nazwisko i imię":
+                    name_col = col
+                    break
+
+            if name_col is None:
+                print("Nie znaleziono kolumny 'Nazwisko i imię' w modelu wykładowców.")
+                return []
+
             instructor_ids = []
-            for instructor in current_filtered_instructors:
-                name = instructor.get("Nazwisko i imię", "")
+            for row in range(instructor_proxy.rowCount()):
+                index = instructor_proxy.index(row, name_col)
+                name = instructor_proxy.data(index)
+
                 if name:
-                    person = db.query(Employee).join(Person, Person.ID==Employee.OS_ID).filter(Person.NAZWISKO==name.split()[0]).filter(Person.IMIE==name.split()[1]).first()
-                    if person:
-                        instructor_ids.append(person.ID)
+                    # Dopasowanie po pełnym "Nazwisko i imię" tak jak w display_instructor_details
+                    try:
+                        person = (
+                            db.query(Employee)
+                            .join(Person, Person.ID == Employee.OS_ID)
+                            .filter((Person.NAZWISKO + " " + Person.IMIE) == name)
+                            .first()
+                        )
+                        if person:
+                            instructor_ids.append(person.ID)
+                        else:
+                            print(f"Nie znaleziono osoby dla: {name}")
+                    except Exception as e:
+                        print(f"Błąd dopasowania osoby '{name}': {e}")
+                else:
+                    print("Puste imię i nazwisko w wierszu proxy.")
+
+            print(f"Znalezione ID wykładowców: {instructor_ids}")
             return instructor_ids
         except Exception as e:
             print(f"Błąd podczas pobierania ID wykładowców: {str(e)}")
             return []
         finally:
             db.close()
+
+
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
