@@ -1541,7 +1541,10 @@ class MainWindow(QMainWindow):
         self.update_group_active_filters()
         self.save_current_filtered_groups()
         if self.chceckbox.isChecked():
-            self.changeFlag = True
+            #self.chceckbox.blockSignals(True)  # Blokujemy sygnały aby uniknąć rekurencji
+            self.chceckbox.setChecked(False)
+            #self.chceckbox.setChecked(True)  # Automatycznie wywoła refresh_data()
+            self.chceckbox.blockSignals(False)
     
     def clear_instructor_filters(self):
         self.instructor_proxy.clearAllFilters()
@@ -1553,7 +1556,10 @@ class MainWindow(QMainWindow):
         self.update_instructor_active_filters()
         self.save_current_filtered_instructors()
         if self.chceckbox.isChecked():
-            self.changeFlag = True
+            #self.chceckbox.blockSignals(True)  # Blokujemy sygnały aby uniknąć rekurencji
+            self.chceckbox.setChecked(False)
+            self.chceckbox.setChecked(True)  # Automatycznie wywoła refresh_data()
+            #self.chceckbox.blockSignals(False)
 
     def clear_summary_filters(self):
         self.summary_proxy.clearAllFilters()
@@ -1603,7 +1609,10 @@ class MainWindow(QMainWindow):
             self.group_search.blockSignals(False)
         self.update_group_active_filters()
         if self.chceckbox.isChecked():
-            self.changeFlag = True
+            #self.chceckbox.blockSignals(True)  # Blokujemy sygnały aby uniknąć rekurencji
+            self.chceckbox.setChecked(False)
+            self.chceckbox.setChecked(True)
+            #self.chceckbox.blockSignals(False)
     
     def update_instructor_active_filters(self):
         # Usuń stare etykietki
@@ -1641,7 +1650,10 @@ class MainWindow(QMainWindow):
             self.instructor_search.blockSignals(False)
         self.update_instructor_active_filters()
         if self.chceckbox.isChecked():
-            self.changeFlag = True
+            self.chceckbox.blockSignals(True)  # Blokujemy sygnały aby uniknąć rekurencji
+            self.chceckbox.setChecked(False)
+            self.chceckbox.setChecked(True)  # Automatycznie wywoła refresh_data()
+            self.chceckbox.blockSignals(False)
 
     def update_summary_active_filters(self):
         # Usuń stare etykietki
