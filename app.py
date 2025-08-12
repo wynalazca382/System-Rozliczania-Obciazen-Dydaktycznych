@@ -904,8 +904,9 @@ class MainWindow(QMainWindow):
 
         try:     
             if self.chceckbox.isChecked():
-                # Gdy synchronizujemy z listą wykładowców, nie zawężaj dodatkowo po pojedynczym selected_employee
-                group_data = get_group_data(selected_year, selected_unit, None, self.current_filtered_groups, filtered_employee_ids)
+                # W trybie synchronizacji pobieramy pełne dane (bez zawężania po current_filtered_groups),
+                # a filtrowanie widoku robi proxy na podstawie bieżących tekstów filtrów.
+                group_data = get_group_data(selected_year, selected_unit, None, None, filtered_employee_ids)
             else:
                 group_data = get_group_data(selected_year, selected_unit, selected_employee, None)
 
@@ -1460,10 +1461,10 @@ class MainWindow(QMainWindow):
             self.changeFlag = True
             # Jeśli po zmianie tekstu wszystkie filtry są puste, wyzwól odświeżenie przez przełączenie checkboxa
             if not any(v for v in self.instructor_filter_texts.values()):
-                self.chceckbox.blockSignals(True)
+                #self.chceckbox.blockSignals(True)
                 self.chceckbox.setChecked(False)
                 self.chceckbox.setChecked(True)
-                self.chceckbox.blockSignals(False)
+                #self.chceckbox.blockSignals(False)
 
     def filter_summary_list(self, text):
         column = self.summary_filter_column_combo.currentData()
@@ -1563,8 +1564,8 @@ class MainWindow(QMainWindow):
         if self.chceckbox.isChecked():
             #self.chceckbox.blockSignals(True)  # Blokujemy sygnały aby uniknąć rekurencji
             self.chceckbox.setChecked(False)
-            #self.chceckbox.setChecked(True)  # Automatycznie wywoła refresh_data()
-            self.chceckbox.blockSignals(False)
+            self.chceckbox.setChecked(True)  # Automatycznie wywoła refresh_data()
+            #self.chceckbox.blockSignals(False)
     
     def clear_instructor_filters(self):
         self.instructor_proxy.clearAllFilters()

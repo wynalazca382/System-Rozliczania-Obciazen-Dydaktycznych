@@ -5,6 +5,32 @@ from database import SessionLocal
 def calculate_workload_for_employee(employee_id, selected_year, selected_unit, filtered_groups=None):
     db = SessionLocal()
     try:
+        # Pobierz dane pracownika, aby uzyskać imię i nazwisko
+        employee = db.query(Employee).join(Person, Employee.OS_ID == Person.ID).filter(Employee.ID == employee_id).first()
+        if not employee:
+            return {
+                "total_workload": 0.0,
+                "godziny_dydaktyczne_z_stacjonarne": 0.0,
+                "godziny_dydaktyczne_z_niestacjonarne": 0.0,
+                "godziny_dydaktyczne_l_stacjonarne": 0.0,
+                "godziny_dydaktyczne_l_niestacjonarne": 0.0,
+                "pensum": 0.0,
+                "etat": 1.0,
+                "nadgodziny": 0.0,
+                "stawka": 0.0,
+                "kwota_nadgodzin": 0.0,
+                "zniżka": 0.0,
+                "godziny_znizek": ["Brak zniżek"],
+                "typy_znizek": ["Brak zniżek"],
+                "CZY_PODSTAWOWE": "Brak danych",
+                "stanowisko": "Brak stanowiska",
+                "pensum_uczelniane": "Brak pensum uczelnianego",
+                "umowa_pocz": "Brak daty rozpoczęcia umowy",
+                "umowa_kon": "Brak daty zakończenia umowy"
+            }
+        
+        employee_name = f"{employee.person.IMIE} {employee.person.NAZWISKO}"
+        
         # Pobierz zajęcia dydaktyczne dla pracownika z filtrowaniem po roku akademickim i jednostce organizacyjnej
         query = (
             db.query(GroupInstructor, Group, DidacticCycleClasses, Subject, DidacticCycles, ClassType)
@@ -28,10 +54,12 @@ def calculate_workload_for_employee(employee_id, selected_year, selected_unit, f
         results = query.all()
         
         if filtered_groups:
-            allowed_group_keys = {(g["Kod przedmiotu"], g["Nr grupy"]) for g in filtered_groups}
+            # Filtruj filtered_groups po pracowniku
+            employee_filtered_groups = [g for g in filtered_groups if g.get("Prowadzący") == employee_name]
+            allowed_group_keys = {(g["Kod przedmiotu"], g["Nr grupy"], g["Typ zajęć"]) for g in employee_filtered_groups}
             results = [
                 r for r in results
-                if (r[3].KOD, r[1].NR) in allowed_group_keys
+                if (r[3].KOD, r[1].NR, r[5].OPIS) in allowed_group_keys
             ]
 
         total_workload = 0.0
@@ -203,17 +231,17 @@ def get_group_data(selected_year=None, selected_unit=None, selected_employee=Non
         results = query.all()
 
         if current_filtered_groups:
-            allowed_group_keys = {(g["Kod przedmiotu"], g["Nr grupy"]) for g in current_filtered_groups}
+            allowed_group_keys = {(g["Kod przedmiotu"], g["Nr grupy"], g["Typ zajęć"]) for g in current_filtered_groups}
             results = [
                 r for r in results
-                if (r[3].KOD, r[1].NR) in allowed_group_keys
+                if (r[3].KOD, r[1].NR, r[5].OPIS) in allowed_group_keys
             ]
         data = []
         institute_mapping = {
-            "1": "IIS",
-            "4": "IE",
-            "3": "IP",
-            "2": "IPJ"
+            "1": "Instytut Informatyki Stosowanej im. Krzysztofa Brzeskiego",
+            "4": "Instytut Ekonomiczny",
+            "3": "Instytut Politechniczny",
+            "2": "Instytut Pedagogiczno-Językowy"
         }
         # Przetwarzanie wyników
         for group_instructor, group, didactic_class, subject, didactic_cycle, class_type, organizational_unit, person in results:
