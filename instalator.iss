@@ -1,6 +1,6 @@
 [Setup]
 AppName=System Rozliczania Pensum ANS Elblag
-AppVersion=1.3
+AppVersion=1.3.1
 DefaultDirName={pf}\SRPANS
 DefaultGroupName=SRPANS
 OutputDir=instalator

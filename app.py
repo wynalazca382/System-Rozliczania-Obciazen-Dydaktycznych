@@ -406,6 +406,7 @@ class MainWindow(QMainWindow):
         self.current_filtered_groups = []
         self.current_filtered_instructors = []
         self.current_filtered_summary = []
+        self.synced_employee_ids = set()
         self.changeFlag = False
         self.setWindowTitle("System Rozliczania Obciążeń Dydaktycznych")
         self.setGeometry(100, 100, 1000, 700)
@@ -683,26 +684,25 @@ class MainWindow(QMainWindow):
     def toogle_checkbox(self):
         """Toggle the checkbox state."""
         self.changeFlag = True
+        if not self.chceckbox.isChecked():
+            self.synced_emplyee_ids.clear()
         print("Checkbox został zmieniony, odświeżam dane.")
         self.refresh_data()    
     def refresh_data(self):
-        if self.changeFlag == True:
-            print("Odświeżam dane...")  # Sprawdzenie, czy refresh_data() jest wywoływana
-            
-            # 1. Pobierz ID aktualnie widocznych wykładowców
-            filtered_employee_ids = []
+        if self.changeFlag:
             if self.chceckbox.isChecked():
-                print("Checkbox jest zaznaczony, pobieram ID wykładowców.")  # Sprawdzenie, czy checkbox jest zaznaczony
-                filtered_employee_ids = self.get_instructors_id(self.instructor_proxy)
-                print(f"Przefiltrowane ID wykładowców do synchronizacji: {filtered_employee_ids}")
-            # 2. Przekaż te ID do populate_groups
+                # Dodaj ID z aktualnego widoku
+                current_ids = set(self.get_instructors_id(self.instructor_proxy))
+                self.synced_employee_ids.update(current_ids)
+                filtered_employee_ids = list(self.synced_employee_ids)
+            else:
+                filtered_employee_ids = None
+
             self.populate_groups(filtered_employee_ids=filtered_employee_ids)
             self.populate_employees()
             self.populate_summary()
             self.changeFlag = False
             self.status_label.setText("Dane odświeżone.")
-        else:
-            print("Brak zmian, nie odświeżam danych.")
     def on_tab_changed(self, index):
         """Handle tab change events."""
         if self.tab_widget.tabText(index) == "Wykładowcy":
