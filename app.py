@@ -1137,13 +1137,27 @@ class MainWindow(QMainWindow):
             self.changeFlag = True
 
     def update_group_filter_columns(self, headers):
+        # Zapisz aktualny wybór
+        current_data = self.group_filter_column_combo.currentData()
+        current_text = self.group_filter_column_combo.currentText()
+        
         self.group_filter_column_combo.blockSignals(True)
         self.group_filter_column_combo.clear()
+        
         for i, header in enumerate(headers):
             self.group_filter_column_combo.addItem(header, i)
+        
+        # Przywróć poprzedni wybór jeśli możliwe
+        if current_data is not None:
+            index = self.group_filter_column_combo.findData(current_data)
+            if index != -1:
+                self.group_filter_column_combo.setCurrentIndex(index)
+        elif current_text:
+            index = self.group_filter_column_combo.findText(current_text)
+            if index != -1:
+                self.group_filter_column_combo.setCurrentIndex(index)
+        
         self.group_filter_column_combo.blockSignals(False)
-        if self.chceckbox.isChecked():
-            self.changeFlag = True
     
     def on_instructor_filter_column_changed(self, index):
         column = self.instructor_filter_column_combo.currentData()
@@ -1166,22 +1180,50 @@ class MainWindow(QMainWindow):
             self.changeFlag = True
 
     def update_instructor_filter_columns(self, headers):
+        # Zapisz aktualny wybór
+        current_data = self.instructor_filter_column_combo.currentData()
+        current_text = self.instructor_filter_column_combo.currentText()
+        
         self.instructor_filter_column_combo.blockSignals(True)
         self.instructor_filter_column_combo.clear()
+        
         for i, header in enumerate(headers):
             self.instructor_filter_column_combo.addItem(header, i)
+        
+        # Przywróć poprzedni wybór jeśli możliwe
+        if current_data is not None:
+            index = self.instructor_filter_column_combo.findData(current_data)
+            if index != -1:
+                self.instructor_filter_column_combo.setCurrentIndex(index)
+        elif current_text:
+            index = self.instructor_filter_column_combo.findText(current_text)
+            if index != -1:
+                self.instructor_filter_column_combo.setCurrentIndex(index)
+        
         self.instructor_filter_column_combo.blockSignals(False)
-        if self.chceckbox.isChecked():
-            self.changeFlag = True
 
     def update_summary_filter_columns(self, headers):
+        # Zapisz aktualny wybór
+        current_data = self.summary_filter_column_combo.currentData()
+        current_text = self.summary_filter_column_combo.currentText()
+        
         self.summary_filter_column_combo.blockSignals(True)
         self.summary_filter_column_combo.clear()
+        
         for i, header in enumerate(headers):
             self.summary_filter_column_combo.addItem(header, i)
+        
+        # Przywróć poprzedni wybór jeśli możliwe
+        if current_data is not None:
+            index = self.summary_filter_column_combo.findData(current_data)
+            if index != -1:
+                self.summary_filter_column_combo.setCurrentIndex(index)
+        elif current_text:
+            index = self.summary_filter_column_combo.findText(current_text)
+            if index != -1:
+                self.summary_filter_column_combo.setCurrentIndex(index)
+        
         self.summary_filter_column_combo.blockSignals(False)
-        if self.chceckbox.isChecked():
-            self.changeFlag = True
     
     def clear_group_filters(self):
         self.group_proxy.clearAllFilters()
