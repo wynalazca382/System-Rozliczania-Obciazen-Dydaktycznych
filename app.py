@@ -309,14 +309,11 @@ class MainWindow(QMainWindow):
         self.clear_summary_filter_button.setToolTip("Wyczyść pole wyszukiwania w podsumowaniu")
 
         self.tab_widget.addTab(self.summary_tab, "Zestawienia")
-
-
-
     def toogle_checkbox(self):
         """Toggle the checkbox state."""
         self.changeFlag = True
         if not self.chceckbox.isChecked():
-            self.synced_emplyee_ids.clear()
+            self.synced_employee_ids.clear()
         print("Checkbox został zmieniony, odświeżam dane.")
         self.refresh_data()    
     def refresh_data(self):
@@ -344,9 +341,7 @@ class MainWindow(QMainWindow):
         db = SessionLocal()
         try:
             # Pobierz unikalne lata akademickie
-            years = db.query(DidacticCycles.OPIS).filter(
-                DidacticCycles.OPIS.like("Rok akademicki%")
-            ).distinct().all()
+            years = db.query(DidacticCycles.OPIS).join(SubjectCycle, SubjectCycle.CDYD_KOD==DidacticCycles.KOD).distinct().all()
 
             # Wyodrębnij fragment "2024/25" z "Rok akademicki 2024/25"
             unique_years = sorted(set(year[0].split()[-1] for year in years if year[0] is not None),
