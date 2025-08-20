@@ -1,8 +1,12 @@
 from models import Employee, GroupInstructor, ThesisSupervisors, Reviewer, IndividualRates, OrganizationalUnits, CommitteeFunctionPensum, DidacticCycles, Group, Person, Position, Employment, EmployeePensum, Discount, Position, DidacticCycleClasses , Subject, ClassType, DiscountType, StanowiskaZatrPensum, PensumSettlement
 from sqlalchemy import and_
 from database import SessionLocal
+from typing import Dict, Any, List, Optional, Tuple
+from datetime import date
+import pandas as pd
+import os
 
-def calculate_workload_for_employee(employee_id, selected_year, selected_unit, filtered_groups=None):
+def calculate_workload_for_employee(employee_id: int, selected_year: str, selected_unit: Optional[str], filtered_groups: Optional[List[Dict[str, Any]]] = None) -> Dict[str, Any]:
     db = SessionLocal()
     try:
         # Pobierz dane pracownika, aby uzyskać imię i nazwisko
@@ -29,7 +33,7 @@ def calculate_workload_for_employee(employee_id, selected_year, selected_unit, f
                 "umowa_kon": "Brak daty zakończenia umowy"
             }
         
-        employee_name = f"{employee.person.IMIE} {employee.person.NAZWISKO}"
+        employee_name: str = f"{employee.person.IMIE} {employee.person.NAZWISKO}"
         
         # Pobierz zajęcia dydaktyczne dla pracownika z filtrowaniem po roku akademickim i jednostce organizacyjnej
         query = (
@@ -51,52 +55,53 @@ def calculate_workload_for_employee(employee_id, selected_year, selected_unit, f
         if selected_unit:
             query = query.filter(GroupInstructor.JEDN_KOD == selected_unit)
 
-        results = query.all()
+        results: List[Tuple[GroupInstructor, Any, DidacticCycleClasses, Subject, DidacticCycles, ClassType]] = query.all()
         
         if filtered_groups:
             # Filtruj filtered_groups po pracowniku
-            employee_filtered_groups = [g for g in filtered_groups if g.get("Prowadzący") == employee_name]
-            allowed_group_keys = {(g["Kod przedmiotu"], g["Nr grupy"], g["Typ zajęć"]) for g in employee_filtered_groups}
+            employee_filtered_groups: List[Dict[str, Any]] = [g for g in filtered_groups if g.get("Prowadzący") == employee_name]
+            allowed_group_keys: set[Tuple[str, Any, str]] = {(g["Kod przedmiotu"], g["Nr grupy"], g["Typ zajęć"]) for g in employee_filtered_groups}
             results = [
                 r for r in results
                 if (r[3].KOD, r[1].NR, r[5].OPIS) in allowed_group_keys
             ]
 
-        total_workload = 0.0
-        godziny_dydaktyczne_z_stacjonarne = 0.0
-        godziny_dydaktyczne_z_niestacjonarne = 0.0
-        godziny_dydaktyczne_l_stacjonarne = 0.0
-        godziny_dydaktyczne_l_niestacjonarne = 0.0
-        pensum = 0.0
-        etat = 1.0
-        nadgodziny = 0.0
-        stawka = 0.0
-        kwota_nadgodzin = 0.0
-        CZY_PODSTAWOWE = None
-        stanowisko = None
-        pensum_uczelniane = 0.0
-        umowa_pocz = None
-        umowa_kon = None
+        total_workload: float = 0.0
+        godziny_dydaktyczne_z_stacjonarne: float = 0.0
+        godziny_dydaktyczne_z_niestacjonarne: float = 0.0
+        godziny_dydaktyczne_l_stacjonarne: float = 0.0
+        godziny_dydaktyczne_l_niestacjonarne: float = 0.0
+        pensum: float = 0.0
+        etat: float = 1.0
+        nadgodziny: float = 0.0
+        stawka: float = 0.0
+        kwota_nadgodzin: float = 0.0
+        CZY_PODSTAWOWE: Optional[str] = None
+        stanowisko: Optional[str] = None
+        pensum_uczelniane: float = 0.0
+        umowa_pocz: Optional[date] = None
+        umowa_kon: Optional[date] = None
         # Przetwarzanie wyników
         for group_instructor, group, didactic_class, subject, didactic_cycle, class_type in results:
-            godziny = didactic_class.LICZBA_GODZ or 0
+            godziny: float = float(didactic_class.LICZBA_GODZ or 0)
             total_workload += godziny
-            parsed_code = parse_subject_code(subject.KOD)
-            # Rozdzielenie godzin na semestr zimowy i letni
-            if "Semestr zimowy" in didactic_cycle.OPIS:
-                if "Stacjonarne" in parsed_code["Tryb"]:
-                    godziny_dydaktyczne_z_stacjonarne += godziny
-                elif "Niestacjonarne" in parsed_code["Tryb"]:
-                    godziny_dydaktyczne_z_niestacjonarne += godziny
-                else:
-                    godziny_dydaktyczne_z_stacjonarne += godziny
-            elif "Semestr letni" in didactic_cycle.OPIS:
-                if "Stacjonarne" in parsed_code["Tryb"]:
-                    godziny_dydaktyczne_l_stacjonarne += godziny
-                elif "Niestacjonarne" in parsed_code["Tryb"]:
-                    godziny_dydaktyczne_l_niestacjonarne += godziny
-                else:
-                    godziny_dydaktyczne_l_stacjonarne += godziny
+            parsed_code: Optional[Dict[str, str]] = parse_subject_code(subject.KOD)
+            if parsed_code:
+                # Rozdzielenie godzin na semestr zimowy i letni
+                if "Semestr zimowy" in didactic_cycle.OPIS:
+                    if "Stacjonarne" in parsed_code["Tryb"]:
+                        godziny_dydaktyczne_z_stacjonarne += godziny
+                    elif "Niestacjonarne" in parsed_code["Tryb"]:
+                        godziny_dydaktyczne_z_niestacjonarne += godziny
+                    else:
+                        godziny_dydaktyczne_z_stacjonarne += godziny
+                elif "Semestr letni" in didactic_cycle.OPIS:
+                    if "Stacjonarne" in parsed_code["Tryb"]:
+                        godziny_dydaktyczne_l_stacjonarne += godziny
+                    elif "Niestacjonarne" in parsed_code["Tryb"]:
+                        godziny_dydaktyczne_l_niestacjonarne += godziny
+                    else:
+                        godziny_dydaktyczne_l_stacjonarne += godziny
             
 
         pensum_employee = (
@@ -106,35 +111,39 @@ def calculate_workload_for_employee(employee_id, selected_year, selected_unit, f
         .filter(PensumSettlement.OPIS.like(f"%{selected_year}%"))
         .first()
         )
-        start_date, end_date = get_academic_year_dates(selected_year)
-        employment_qs = (
-                    db.query(Employment, Position)
-                    .join(Position, Employment.STAN_ID == Position.ID)
-                    .filter(Employment.PRAC_ID == employee_id)
-                    .filter(Employment.UMOWA_POCZ <= end_date)
-                    .filter((Employment.UMOWA_KON == None) | (Employment.UMOWA_KON == '') | (Employment.UMOWA_KON >= start_date))
-                    .order_by(Employment.UMOWA_POCZ.desc())
-                    .all()
-                )
+        start_date_acad: Optional[date]
+        end_date_acad: Optional[date]
+        start_date_acad, end_date_acad = get_academic_year_dates(selected_year)
+        
+        employment_qs: List[Tuple[Employment, Position]] = []
+        if start_date_acad and end_date_acad:
+            employment_qs = (
+                        db.query(Employment, Position)
+                        .join(Position, Employment.STAN_ID == Position.ID)
+                        .filter(Employment.PRAC_ID == employee_id)
+                        .filter(Employment.UMOWA_POCZ <= end_date_acad)
+                        .filter((Employment.UMOWA_KON == None) | (Employment.UMOWA_KON == '') | (Employment.UMOWA_KON >= start_date_acad))
+                        .order_by(Employment.UMOWA_POCZ.desc())
+                        .all()
+                    )
 
         if employment_qs:
             employment, position = employment_qs[0]
             CZY_PODSTAWOWE = employment.CZY_PODSTAWOWE
-            etat = employment.ETAT
+            etat = float(employment.ETAT)
             stanowisko = position.NAZWA
-            pensum_uczelniane = position.PENSUM_UCZELNIANE
-            pensum = position.PENSUM_UCZELNIANE*etat
+            pensum_uczelniane = float(position.PENSUM_UCZELNIANE)
+            pensum = pensum_uczelniane * etat
             umowa_pocz = employment.UMOWA_POCZ
             umowa_kon = employment.UMOWA_KON
         else:
-            position = None
             pensum_uczelniane = 0.0
             stanowisko = None
             CZY_PODSTAWOWE = None
         if pensum_employee:
-            pensum = pensum_employee.PENSUM     
+            pensum = float(pensum_employee.PENSUM)     
         # Pobierz wszystkie zniżki dla pracownika
-        znizki = (
+        znizki: List[Discount] = (
             db.query(Discount)
             .join(DiscountType, Discount.RODZ_ZNIZ_ID == DiscountType.ID)
             .join(PensumSettlement, Discount.RPENS_KOD == PensumSettlement.KOD)
@@ -145,25 +154,25 @@ def calculate_workload_for_employee(employee_id, selected_year, selected_unit, f
         )
 
         # Inicjalizacja zmiennych dla zniżek
-        laczna_znizka = 0
-        typy_znizek = []
-        godziny_znizek = []
+        laczna_znizka: float = 0.0
+        typy_znizek: List[str] = []
+        godziny_znizek: List[float] = []
 
         # Przetwarzanie wszystkich zniżek
         for znizka in znizki:
             if znizka.TYP == "O":
-                laczna_znizka += znizka.ZNIZKA  
+                laczna_znizka += float(znizka.ZNIZKA)  
                 typy_znizek.append(znizka.discount_type.NAZWA)
-                godziny_znizek.append(znizka.ZNIZKA)
+                godziny_znizek.append(float(znizka.ZNIZKA))
             elif znizka.TYP == "D":
-                laczna_znizka += pensum - znizka.ZNIZKA
+                laczna_znizka += pensum - float(znizka.ZNIZKA)
                 typy_znizek.append(znizka.discount_type.NAZWA)
                 godziny_znizek.append(laczna_znizka)
 
         # Aktualizacja pensum
         if laczna_znizka > 0:
             pensum -= laczna_znizka
-        stawka = STAWKI_NADGODZIN.get(stanowisko, 0)  # Przykładowe stanowisko
+        stawka = STAWKI_NADGODZIN.get(stanowisko, 0.0)  # Przykładowe stanowisko
         nadgodziny = total_workload - pensum
         kwota_nadgodzin = nadgodziny * stawka
         return {
@@ -176,7 +185,7 @@ def calculate_workload_for_employee(employee_id, selected_year, selected_unit, f
             "etat": etat,
             "nadgodziny": nadgodziny,
             "stawka": stawka,
-            "kwota_nadgodzin": kwota_nadgodzin if nadgodziny > 0 else 0,
+            "kwota_nadgodzin": kwota_nadgodzin if nadgodziny > 0 else 0.0,
             "zniżka": laczna_znizka,
             "godziny_znizek": godziny_znizek if godziny_znizek else ["Brak zniżek"],
             "typy_znizek": typy_znizek if typy_znizek else ["Brak zniżek"],
@@ -189,7 +198,7 @@ def calculate_workload_for_employee(employee_id, selected_year, selected_unit, f
     finally:
         db.close()
 
-def get_group_data(selected_year=None, selected_unit=None, selected_employee=None, current_filtered_groups=None, filtered_employee_ids=None):
+def get_group_data(selected_year: Optional[str] = None, selected_unit: Optional[str] = None, selected_employee: Optional[int] = None, current_filtered_groups: Optional[List[Dict[str, Any]]] = None, filtered_employee_ids: Optional[List[int]] = None) -> List[Dict[str, Any]]:
     db = SessionLocal()
     try:
         # Pobierz dane grup z powiązanymi informacjami
@@ -219,8 +228,7 @@ def get_group_data(selected_year=None, selected_unit=None, selected_employee=Non
 
         
         if selected_employee:
-            if selected_employee:
-                query = query.filter(GroupInstructor.PRAC_ID==selected_employee)
+            query = query.filter(GroupInstructor.PRAC_ID==selected_employee)
         
         if filtered_employee_ids is not None and len(filtered_employee_ids) > 0:
             query = query.filter(GroupInstructor.PRAC_ID.in_(filtered_employee_ids))
@@ -228,16 +236,16 @@ def get_group_data(selected_year=None, selected_unit=None, selected_employee=Non
             query = query.filter(False)
 
 
-        results = query.all()
+        results: List[Tuple[GroupInstructor, Any, DidacticCycleClasses, Subject, DidacticCycles, ClassType, Optional[OrganizationalUnits], Person]] = query.all()
 
         if current_filtered_groups:
-            allowed_group_keys = {(g["Kod przedmiotu"], g["Nr grupy"], g["Typ zajęć"]) for g in current_filtered_groups}
+            allowed_group_keys: set[Tuple[str, Any, str]] = {(g["Kod przedmiotu"], g["Nr grupy"], g["Typ zajęć"]) for g in current_filtered_groups}
             results = [
                 r for r in results
                 if (r[3].KOD, r[1].NR, r[5].OPIS) in allowed_group_keys
             ]
-        data = []
-        institute_mapping = {
+        data: List[Dict[str, Any]] = []
+        institute_mapping: Dict[str, str] = {
             "1": "Instytut Informatyki Stosowanej im. Krzysztofa Brzeskiego",
             "4": "Instytut Ekonomiczny",
             "3": "Instytut Politechniczny",
@@ -245,13 +253,13 @@ def get_group_data(selected_year=None, selected_unit=None, selected_employee=Non
         }
         # Przetwarzanie wyników
         for group_instructor, group, didactic_class, subject, didactic_cycle, class_type, organizational_unit, person in results:
-            godziny = didactic_class.LICZBA_GODZ or 0
-            subject_code = subject.KOD if subject else "N/A"
-            parsed_code = parse_subject_code(subject_code)
+            godziny: float = float(didactic_class.LICZBA_GODZ or 0)
+            subject_code: str = subject.KOD if subject else "N/A"
+            parsed_code: Optional[Dict[str, str]] = parse_subject_code(subject_code)
             if parsed_code and "Instytut dla którego jest prowadzony przedmiot" in parsed_code:
-                institute_code = parsed_code.pop("Instytut dla którego jest prowadzony przedmiot")
+                institute_code: str = parsed_code.pop("Instytut dla którego jest prowadzony przedmiot")
                 parsed_code["Instytut dla którego jest prowadzony przedmiot"] = institute_mapping.get(institute_code, "Nieznany instytut")
-            group_data = {
+            group_data: Dict[str, Any] = {
                 "Przedmiot": subject.NAZWA,
                 "Typ zajęć": class_type.OPIS,
                 "Liczba godzin": godziny,
@@ -269,11 +277,19 @@ def get_group_data(selected_year=None, selected_unit=None, selected_employee=Non
     finally:
         db.close()
 
-def parse_subject_code(subject_code):
+def parse_subject_code(subject_code: str) -> Optional[Dict[str, str]]:
     try:
-        parts = subject_code.split("-")
+        parts: List[str] = subject_code.split("-")
+        institute_code: str
+        kierunek: str
+        specjalnosc: str
+        tryb: str
+        stopien: str
+        rok: str
+        semestr: str
+        extra: str = "Brak dodatkowego kodu"
+
         if len(parts) < 4:
-            #raise ValueError("Nieprawidłowy format kodu przedmiotu.")
             institute_code = parts[0]
             kierunek = "None"
             specjalnosc = "Ogólny"
@@ -281,14 +297,12 @@ def parse_subject_code(subject_code):
             stopien = "Nieznany stopień"
             rok = "Nieznany rok"
             semestr = "Nieznany semestr"
-            extra = "Brak dodatkowego kodu"
         else:
             institute_code = parts[0]
             kierunek = parts[1]
-            # Jeśli jest specjalność, to parts[2], jeśli nie, to None
             if len(parts) == 5:
                 specjalnosc = parts[2]
-                tryb_stopien_rok_semestr = parts[3]
+                tryb_stopien_rok_semestr: str = parts[3]
                 extra = parts[4]
             elif len(parts) == 4:
                 specjalnosc = "Ogólny"
@@ -301,12 +315,12 @@ def parse_subject_code(subject_code):
                 raise ValueError("Nieprawidłowy format sekcji trybu, stopnia, roku i semestru.")
 
             tryb = "Stacjonarne" if tryb_stopien_rok_semestr[0] == "S" else "Niestacjonarne"
-            stopien_map = {"1": "I stopień", "2": "II stopień", "M": "Magisterskie"}
+            stopien_map: Dict[str, str] = {"1": "I stopień", "2": "II stopień", "M": "Magisterskie"}
             stopien = stopien_map.get(tryb_stopien_rok_semestr[1], "Nieznany stopień")
             rok = f"{tryb_stopien_rok_semestr[2]} rok"
             semestr = f"{tryb_stopien_rok_semestr[3]} semestr"
 
-        result = {
+        result: Dict[str, str] = {
             "Instytut dla którego jest prowadzony przedmiot": institute_code,
             "Kierunek": kierunek,
             "Specjalność": specjalnosc,
@@ -315,8 +329,7 @@ def parse_subject_code(subject_code):
             "Rok": rok,
             "Semestr": semestr
         }
-        # Dodaj dodatkowy kod jeśli jest
-        if extra:
+        if extra != "Brak dodatkowego kodu":
             result["Dodatkowy kod"] = extra
 
         return result
@@ -325,30 +338,26 @@ def parse_subject_code(subject_code):
         print(f"Błąd podczas parsowania kodu przedmiotu: {e}")
         return None
 
-from datetime import date
-
-def get_academic_year_dates(selected_year):
+def get_academic_year_dates(selected_year: str) -> Tuple[Optional[date], Optional[date]]:
     try:
-        start_year = int(selected_year.split("/")[0])
-        end_year = start_year + 1
-        start_date = date(start_year, 10, 1)
-        end_date = date(end_year, 9, 30)
-        return start_date, end_date
+        start_year: int = int(selected_year.split("/")[0])
+        end_year: int = start_year + 1
+        start_date_obj: date = date(start_year, 10, 1)
+        end_date_obj: date = date(end_year, 9, 30)
+        return start_date_obj, end_date_obj
     except Exception as e:
         print(f"Błąd parsowania roku akademickiego: {e}")
         return None, None
     
-import pandas as pd
-import os
-
-def load_stawki_nadgodzin(filepath="stawki_nadgodzin.xlsx"):
-    stawki = {}
+def load_stawki_nadgodzin(filepath: str = "stawki_nadgodzin.xlsx") -> Dict[Optional[str], float]:
+    stawki: Dict[Optional[str], float] = {}
     if not os.path.exists(filepath):
         print(f"Plik {filepath} nie istnieje! Używam pustego słownika stawek.")
         return stawki
     df = pd.read_excel(filepath)
     for _, row in df.iterrows():
-        stawki[str(row["stanowisko"]).strip()] = float(row["stawka"])
+        stanowisko_str: Optional[str] = str(row["stanowisko"]).strip() if pd.notna(row["stanowisko"]) else None
+        stawki[stanowisko_str] = float(row["stawka"])
     return stawki
 
-STAWKI_NADGODZIN = load_stawki_nadgodzin()
+STAWKI_NADGODZIN: Dict[Optional[str], float] = load_stawki_nadgodzin()

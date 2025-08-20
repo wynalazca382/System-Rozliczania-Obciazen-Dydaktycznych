@@ -1,13 +1,14 @@
 import os
 import sys
 from dotenv import load_dotenv
+from typing import NoReturn
 
-def load_app_config():
+def load_app_config() -> None:
     """
     Wczytuje konfigurację na podstawie argumentu wiersza poleceń --env.
     Domyślnie używa 'prod', jeśli nie podano argumentu.
     """
-    env = 'prod'
+    env: str = 'prod'
     if '--env' in sys.argv:
         try:
             # Pobierz wartość po fladze --env
@@ -19,7 +20,7 @@ def load_app_config():
         print(f"Ostrzeżenie: Nieprawidłowe środowisko '{env}'. Używam 'prod'.")
         env = 'prod'
 
-    config_path = f".env.{env}"
+    config_path: str = f".env.{env}"
     
     if os.path.exists(config_path):
         load_dotenv(dotenv_path=config_path, override=True)

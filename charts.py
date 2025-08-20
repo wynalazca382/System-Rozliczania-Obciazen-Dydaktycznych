@@ -4,6 +4,7 @@ from matplotlib.figure import Figure
 import numpy as np
 from PyQt5.QtWidgets import QWidget, QVBoxLayout, QPushButton, QHBoxLayout
 from PyQt5.QtCore import Qt
+from typing import List, Dict, Any, Optional
 
 # Ustawienia matplotlib dla lepszej jakości
 plt.style.use('default')
@@ -15,19 +16,19 @@ plt.rcParams.update({
 })
 
 class ChartWidget(QWidget):
-    def __init__(self, parent=None):
+    def __init__(self, parent: Optional[QWidget] = None):
         super().__init__(parent)
-        self.layout = QVBoxLayout(self)
+        self.layout: QVBoxLayout = QVBoxLayout(self)
         
         # Utwórz matplotlib figure
-        self.figure = Figure(figsize=(12, 6))
-        self.canvas = FigureCanvas(self.figure)
+        self.figure: Figure = Figure(figsize=(12, 6))
+        self.canvas: FigureCanvas = FigureCanvas(self.figure)
         self.layout.addWidget(self.canvas)
         
         # Panel przycisków do wyboru typu wykresu
-        buttons_layout = QHBoxLayout()
+        buttons_layout: QHBoxLayout = QHBoxLayout()
         
-        self.chart_buttons = {
+        self.chart_buttons: Dict[str, QPushButton] = {
             "kierunek_pie": QPushButton("📊 Kierunki (kołowy)"),
             "semestr_bar": QPushButton("📊 Semestry"),
             "tryb_bar": QPushButton("📊 Tryby studiów"),
@@ -43,16 +44,16 @@ class ChartWidget(QWidget):
         self.layout.insertLayout(0, buttons_layout)
         
         # Dane wykresu
-        self.chart_data = []
+        self.chart_data: List[Dict[str, Any]] = []
         
-    def set_data(self, data):
+    def set_data(self, data: List[Dict[str, Any]]) -> None:
         """Ustaw dane dla wykresów"""
         self.chart_data = data
         # Domyślnie pokaż wykres kołowy kierunków
         if data:
             self.update_chart("kierunek_pie")
     
-    def update_chart(self, chart_type):
+    def update_chart(self, chart_type: str) -> None:
         """Aktualizuj wykres na podstawie wybranego typu"""
         if not self.chart_data:
             # Pokaż pusty wykres z komunikatem
@@ -97,24 +98,24 @@ class ChartWidget(QWidget):
             
         self.canvas.draw()
     
-    def create_kierunek_pie_chart(self):
+    def create_kierunek_pie_chart(self) -> None:
         """Wykres kołowy - rozkład godzin według kierunków (obwarzanek z białymi przerwami)"""
-        kierunek_sum = {}
+        kierunek_sum: Dict[str, float] = {}
         
         for row in self.chart_data:
-            kierunek = row.get("Kierunek", "Nieznany")
-            suma = row.get("Suma", 0)
+            kierunek: str = row.get("Kierunek", "Nieznany")
+            suma: Any = row.get("Suma", 0)
             
             if "SUMA kierunku" in str(row.get("Specjalność", "")):
                 continue
             
             try:
-                suma = float(suma) if suma else 0
+                suma = float(suma) if suma else 0.0
             except (ValueError, TypeError):
-                suma = 0
+                suma = 0.0
                 
             if kierunek not in kierunek_sum:
-                kierunek_sum[kierunek] = 0
+                kierunek_sum[kierunek] = 0.0
             kierunek_sum[kierunek] += suma
         
         if not kierunek_sum or all(v == 0 for v in kierunek_sum.values()):
@@ -128,9 +129,9 @@ class ChartWidget(QWidget):
         # Usuń kierunki z zerowymi wartościami
         kierunek_sum = {k: v for k, v in kierunek_sum.items() if v > 0}
         
-        labels = list(kierunek_sum.keys())
-        sizes = list(kierunek_sum.values())
-        total = sum(sizes)
+        labels: List[str] = list(kierunek_sum.keys())
+        sizes: List[float] = list(kierunek_sum.values())
+        total: float = sum(sizes)
         
         # Generuj kolory
         colors = plt.cm.Set3(np.linspace(0, 1, len(labels)))
@@ -153,7 +154,7 @@ class ChartWidget(QWidget):
         
         ax.set_title('Rozkład godzin według kierunków', fontsize=16, fontweight='bold', pad=20)
         
-        legend_labels = []
+        legend_labels: List[str] = []
         for label, size in zip(labels, sizes):
             legend_labels.append(f"{label}: {int(size)}h ({size/total*100:.1f}%)")
         
@@ -170,10 +171,10 @@ class ChartWidget(QWidget):
         plt.tight_layout(rect=[0, 0, 0.85, 1])
 
     
-    def create_semestr_bar_chart(self):
+    def create_semestr_bar_chart(self) -> None:
         """Wykres słupkowy - porównanie semestrów zimowego i letniego"""
-        zimowy_sum = {"stacjonarne": 0, "niestacjonarne": 0}
-        letni_sum = {"stacjonarne": 0, "niestacjonarne": 0}
+        zimowy_sum: Dict[str, float] = {"stacjonarne": 0.0, "niestacjonarne": 0.0}
+        letni_sum: Dict[str, float] = {"stacjonarne": 0.0, "niestacjonarne": 0.0}
         
         for row in self.chart_data:
             # Pomiń wiersze z sumą kierunku
@@ -190,12 +191,12 @@ class ChartWidget(QWidget):
         
         ax = self.figure.add_subplot(111)
         
-        categories = ['Stacjonarne', 'Niestacjonarne']
-        zimowy_values = [zimowy_sum["stacjonarne"], zimowy_sum["niestacjonarne"]]
-        letni_values = [letni_sum["stacjonarne"], letni_sum["niestacjonarne"]]
+        categories: List[str] = ['Stacjonarne', 'Niestacjonarne']
+        zimowy_values: List[float] = [zimowy_sum["stacjonarne"], zimowy_sum["niestacjonarne"]]
+        letni_values: List[float] = [letni_sum["stacjonarne"], letni_sum["niestacjonarne"]]
         
-        x = np.arange(len(categories))
-        width = 0.35
+        x: np.ndarray = np.arange(len(categories))
+        width: float = 0.35
         
         bars1 = ax.bar(x - width/2, zimowy_values, width, label='Semestr zimowy', 
                       color='#3498db', alpha=0.8)
@@ -214,7 +215,7 @@ class ChartWidget(QWidget):
         # Dodaj etykiety na słupkach
         for bars in [bars1, bars2]:
             for bar in bars:
-                height = bar.get_height()
+                height: float = bar.get_height()
                 if height > 0:
                     ax.annotate(f'{int(height)}',
                                xy=(bar.get_x() + bar.get_width() / 2, height),
@@ -224,9 +225,9 @@ class ChartWidget(QWidget):
         
         plt.tight_layout()
     
-    def create_tryb_bar_chart(self):
+    def create_tryb_bar_chart(self) -> None:
         """Wykres słupkowy - porównanie trybów stacjonarnych i niestacjonarnych"""
-        tryb_sum = {"stacjonarne": 0, "niestacjonarne": 0}
+        tryb_sum: Dict[str, float] = {"stacjonarne": 0.0, "niestacjonarne": 0.0}
         
         for row in self.chart_data:
             if "SUMA kierunku" in str(row.get("Specjalność", "")):
@@ -240,9 +241,9 @@ class ChartWidget(QWidget):
         
         ax = self.figure.add_subplot(111)
         
-        labels = ['Stacjonarne', 'Niestacjonarne']
-        values = [tryb_sum["stacjonarne"], tryb_sum["niestacjonarne"]]
-        colors = ['#3498db', '#e74c3c']
+        labels: List[str] = ['Stacjonarne', 'Niestacjonarne']
+        values: List[float] = [tryb_sum["stacjonarne"], tryb_sum["niestacjonarne"]]
+        colors: List[str] = ['#3498db', '#e74c3c']
         
         bars = ax.bar(labels, values, color=colors, alpha=0.8)
         
@@ -260,25 +261,25 @@ class ChartWidget(QWidget):
         
         plt.tight_layout()
     
-    def create_specjalnosc_bar_chart(self):
+    def create_specjalnosc_bar_chart(self) -> None:
         """Wykres słupkowy - godziny według specjalności"""
-        spec_sum = {}
+        spec_sum: Dict[str, float] = {}
         
         for row in self.chart_data:
             if "SUMA kierunku" in str(row.get("Specjalność", "")):
                 continue
                 
-            spec = row.get("Specjalność", "Nieznana")
-            kierunek = row.get("Kierunek", "Nieznany")
+            spec: str = row.get("Specjalność", "Nieznana")
+            kierunek: str = row.get("Kierunek", "Nieznany")
             
             try:
-                suma = float(row.get("Suma", 0) or 0)
+                suma: float = float(row.get("Suma", 0) or 0)
             except (ValueError, TypeError):
-                suma = 0
+                suma = 0.0
             
-            key = f"{kierunek} - {spec}"  # Zmiana formatu, aby uniknąć nowej linii
+            key: str = f"{kierunek} - {spec}"  # Zmiana formatu, aby uniknąć nowej linii
             if key not in spec_sum:
-                spec_sum[key] = 0
+                spec_sum[key] = 0.0
             spec_sum[key] += suma
         
         if not spec_sum or all(v == 0 for v in spec_sum.values()):
@@ -291,11 +292,13 @@ class ChartWidget(QWidget):
         
         # Usuń specjalności z zerowymi wartościami i sortuj według wartości
         spec_sum = {k: v for k, v in spec_sum.items() if v > 0}
-        sorted_items = sorted(spec_sum.items(), key=lambda x: x[1], reverse=True)
+        sorted_items: List[tuple[str, float]] = sorted(spec_sum.items(), key=lambda x: x[1], reverse=True)
+        labels: List[str]
+        values: List[float]
         labels, values = zip(*sorted_items) if sorted_items else ([], [])
         
         # Zwiększenie odstępu między słupkami
-        bar_width = 0.4  # Szerokość słupków
+        bar_width: float = 0.4  # Szerokość słupków
         bars = ax.barh(range(len(labels)), values, color=plt.cm.viridis(np.linspace(0, 1, len(labels))), height=bar_width)
         
         ax.set_xlabel('Liczba godzin', fontsize=12)
@@ -314,19 +317,19 @@ class ChartWidget(QWidget):
         plt.tight_layout()
 
     
-    def create_combined_stacked_chart(self):
+    def create_combined_stacked_chart(self) -> None:
         """Wykres skumulowany - kierunki z podziałem na tryby"""
-        kierunek_data = {}
+        kierunek_data: Dict[str, Dict[str, float]] = {}
         
         for row in self.chart_data:
             if "SUMA kierunku" in str(row.get("Specjalność", "")):
                 continue
                 
-            kierunek = row.get("Kierunek", "Nieznany")
+            kierunek: str = row.get("Kierunek", "Nieznany")
             if kierunek not in kierunek_data:
                 kierunek_data[kierunek] = {
-                    "stacjonarne": 0,
-                    "niestacjonarne": 0
+                    "stacjonarne": 0.0,
+                    "niestacjonarne": 0.0
                 }
             
             try:
@@ -347,9 +350,9 @@ class ChartWidget(QWidget):
             
         ax = self.figure.add_subplot(111)
         
-        kierunki = list(kierunek_data.keys())
-        stacjonarne = [kierunek_data[k]["stacjonarne"] for k in kierunki]
-        niestacjonarne = [kierunek_data[k]["niestacjonarne"] for k in kierunki]
+        kierunki: List[str] = list(kierunek_data.keys())
+        stacjonarne: List[float] = [kierunek_data[k]["stacjonarne"] for k in kierunki]
+        niestacjonarne: List[float] = [kierunek_data[k]["niestacjonarne"] for k in kierunki]
         
         bars1 = ax.bar(kierunki, stacjonarne, label='Stacjonarne', color='#3498db', alpha=0.8)
         bars2 = ax.bar(kierunki, niestacjonarne, bottom=stacjonarne, 
@@ -366,7 +369,7 @@ class ChartWidget(QWidget):
         
         # Dodaj etykiety z sumą
         for i, kierunek in enumerate(kierunki):
-            total = stacjonarne[i] + niestacjonarne[i]
+            total: float = stacjonarne[i] + niestacjonarne[i]
             if total > 0:
                 ax.text(i, total + max([sum(x) for x in zip(stacjonarne, niestacjonarne)])*0.01,
                        f'{int(total)}', ha='center', va='bottom', fontweight='bold', fontsize=10) # Zwiększona czcionka

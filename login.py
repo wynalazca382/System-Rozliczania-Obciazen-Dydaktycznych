@@ -6,35 +6,37 @@ from PyQt5.QtWidgets import (
 from PyQt5.QtGui import QFont
 from PyQt5.QtCore import Qt
 from sqlalchemy import create_engine
+from sqlalchemy.engine import Connection
 import os
 from models import PensumRight
 from database import SessionLocal
 from cryptography.fernet import Fernet
+from typing import Optional, Any
 
 class LoginWindow(QWidget):
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__()
         self.setWindowTitle("Logowanie")
         self.setGeometry(100, 100, 400, 300)
 
         # Główne okno
-        layout = QVBoxLayout()
+        layout: QVBoxLayout = QVBoxLayout()
         layout.setContentsMargins(30, 30, 30, 30)
         layout.setSpacing(20)
 
         # Nagłówek
-        header_label = QLabel("System Rozliczania Obciążeń Dydaktycznych")
+        header_label: QLabel = QLabel("System Rozliczania Obciążeń Dydaktycznych")
         header_label.setFont(QFont("Arial", 16, QFont.Bold))
         header_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         header_label.setStyleSheet("color: #2c3e50;")
         layout.addWidget(header_label)
 
         # Username input
-        username_layout = QVBoxLayout()
-        username_label = QLabel("Nazwa użytkownika:")
+        username_layout: QVBoxLayout = QVBoxLayout()
+        username_label: QLabel = QLabel("Nazwa użytkownika:")
         username_label.setFont(QFont("Arial", 10))
         username_label.setStyleSheet("color: #34495e;")
-        self.username_input = QLineEdit(self)
+        self.username_input: QLineEdit = QLineEdit(self)
         self.username_input.setPlaceholderText("Wprowadź nazwę użytkownika")
         self.username_input.setStyleSheet(self.input_style())
         username_layout.addWidget(username_label)
@@ -42,11 +44,11 @@ class LoginWindow(QWidget):
         layout.addLayout(username_layout)
 
         # Password input
-        password_layout = QVBoxLayout()
-        password_label = QLabel("Hasło:")
+        password_layout: QVBoxLayout = QVBoxLayout()
+        password_label: QLabel = QLabel("Hasło:")
         password_label.setFont(QFont("Arial", 10))
         password_label.setStyleSheet("color: #34495e;")
-        self.password_input = QLineEdit(self)
+        self.password_input: QLineEdit = QLineEdit(self)
         self.password_input.setEchoMode(QLineEdit.Password)
         self.password_input.setPlaceholderText("Wprowadź hasło")
         self.password_input.setStyleSheet(self.input_style())
@@ -55,9 +57,9 @@ class LoginWindow(QWidget):
         layout.addLayout(password_layout)
 
         # Login button
-        button_layout = QHBoxLayout()
-        spacer = QSpacerItem(20, 40, QSizePolicy.Expanding, QSizePolicy.Minimum)
-        self.login_button = QPushButton("Zaloguj", self)
+        button_layout: QHBoxLayout = QHBoxLayout()
+        spacer: QSpacerItem = QSpacerItem(20, 40, QSizePolicy.Expanding, QSizePolicy.Minimum)
+        self.login_button: QPushButton = QPushButton("Zaloguj", self)
         self.login_button.setFont(QFont("Arial", 10, QFont.Bold))
         self.login_button.setStyleSheet(self.button_style())
         self.login_button.clicked.connect(self.handle_login)
@@ -78,8 +80,9 @@ class LoginWindow(QWidget):
                 color: #2c3e50;
             }
         """)
+        self.main_window: Optional[Any] = None # Initialize main_window
 
-    def input_style(self):
+    def input_style(self) -> str:
         """Styl dla pól tekstowych."""
         return """
             QLineEdit {
@@ -94,7 +97,7 @@ class LoginWindow(QWidget):
             }
         """
 
-    def button_style(self):
+    def button_style(self) -> str:
         """Styl dla przycisków."""
         return """
             QPushButton {
@@ -109,33 +112,43 @@ class LoginWindow(QWidget):
             }
         """
 
-    def handle_login(self):
+    def handle_login(self) -> None:
         """Handle login logic."""
-        username = self.username_input.text()
-        password = self.password_input.text()
-        host = os.getenv("DB_HOST")
-        port = os.getenv("DB_PORT")
-        database = os.getenv("DB_NAME")
+        username_input: str = self.username_input.text()
+        password_input: str = self.password_input.text()
+        host: Optional[str] = os.getenv("DB_HOST")
+        port: Optional[str] = os.getenv("DB_PORT")
+        database: Optional[str] = os.getenv("DB_NAME")
+
+        if not all([host, port, database]):
+            QMessageBox.critical(self, "Błąd konfiguracji", "Brak pełnych danych konfiguracyjnych bazy danych (DB_HOST, DB_PORT, DB_NAME).")
+            return
 
         try:
-            user_engine = create_engine(f"oracle+cx_oracle://{username}:{password}@{host}:{port}/{database}")
-            user_connection = user_engine.connect()
+            user_engine = create_engine(f"oracle+cx_oracle://{username_input}:{password_input}@{host}:{port}/{database}")
+            user_connection: Connection = user_engine.connect()
             user_connection.close()
 
             db = SessionLocal()
-            user_right = db.query(PensumRight).filter_by(LOGIN=username).first()
+            user_right: Optional[PensumRight] = db.query(PensumRight).filter_by(LOGIN=username_input).first()
             print(user_right)
             db.close()
             if not user_right:
                 QMessageBox.warning(self, "Brak uprawnień", "Nie znaleziono prawa dla tego użytkownika.")
                 return
-            username = os.getenv("DB_USER")
-            password = os.getenv("DB_PASSWORD")
-            key = os.getenv("DB_KEY")
-            f = Fernet(key)
-            password = f.decrypt(password.encode()).decode()
-            pensum_engine = create_engine(f"oracle+cx_oracle://{username}:{password}@{host}:{port}/{database}")
-            pensum_connection = pensum_engine.connect()
+            
+            db_user: Optional[str] = os.getenv("DB_USER")
+            db_password_encrypted: Optional[str] = os.getenv("DB_PASSWORD")
+            db_key: Optional[str] = os.getenv("DB_KEY")
+
+            if not all([db_user, db_password_encrypted, db_key]):
+                QMessageBox.critical(self, "Błąd konfiguracji", "Brak pełnych danych uwierzytelniających dla połączenia z bazą danych (DB_USER, DB_PASSWORD, DB_KEY).")
+                return
+
+            f_decrypt: Fernet = Fernet(db_key)
+            db_password: str = f_decrypt.decrypt(db_password_encrypted.encode()).decode()
+            pensum_engine = create_engine(f"oracle+cx_oracle://{db_user}:{db_password}@{host}:{port}/{database}")
+            pensum_connection: Connection = pensum_engine.connect()
             pensum_connection.close()
 
             from app import MainWindow
@@ -144,3 +157,4 @@ class LoginWindow(QWidget):
             self.close()
         except Exception as e:
             QMessageBox.critical(self, "Błąd logowania", f"Nie udało się zalogować: {str(e)}")
+
