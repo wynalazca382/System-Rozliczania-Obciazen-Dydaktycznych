@@ -17,9 +17,9 @@ Source: "requirements.txt"; DestDir: "{app}"; Flags: ignoreversion
 
 [Icons]
 Name: "{group}\System Rozliczania Pensum"; Filename: "{app}\app.exe"
-Name: "{commondesktop}\System Rozliczania Pensum (Produkcja)"; Filename: "{app}\app.exe"; Tasks: desktopicon
-Name: "{commondesktop}\System Rozliczania Pensum (Test)"; Filename: "{app}\app.exe"; Parameters: "--env test"; Tasks: desktopicon
-Name: "{userdesktop}\Stawki nadgodzin"; Filename: "{app}\stawki_nadgodzin.xlsx"
+Name: "{userdesktop}\SRPANS\System Rozliczania Pensum (Produkcja)"; Filename: "{app}\app.exe"; Tasks: desktopicon
+Name: "{userdesktop}\SRPANS\System Rozliczania Pensum (Test)"; Filename: "{app}\app.exe"; Parameters: "--env test"; Tasks: desktopicon
+Name: "{userdesktop}\SRPANS\Stawki nadgodzin"; Filename: "{app}\stawki_nadgodzin.xlsx"
 
 [Tasks]
 Name: "desktopicon"; Description: "Utwórz ikony na pulpicie"; GroupDescription: "Dodatkowe skróty:"

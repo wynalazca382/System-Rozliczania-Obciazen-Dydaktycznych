@@ -516,22 +516,115 @@ class MainWindow(QMainWindow):
 
             # Przedmioty
             self.instructor_details_model.appendRow([QStandardItem("--- Przedmioty ---")] + [QStandardItem("") for _ in range(len(headers)-1)])
+            self.instructor_details_model.appendRow([QStandardItem("Przedmiot"), QStandardItem("Typ zajęć"), QStandardItem("Liczba godzin"), QStandardItem("Semestr"), QStandardItem("Kierunek"), QStandardItem("Specjalność"), QStandardItem("Tryb"), QStandardItem("Instytut w którym jest rozliczany przedmiot")] + [QStandardItem("") for _ in range(len(headers)-7)])
             for group in group_data:
                 self.instructor_details_model.appendRow([
                     QStandardItem(group.get('Przedmiot', '')),
                     QStandardItem(group.get('Typ zajęć', '')),
                     QStandardItem(str(group.get('Liczba godzin', ''))),
                     QStandardItem(group.get('Semestr', '')),
-                    QStandardItem(group.get('Instytut', '')),
                     QStandardItem(f"{group.get('Kierunek', '')}"),
                     QStandardItem(f"{group.get('Specjalność', '')}"),
                     QStandardItem(group.get('Tryb', '')),
+                    QStandardItem(group.get('Instytut w którym jest rozliczany przedmiot', '')),
                 ] + [QStandardItem("") for _ in range(len(headers)-7)])
+
+            # Przedmioty (podsumowanie)
+            self.instructor_details_model.appendRow([QStandardItem("--- Przedmioty (podsumowanie) ---")] + [QStandardItem("") for _ in range(len(headers)-1)])
+            
+            # Nagłówki dla podsumowania przedmiotów
+            subject_summary_headers: List[str] = [
+                "Kierunek", "Specjalność",
+                "Zimowy stacjonarne", "Zimowy niestacjonarne",
+                "Letni stacjonarne", "Letni niestacjonarne",
+                "Suma"
+            ]
+            self.instructor_details_model.appendRow([QStandardItem(h) for h in subject_summary_headers] + [QStandardItem("") for _ in range(len(headers) - len(subject_summary_headers))])
+
+            kierunek_dict: Dict[str, Dict[str, Dict[str, Union[int, float]]]] = {}
+            specjalnosc_display_names: Dict[tuple[str, str], str] = {}
+
+            for group in group_data:
+                kierunek: str = group.get("Kierunek", "Nieznany kierunek")
+                specjalnosc: str = group.get("Specjalność", "Brak specjalności")
+                specjalnosc_key: str = specjalnosc.strip().lower()
+                specjalnosc_display_names[(kierunek, specjalnosc_key)] = specjalnosc
+                tryb: str = group.get("Tryb", "Nieznany tryb").strip().lower()
+                hours: Union[int, float] = group.get("Liczba godzin", 0)
+                semester: str = group.get("Semestr", "Nieznany semestr").lower()
+
+                if kierunek not in kierunek_dict:
+                    kierunek_dict[kierunek] = {}
+                if specjalnosc_key not in kierunek_dict[kierunek]:
+                    kierunek_dict[kierunek][specjalnosc_key] = {
+                        "Zimowy stacjonarne": 0,
+                        "Zimowy niestacjonarne": 0,
+                        "Letni stacjonarne": 0,
+                        "Letni niestacjonarne": 0,
+                        "Suma": 0
+                    }
+                if "zimowy" in semester and (("niestacjonarne" in tryb) or tryb == "none"):
+                    kierunek_dict[kierunek][specjalnosc_key]["Zimowy niestacjonarne"] += hours
+                elif "zimowy" in semester and "stacjonarne" in tryb:
+                    kierunek_dict[kierunek][specjalnosc_key]["Zimowy stacjonarne"] += hours
+                elif "letni" in semester and (("niestacjonarne" in tryb) or tryb == "none"):
+                    kierunek_dict[kierunek][specjalnosc_key]["Letni niestacjonarne"] += hours
+                elif "letni" in semester and "stacjonarne" in tryb:
+                    kierunek_dict[kierunek][specjalnosc_key]["Letni stacjonarne"] += hours
+                else:
+                    print(f"Nieznany tryb/semestr w display_instructor_details: tryb={tryb}, semester={semester}, hours={hours}, kierunek={kierunek}, specjalnosc={specjalnosc}")
+
+                kierunek_dict[kierunek][specjalnosc_key]["Suma"] += hours
+
+            for kierunek, specjalnosci in kierunek_dict.items():
+                suma_kierunku: Dict[str, Union[int, float]] = {
+                    "Zimowy stacjonarne": 0,
+                    "Zimowy niestacjonarne": 0,
+                    "Letni stacjonarne": 0,
+                    "Letni niestacjonarne": 0,
+                    "Suma": 0
+                }
+                for specjalnosc_key, godziny in specjalnosci.items():
+                    specjalnosc: str = specjalnosc_display_names.get((kierunek, specjalnosc_key), specjalnosc_key)
+                    row_items_subject: List[QStandardItem] = [
+                        QStandardItem(kierunek),
+                        QStandardItem(specjalnosc),
+                        QStandardItem(str(godziny["Zimowy stacjonarne"])),
+                        QStandardItem(str(godziny["Zimowy niestacjonarne"])),
+                        QStandardItem(str(godziny["Letni stacjonarne"])),
+                        QStandardItem(str(godziny["Letni niestacjonarne"])),
+                        QStandardItem(str(godziny["Suma"]))
+                    ]
+                    self.instructor_details_model.appendRow(row_items_subject + [QStandardItem("") for _ in range(len(headers) - len(subject_summary_headers))])
+                    
+                    # Dodaj do sum kierunku
+                    suma_kierunku["Zimowy stacjonarne"] += godziny["Zimowy stacjonarne"]
+                    suma_kierunku["Zimowy niestacjonarne"] += godziny["Zimowy niestacjonarne"]
+                    suma_kierunku["Letni stacjonarne"] += godziny["Letni stacjonarne"]
+                    suma_kierunku["Letni niestacjonarne"] += godziny["Letni niestacjonarne"]
+                    suma_kierunku["Suma"] += godziny["Suma"]
+                
+                # Dodaj wiersz sumujący dla kierunku
+                row_items_sum_kierunek: List[QStandardItem] = [
+                    QStandardItem(kierunek),
+                    QStandardItem("SUMA kierunku"),
+                    QStandardItem(str(suma_kierunku["Zimowy stacjonarne"])),
+                    QStandardItem(str(suma_kierunku["Zimowy niestacjonarne"])),
+                    QStandardItem(str(suma_kierunku["Letni stacjonarne"])),
+                    QStandardItem(str(suma_kierunku["Letni niestacjonarne"])),
+                    QStandardItem(str(suma_kierunku["Suma"]))
+                ]
+                self.instructor_details_model.appendRow(row_items_sum_kierunek + [QStandardItem("") for _ in range(len(headers) - len(subject_summary_headers))])
+
+            if not kierunek_dict:
+                self.instructor_details_model.appendRow([QStandardItem("Brak przedmiotów do wyświetlenia.")] + [QStandardItem("") for _ in range(len(headers)-1)])
+
         except Exception as e:
             self.instructor_details_model.setHorizontalHeaderLabels(["Błąd"])
             self.instructor_details_model.appendRow([QStandardItem(f"Błąd: {str(e)}")])
         finally:
             db.close()
+
 
     def populate_groups(self, filtered_employee_ids: Optional[List[int]] = None) -> None:
         self.group_model.clear()
