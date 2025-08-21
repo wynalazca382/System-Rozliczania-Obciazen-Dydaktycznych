@@ -226,24 +226,23 @@ def get_group_data(selected_year: Optional[str] = None, selected_unit: Optional[
         if selected_unit:
             query = query.filter(GroupInstructor.JEDN_KOD == selected_unit)
 
-        
         if selected_employee:
-            query = query.filter(GroupInstructor.PRAC_ID==selected_employee)
-        
+            query = query.filter(GroupInstructor.PRAC_ID == selected_employee)
+
         if filtered_employee_ids is not None and len(filtered_employee_ids) > 0:
             query = query.filter(GroupInstructor.PRAC_ID.in_(filtered_employee_ids))
         elif filtered_employee_ids is not None and len(filtered_employee_ids) == 0:
             query = query.filter(False)
 
-
         results: List[Tuple[GroupInstructor, Any, DidacticCycleClasses, Subject, DidacticCycles, ClassType, Optional[OrganizationalUnits], Person]] = query.all()
 
         if current_filtered_groups:
-            allowed_group_keys: set[Tuple[str, Any, str]] = {(g["Kod przedmiotu"], g["Nr grupy"], g["Typ zajęć"]) for g in current_filtered_groups}
+            allowed_group_keys: set[Tuple[str, Any, str]] = {(g["Kod przedmiotu"], g["Typ zajęć"]) for g in current_filtered_groups}
             results = [
                 r for r in results
-                if (r[3].KOD, r[1].NR, r[5].OPIS) in allowed_group_keys
+                if (r[3].KOD, r[5].OPIS) in allowed_group_keys
             ]
+
         data: List[Dict[str, Any]] = []
         institute_mapping: Dict[str, str] = {
             "1": "Instytut Informatyki Stosowanej im. Krzysztofa Brzeskiego",
@@ -251,31 +250,62 @@ def get_group_data(selected_year: Optional[str] = None, selected_unit: Optional[
             "3": "Instytut Politechniczny",
             "2": "Instytut Pedagogiczno-Językowy"
         }
-        # Przetwarzanie wyników
+
+        # Słownik do grupowania danych
+        grouped_data = {}
+        
         for group_instructor, group, didactic_class, subject, didactic_cycle, class_type, organizational_unit, person in results:
             godziny: float = float(didactic_class.LICZBA_GODZ or 0)
             subject_code: str = subject.KOD if subject else "N/A"
             parsed_code: Optional[Dict[str, str]] = parse_subject_code(subject_code)
-            if parsed_code and "Instytut dla którego jest prowadzony przedmiot" in parsed_code:
-                institute_code: str = parsed_code.pop("Instytut dla którego jest prowadzony przedmiot")
-                parsed_code["Instytut dla którego jest prowadzony przedmiot"] = institute_mapping.get(institute_code, "Nieznany instytut")
-            group_data: Dict[str, Any] = {
-                "Przedmiot": subject.NAZWA,
-                "Typ zajęć": class_type.OPIS,
+            
+            # Klucz do grupowania: semestr, prowadzący, typ zajęć, liczba godzin, kod przedmiotu
+            group_key = (
+                didactic_cycle.OPIS,
+                f"{person.IMIE} {person.NAZWISKO}" if person else "Nieznany prowadzący",
+                class_type.OPIS,
+                godziny,
+                subject_code,
+                organizational_unit.OPIS if organizational_unit else "Brak jednostki",
+                subject.NAZWA
+            )
+            
+            if group_key not in grouped_data:
+                grouped_data[group_key] = {
+                    "count": 0,
+                    "parsed_code": parsed_code
+                }
+            grouped_data[group_key]["count"] += 1
+
+        # Przetwórz zgrupowane dane do finalnego formatu
+        for key, value in grouped_data.items():
+            semestr, prowadzacy, typ_zajec, godziny, kod_przedmiotu, instytut, przedmiot = key
+            group_data = {
+                "Przedmiot": przedmiot,
+                "Prowadzący": prowadzacy,
+                "Typ zajęć": typ_zajec,
                 "Liczba godzin": godziny,
-                "Semestr": didactic_cycle.OPIS,
-                "Prowadzący": f"{person.IMIE} {person.NAZWISKO}" if person else "Nieznany prowadzący",
-                "Nr grupy": group_instructor.GR_NR,
-                "Kod przedmiotu": subject_code,
-                "Instytut w którym jest rozliczany przedmiot": organizational_unit.OPIS if organizational_unit else "Brak jednostki",
+                "Semestr": semestr,
+                "Liczba grup": value["count"],
+                "Łączne godziny": godziny * value["count"],
+                "Kod przedmiotu": kod_przedmiotu,
+                "Instytut w którym jest rozliczany przedmiot": instytut,
             }
-            if parsed_code:
-                group_data = {**parsed_code, **group_data}
+            
+            # Dodaj dane z parsowanego kodu jeśli istnieją
+            if value["parsed_code"]:
+                if "Instytut dla którego jest prowadzony przedmiot" in value["parsed_code"]:
+                    institute_code = value["parsed_code"].pop("Instytut dla którego jest prowadzony przedmiot")
+                    value["parsed_code"]["Instytut dla którego jest prowadzony przedmiot"] = institute_mapping.get(institute_code, "Nieznany instytut")
+                group_data = {**value["parsed_code"], **group_data}
+            
             data.append(group_data)
 
         return data
     finally:
         db.close()
+
+
 
 def parse_subject_code(subject_code: str) -> Optional[Dict[str, str]]:
     try:
