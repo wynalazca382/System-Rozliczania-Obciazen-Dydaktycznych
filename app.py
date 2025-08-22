@@ -24,6 +24,7 @@ from io import BytesIO
 from charts import ChartWidget
 from filtersProxy import MultiColumnMultiValueFilterProxyModel
 from typing import Optional, List, Dict, Any, Union, Set
+from openpyxl.styles import Font, Alignment, Border, Side, PatternFill
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
@@ -1116,6 +1117,7 @@ class MainWindow(QMainWindow):
                         df3.to_excel(writer, sheet_name='Podsumowanie', index=False, header=True)
                 # Dodaj stopkę z datą do arkuszy
                 self.add_footer_to_excel(file_path)
+                self.add_pivot_table_to_excel(file_path, df2)
                 self.format_excel(file_path)
                 self.add_charts_to_excel(file_path)
                 self.status_label.setText(f"Status: Raport zapisany do {file_path}")
@@ -1565,6 +1567,7 @@ class MainWindow(QMainWindow):
                     if not df3.empty:
                         df3.to_excel(writer, sheet_name='Podsumowanie', index=False)
                 self.add_footer_to_excel(file_path)
+                self.add_pivot_table_to_excel(file_path, df2)
                 self.format_excel(file_path)
                 self.add_charts_to_excel(file_path)
                 self.status_label.setText(f"Status: Raport zapisany do {file_path}")
@@ -1762,7 +1765,163 @@ class MainWindow(QMainWindow):
             return []
         finally:
             db.close()
-
+    def add_pivot_table_to_excel(self, file_path: str, group_data_df: pd.DataFrame) -> None:
+        """Dodaje arkusz z tabelą przestawną z formułami obliczającymi sumy."""
+        from openpyxl import load_workbook
+        from openpyxl.utils import get_column_letter
+        
+        try:
+            # Sprawdź czy wymagane kolumny istnieją w danych
+            required_columns = ['Prowadzący', 'Przedmiot', 'Semestr', 'Kierunek', 'Specjalność', 'Tryb', 'Stopień', 'Rok', 
+                            'Instytut w którym jest rozliczany przedmiot', 
+                            'Typ zajęć', 'Liczba godzin']
+            
+            # Sprawdź które kolumny są dostępne
+            available_columns = [col for col in required_columns if col in group_data_df.columns]
+            
+            if len(available_columns) < len(required_columns):
+                print(f"Brakujące kolumny w danych. Dostępne: {available_columns}")
+                return
+            
+            # Utwórz kolumnę z liczbą grup (domyślnie 1)
+            group_data_df['Liczba grup'] = 1
+            
+            # Utwórz tabele przestawne
+            pivot_hours = group_data_df.pivot_table(
+                values='Liczba godzin',
+                index=['Prowadzący', 'Przedmiot', 'Semestr','Kierunek', 'Specjalność', 'Tryb', 'Stopień', 'Rok', 'Instytut w którym jest rozliczany przedmiot'],
+                columns=['Typ zajęć'],
+                aggfunc='first',  # Bierze pierwszą wartość (godziny dla jednej grupy)
+                fill_value=0
+            )
+            
+            pivot_groups = group_data_df.pivot_table(
+                values='Liczba grup',
+                index=['Prowadzący', 'Przedmiot', 'Semestr', 'Kierunek', 'Specjalność', 'Tryb', 'Stopień', 'Rok', 'Instytut w którym jest rozliczany przedmiot'],
+                columns=['Typ zajęć'],
+                aggfunc='sum',
+                fill_value=0
+            )
+            
+            # Przygotuj finalny DataFrame
+            final_df = pivot_hours.reset_index()
+            
+            # Załaduj istniejący workbook
+            wb = load_workbook(file_path)
+            
+            # Utwórz nowy arkusz
+            if "Tabela przestawna" in wb.sheetnames:
+                ws_pivot = wb["Tabela przestawna"]
+                ws_pivot.delete_rows(1, ws_pivot.max_row)
+            else:
+                ws_pivot = wb.create_sheet("Tabela przestawna")
+            
+            # Zapisz podstawowe dane (tylko wiersze i kolumny podstawowe)
+            from openpyxl.utils.dataframe import dataframe_to_rows
+            
+            base_columns = ['Prowadzący', 'Przedmiot', 'Semestr', 'Kierunek', 'Specjalność', 'Tryb', 'Stopień', 'Rok', 'Instytut w którym jest rozliczany przedmiot']
+            base_data = final_df[base_columns]
+            
+            for r_idx, row in enumerate(dataframe_to_rows(base_data, index=False, header=True), 1):
+                for c_idx, value in enumerate(row, 1):
+                    ws_pivot.cell(row=r_idx, column=c_idx, value=value)
+            
+            # Dodaj nagłówki dla każdego typu zajęć
+            col_idx = len(base_columns) + 1
+            zajecia_types = pivot_hours.columns
+            
+            for zajecia_type in zajecia_types:
+                # Nagłówki kolumn dla tego typu zajęć
+                ws_pivot.cell(row=1, column=col_idx, value=f"{zajecia_type} - Godziny")
+                ws_pivot.cell(row=1, column=col_idx + 1, value=f"{zajecia_type} - Grupy")
+                ws_pivot.cell(row=1, column=col_idx + 2, value=f"{zajecia_type} - Suma")
+                col_idx += 3
+            
+            # Dodaj nagłówek dla sumy godzin na końcu wiersza
+            ws_pivot.cell(row=1, column=col_idx, value="SUMA GODZIN")
+            
+            # Wypełnij dane i dodaj formuły
+            for row_idx in range(2, len(final_df) + 2):  # +2 bo row 1 to nagłówek, row 2 to pierwsze dane
+                col_idx = len(base_columns) + 1
+                suma_formula_parts = []  # Przechowuje części formuły sumy
+                
+                for zajecia_type in zajecia_types:
+                    # Godziny dla jednej grupy
+                    hours_value = pivot_hours[zajecia_type].iloc[row_idx - 2]
+                    ws_pivot.cell(row=row_idx, column=col_idx, value=hours_value)
+                    
+                    # Liczba grup
+                    groups_value = pivot_groups[zajecia_type].iloc[row_idx - 2]
+                    ws_pivot.cell(row=row_idx, column=col_idx + 1, value=groups_value)
+                    
+                    # Formuła suma = godziny * grupy
+                    hours_cell = get_column_letter(col_idx) + str(row_idx)
+                    groups_cell = get_column_letter(col_idx + 1) + str(row_idx)
+                    formula = f"={hours_cell}*{groups_cell}"
+                    ws_pivot.cell(row=row_idx, column=col_idx + 2, value=formula)
+                    
+                    # Dodaj komórkę sumy do formuły ogólnej sumy
+                    suma_cell = get_column_letter(col_idx + 2) + str(row_idx)
+                    suma_formula_parts.append(suma_cell)
+                    
+                    col_idx += 3
+                
+                # Dodaj formułę sumy na końcu wiersza
+                if suma_formula_parts:
+                    suma_formula = "=" + "+".join(suma_formula_parts)
+                    ws_pivot.cell(row=row_idx, column=col_idx, value=suma_formula)
+            
+            # Dodaj wiersz z sumami
+            last_row = len(final_df) + 2
+            ws_pivot.cell(row=last_row, column=1, value="RAZEM")
+            
+            # Sumy dla każdej kolumny
+            col_idx = len(base_columns) + 1
+            
+            for zajecia_type in zajecia_types:
+                # Suma godzin
+                hours_col = get_column_letter(col_idx)
+                hours_sum_formula = f"=SUM({hours_col}2:{hours_col}{last_row - 1})"
+                ws_pivot.cell(row=last_row, column=col_idx, value=hours_sum_formula)
+                
+                # Suma grup
+                groups_col = get_column_letter(col_idx + 1)
+                groups_sum_formula = f"=SUM({groups_col}2:{groups_col}{last_row - 1})"
+                ws_pivot.cell(row=last_row, column=col_idx + 1, value=groups_sum_formula)
+                
+                # Suma sum (godziny * grupy)
+                suma_col = get_column_letter(col_idx + 2)
+                suma_sum_formula = f"=SUM({suma_col}2:{suma_col}{last_row - 1})"
+                ws_pivot.cell(row=last_row, column=col_idx + 2, value=suma_sum_formula)
+                
+                col_idx += 3
+            
+            # Suma ogólna na końcu wiersza z sumami
+            if zajecia_types.any():
+                suma_total_col = get_column_letter(col_idx)
+                suma_total_formula = f"=SUM({suma_total_col}2:{suma_total_col}{last_row - 1})"
+                ws_pivot.cell(row=last_row, column=col_idx, value=suma_total_formula)
+            
+            # Dostosuj szerokości kolumn
+            for column in ws_pivot.columns:
+                max_length = 0
+                column_letter = get_column_letter(column[0].column)
+                for cell in column:
+                    try:
+                        if cell.value:
+                            max_length = max(max_length, len(str(cell.value)))
+                    except:
+                        pass
+                adjusted_width = min(max_length + 2, 15)
+                ws_pivot.column_dimensions[column_letter].width = adjusted_width
+            
+            wb.save(file_path)
+            print("Dodano tabelę przestawną z formułami do raportu Excel")
+            
+        except Exception as e:
+            print(f"Błąd podczas tworzenia tabeli przestawnej: {str(e)}")
+            import traceback
+            traceback.print_exc()
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
