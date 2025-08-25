@@ -1115,12 +1115,12 @@ class MainWindow(QMainWindow):
                     if not df1.empty:
                         df1.to_excel(writer, sheet_name='Wykładowcy', index=False, header=True)
                     if not df2.empty:
-                        self.add_pivot_table_to_excel(file_path, df2)
                         df2.to_excel(writer, sheet_name='Grupy', index=False, header=True)
                     if not df3.empty:
                         df3.to_excel(writer, sheet_name='Podsumowanie', index=False, header=True)
                 # Dodaj stopkę z datą do arkuszy
                 self.add_footer_to_excel(file_path)
+                self.add_pivot_table_to_excel(file_path, df2)
                 self.format_excel(file_path)
                 self.add_charts_to_excel(file_path)
                 self.status_label.setText(f"Status: Raport zapisany do {file_path}")
@@ -1655,11 +1655,11 @@ class MainWindow(QMainWindow):
                     if not df1.empty:
                         df1.to_excel(writer, sheet_name='Wykładowcy', index=False)
                     if not df2.empty:
-                        self.add_pivot_table_to_excel(file_path, df2)
                         df2.to_excel(writer, sheet_name='Grupy', index=False)
                     if not df3.empty:
                         df3.to_excel(writer, sheet_name='Podsumowanie', index=False)
                 self.add_footer_to_excel(file_path)
+                self.add_pivot_table_to_excel(file_path, df2)
                 self.format_excel(file_path)
                 self.add_charts_to_excel(file_path)
                 self.status_label.setText(f"Status: Raport zapisany do {file_path}")
@@ -1864,7 +1864,7 @@ class MainWindow(QMainWindow):
             # Sprawdź czy wymagane kolumny istnieją w danych
             required_columns = ['Prowadzący', 'Przedmiot', 'Semestr', 'Kierunek', 'Specjalność', 'Tryb', 'Stopień', 'Rok', 
                             'Instytut w którym jest rozliczany przedmiot', 
-                            'Typ zajęć', 'Liczba godzin']
+                            'Typ zajęć', 'Liczba godzin', 'Kod przedmiotu']
             
             # Sprawdź które kolumny są dostępne
             available_columns = [col for col in required_columns if col in group_data_df.columns]
@@ -1879,7 +1879,7 @@ class MainWindow(QMainWindow):
             # Utwórz tabele przestawne
             pivot_hours = group_data_df.pivot_table(
                 values='Liczba godzin',
-                index=['Prowadzący', 'Przedmiot', 'Semestr','Kierunek', 'Specjalność', 'Tryb', 'Stopień', 'Rok', 'Instytut w którym jest rozliczany przedmiot'],
+                index=['Prowadzący', 'Przedmiot', 'Semestr','Kierunek', 'Specjalność', 'Tryb', 'Stopień', 'Rok', 'Instytut w którym jest rozliczany przedmiot', 'Kod przedmiotu'],
                 columns=['Typ zajęć'],
                 aggfunc='first',  # Bierze pierwszą wartość (godziny dla jednej grupy)
                 fill_value=0
@@ -1887,7 +1887,7 @@ class MainWindow(QMainWindow):
             
             pivot_groups = group_data_df.pivot_table(
                 values='Liczba grup',
-                index=['Prowadzący', 'Przedmiot', 'Semestr', 'Kierunek', 'Specjalność', 'Tryb', 'Stopień', 'Rok', 'Instytut w którym jest rozliczany przedmiot'],
+                index=['Prowadzący', 'Przedmiot', 'Semestr', 'Kierunek', 'Specjalność', 'Tryb', 'Stopień', 'Rok', 'Instytut w którym jest rozliczany przedmiot', 'Kod przedmiotu'],
                 columns=['Typ zajęć'],
                 aggfunc='sum',
                 fill_value=0
