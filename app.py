@@ -23,8 +23,11 @@ from openpyxl.drawing.image import Image as ExcelImage
 from io import BytesIO
 from charts import ChartWidget
 from filtersProxy import MultiColumnMultiValueFilterProxyModel
-from typing import Optional, List, Dict, Any, Union, Set
+from typing import Optional, List, Dict, Any, Union, Set, Tuple
 from openpyxl.styles import Font, Alignment, Border, Side, PatternFill
+from openpyxl.worksheet.table import Table, TableStyleInfo
+from openpyxl.utils import get_column_letter
+from openpyxl import load_workbook
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
@@ -1112,12 +1115,12 @@ class MainWindow(QMainWindow):
                     if not df1.empty:
                         df1.to_excel(writer, sheet_name='Wykładowcy', index=False, header=True)
                     if not df2.empty:
+                        self.add_pivot_table_to_excel(file_path, df2)
                         df2.to_excel(writer, sheet_name='Grupy', index=False, header=True)
                     if not df3.empty:
                         df3.to_excel(writer, sheet_name='Podsumowanie', index=False, header=True)
                 # Dodaj stopkę z datą do arkuszy
                 self.add_footer_to_excel(file_path)
-                self.add_pivot_table_to_excel(file_path, df2)
                 self.format_excel(file_path)
                 self.add_charts_to_excel(file_path)
                 self.status_label.setText(f"Status: Raport zapisany do {file_path}")
@@ -1139,56 +1142,145 @@ class MainWindow(QMainWindow):
                 ws.cell(row=last_row, column=1, value=date_str)
         wb.save(file_path)
 
-    def format_excel(self, file_path: str) -> None:
-        """Apply formatting to the Excel file, adjust column widths, and add Excel tables with filtering."""
-        from openpyxl import load_workbook
-        from openpyxl.worksheet.table import Table, TableStyleInfo
-
+    def format_excel(self,file_path: str) -> None:
+        """
+        Apply formatting to the Excel file, adjust column widths, and add Excel tables with filtering.
+        This version detects tables based on contiguous data blocks (separated by empty rows).
+        """
         wb = load_workbook(file_path)
         thin_border = Border(left=Side(style='thin'), right=Side(style='thin'), top=Side(style='thin'), bottom=Side(style='thin'))
 
         for sheet_name in wb.sheetnames:
             sheet = wb[sheet_name]
 
-            # Apply formatting to the header row
-            for cell in sheet[1]:
-                cell.font = Font(bold=True)
-                cell.alignment = Alignment(horizontal='center', vertical='center')
-                cell.border = thin_border
+            # Step 1: Identify table ranges (contiguous blocks of data)
+            table_ranges = self.find_table_ranges(sheet)
 
-            # Apply formatting to the rest of the cells
-            for row in sheet.iter_rows(min_row=2):
-                for cell in row:
-                    cell.alignment = Alignment(horizontal='left', vertical='center')
+            # Step 2: Apply formatting and add tables for each identified range
+            for i, (start_row, end_row, start_col, end_col) in enumerate(table_ranges):
+                # Ensure there's at least one header row and some data
+                if end_row <= start_row or end_col < start_col:
+                    continue
+
+                # Apply formatting to the header row of the current table
+                for col_idx in range(start_col, end_col + 1):
+                    cell = sheet.cell(row=start_row, column=col_idx)
+                    cell.font = Font(bold=True)
+                    cell.alignment = Alignment(horizontal='center', vertical='center')
                     cell.border = thin_border
 
-            # Adjust column widths
-            for column in sheet.columns:
-                max_length: int = 0
-                from openpyxl.utils import get_column_letter
-                column_letter: str = get_column_letter(column[0].column)
-                for cell in column:
-                    try:
-                        if cell.value:
-                            max_length = max(max_length, len(str(cell.value)))
-                    except:
-                        pass
-                adjusted_width: int = max_length + 2
-                sheet.column_dimensions[column_letter].width = adjusted_width
+                # Apply formatting to the rest of the cells in the current table
+                for row_idx in range(start_row + 1, end_row + 1):
+                    for col_idx in range(start_col, end_col + 1):
+                        cell = sheet.cell(row=row_idx, column=col_idx)
+                        cell.alignment = Alignment(horizontal='left', vertical='center')
+                        cell.border = thin_border
 
-            # Dodaj tabelę Excela z filtrowaniem
-            if sheet.max_row > 1 and sheet.max_column > 0:
-                table_ref: str = f"A1:{sheet.cell(row=sheet.max_row, column=sheet.max_column).coordinate}"
-                table = Table(displayName=f"Table_{sheet.title.replace(' ', '_')}", ref=table_ref)
+                # Adjust column widths for columns within the current table range
+                # This part is tricky if tables share columns. For simplicity, we'll adjust
+                # based on the content of the *entire* column, but only for columns
+                # that are part of the current table.
+                for col_idx in range(start_col, end_col + 1):
+                    max_length: int = 0
+                    column_letter: str = get_column_letter(col_idx)
+                    # Iterate only through rows relevant to this table for width calculation
+                    for row_idx in range(start_row, end_row + 1):
+                        cell = sheet.cell(row=row_idx, column=col_idx)
+                        try:
+                            if cell.value is not None:
+                                max_length = max(max_length, len(str(cell.value)))
+                        except:
+                            pass
+                    adjusted_width: int = max_length + 2
+                    # Only apply if the calculated width is greater than current to avoid shrinking
+                    if sheet.column_dimensions[column_letter].width is None or adjusted_width > sheet.column_dimensions[column_letter].width:
+                        sheet.column_dimensions[column_letter].width = adjusted_width
+
+                # Add Excel table with filtering for the current table range
+                table_ref: str = f"{get_column_letter(start_col)}{start_row}:{get_column_letter(end_col)}{end_row}"
+                
+                # Generate a unique display name for each table
+                table_display_name = f"Table_{sheet.title.replace(' ', '_')}_{i+1}"
+
+                table = Table(displayName=table_display_name, ref=table_ref)
                 style = TableStyleInfo(name="TableStyleMedium9", showFirstColumn=False,
                                     showLastColumn=False, showRowStripes=True, showColumnStripes=False)
                 table.tableStyleInfo = style
-                # Usuń istniejące tabele o tej samej nazwie (jeśli są)
+                
+                # Remove existing tables with the same name (if any)
+                # This is important if you run the function multiple times on the same file
                 if table.displayName in sheet.tables:
                     del sheet.tables[table.displayName]
+                
                 sheet.add_table(table)
 
         wb.save(file_path)
+
+    def find_table_ranges(self, sheet: Any) -> List[Tuple[int, int, int, int]]:
+        """
+        Identifies contiguous blocks of data (tables) in a worksheet.
+        A table is defined as a block of cells where there are no empty rows
+        within the block, and it's surrounded by empty rows or sheet boundaries.
+        Returns a list of tuples: (start_row, end_row, start_col, end_col) for each table.
+        """
+        table_ranges: List[Tuple[int, int, int, int]] = []
+        in_table: bool = False
+        current_table_start_row: int = -1
+        current_table_end_row: int = -1
+        
+        # Iterate through rows to find table boundaries
+        for row_idx in range(1, sheet.max_row + 1):
+            # Check if the row is empty (all cells are None or empty string)
+            is_row_empty = True
+            for col_idx in range(1, sheet.max_column + 1):
+                cell_value = sheet.cell(row=row_idx, column=col_idx).value
+                if cell_value is not None and str(cell_value).strip() != "":
+                    is_row_empty = False
+                    break
+            
+            if not in_table and not is_row_empty:
+                # Start of a new table
+                in_table = True
+                current_table_start_row = row_idx
+                current_table_end_row = row_idx
+            elif in_table and not is_row_empty:
+                # Continue current table
+                current_table_end_row = row_idx
+            elif in_table and is_row_empty:
+                # End of current table
+                # Now find the actual column range for this table
+                start_col, end_col = self.find_column_range(sheet, current_table_start_row, current_table_end_row)
+                if start_col != -1 and end_col != -1: # Ensure valid column range
+                    table_ranges.append((current_table_start_row, current_table_end_row, start_col, end_col))
+                in_table = False
+                current_table_start_row = -1
+                current_table_end_row = -1
+        
+        # Handle case where the last block of data is a table
+        if in_table:
+            start_col, end_col = self.find_column_range(sheet, current_table_start_row, current_table_end_row)
+            if start_col != -1 and end_col != -1:
+                table_ranges.append((current_table_start_row, current_table_end_row, start_col, end_col))
+                
+        return table_ranges
+
+    def find_column_range(self, sheet: Any, start_row: int, end_row: int) -> Tuple[int, int]:
+        """
+        Finds the actual start and end column for a given table row range.
+        """
+        min_col = sheet.max_column + 1
+        max_col = 0
+        
+        for row_idx in range(start_row, end_row + 1):
+            for col_idx in range(1, sheet.max_column + 1):
+                cell_value = sheet.cell(row=row_idx, column=col_idx).value
+                if cell_value is not None and str(cell_value).strip() != "":
+                    min_col = min(min_col, col_idx)
+                    max_col = max(max_col, col_idx)
+                    
+        if max_col == 0: # No data found in the given row range
+            return -1, -1
+        return min_col, max_col
 
     def filter_group_list(self, text: str) -> None:
         column: Optional[int] = self.group_filter_column_combo.currentData()
@@ -1563,11 +1655,11 @@ class MainWindow(QMainWindow):
                     if not df1.empty:
                         df1.to_excel(writer, sheet_name='Wykładowcy', index=False)
                     if not df2.empty:
+                        self.add_pivot_table_to_excel(file_path, df2)
                         df2.to_excel(writer, sheet_name='Grupy', index=False)
                     if not df3.empty:
                         df3.to_excel(writer, sheet_name='Podsumowanie', index=False)
                 self.add_footer_to_excel(file_path)
-                self.add_pivot_table_to_excel(file_path, df2)
                 self.format_excel(file_path)
                 self.add_charts_to_excel(file_path)
                 self.status_label.setText(f"Status: Raport zapisany do {file_path}")
@@ -1767,8 +1859,6 @@ class MainWindow(QMainWindow):
             db.close()
     def add_pivot_table_to_excel(self, file_path: str, group_data_df: pd.DataFrame) -> None:
         """Dodaje arkusz z tabelą przestawną z formułami obliczającymi sumy."""
-        from openpyxl import load_workbook
-        from openpyxl.utils import get_column_letter
         
         try:
             # Sprawdź czy wymagane kolumny istnieją w danych
@@ -1810,11 +1900,11 @@ class MainWindow(QMainWindow):
             wb = load_workbook(file_path)
             
             # Utwórz nowy arkusz
-            if "Tabela przestawna" in wb.sheetnames:
-                ws_pivot = wb["Tabela przestawna"]
+            if "Grupy planowanie" in wb.sheetnames:
+                ws_pivot = wb["Grupy planowanie"]
                 ws_pivot.delete_rows(1, ws_pivot.max_row)
             else:
-                ws_pivot = wb.create_sheet("Tabela przestawna")
+                ws_pivot = wb.create_sheet("Grupy planowanie")
             
             # Zapisz podstawowe dane (tylko wiersze i kolumny podstawowe)
             from openpyxl.utils.dataframe import dataframe_to_rows
@@ -1872,7 +1962,7 @@ class MainWindow(QMainWindow):
                     ws_pivot.cell(row=row_idx, column=col_idx, value=suma_formula)
             
             # Dodaj wiersz z sumami
-            last_row = len(final_df) + 2
+            last_row = len(final_df) + 3
             ws_pivot.cell(row=last_row, column=1, value="RAZEM")
             
             # Sumy dla każdej kolumny
@@ -1881,17 +1971,17 @@ class MainWindow(QMainWindow):
             for zajecia_type in zajecia_types:
                 # Suma godzin
                 hours_col = get_column_letter(col_idx)
-                hours_sum_formula = f"=SUM({hours_col}2:{hours_col}{last_row - 1})"
+                hours_sum_formula = f"=SUBTOTAL(9,{hours_col}2:{hours_col}{last_row - 1})"
                 ws_pivot.cell(row=last_row, column=col_idx, value=hours_sum_formula)
                 
                 # Suma grup
                 groups_col = get_column_letter(col_idx + 1)
-                groups_sum_formula = f"=SUM({groups_col}2:{groups_col}{last_row - 1})"
+                groups_sum_formula = f"=SUBTOTAL(9,{groups_col}2:{groups_col}{last_row - 1})"
                 ws_pivot.cell(row=last_row, column=col_idx + 1, value=groups_sum_formula)
                 
                 # Suma sum (godziny * grupy)
                 suma_col = get_column_letter(col_idx + 2)
-                suma_sum_formula = f"=SUM({suma_col}2:{suma_col}{last_row - 1})"
+                suma_sum_formula = f"=SUBTOTAL(9,{suma_col}2:{suma_col}{last_row - 1})"
                 ws_pivot.cell(row=last_row, column=col_idx + 2, value=suma_sum_formula)
                 
                 col_idx += 3
@@ -1899,7 +1989,7 @@ class MainWindow(QMainWindow):
             # Suma ogólna na końcu wiersza z sumami
             if zajecia_types.any():
                 suma_total_col = get_column_letter(col_idx)
-                suma_total_formula = f"=SUM({suma_total_col}2:{suma_total_col}{last_row - 1})"
+                suma_total_formula = f"=SUBTOTAL(9,{suma_total_col}2:{suma_total_col}{last_row - 1})"
                 ws_pivot.cell(row=last_row, column=col_idx, value=suma_total_formula)
             
             # Dostosuj szerokości kolumn
