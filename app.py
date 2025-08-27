@@ -64,14 +64,51 @@ class ReportProgressDialog(QDialog):
 
     def set_finished(self, report_path):
         self.label.setText("Raport został wygenerowany.")
+        self.spinner_movie.stop()
+        self.spinner_movie = QMovie("success.gif")
+        self.spinner_label.setMovie(self.spinner_movie)
+        self.spinner_label.setVisible(True)
+        self.spinner_movie.start()
         self.close_btn.setVisible(True)
         self.open_btn.setVisible(True)
-        self.spinner_label.setVisible(False)
         self.report_path = report_path
 
     def open_report(self):
         if self.report_path and os.path.exists(self.report_path):
             os.startfile(self.report_path)
+from PyQt5.QtCore import QThread, pyqtSignal
+
+class ReportWorker(QThread):
+    finished = pyqtSignal(str)
+    error = pyqtSignal(str)
+
+    def __init__(self, file_path, df1, df2, df3, add_footer, add_pivot, format_excel, add_charts):
+        super().__init__()
+        self.file_path = file_path
+        self.df1 = df1
+        self.df2 = df2
+        self.df3 = df3
+        self.add_footer = add_footer
+        self.add_pivot = add_pivot
+        self.format_excel = format_excel
+        self.add_charts = add_charts
+
+    def run(self):
+        try:
+            with pd.ExcelWriter(self.file_path, engine='openpyxl') as writer:
+                if not self.df1.empty:
+                    self.df1.to_excel(writer, sheet_name='Wykładowcy', index=False)
+                if not self.df2.empty:
+                    self.df2.to_excel(writer, sheet_name='Grupy', index=False)
+                if not self.df3.empty:
+                    self.df3.to_excel(writer, sheet_name='Podsumowanie', index=False)
+            self.add_footer(self.file_path)
+            self.add_pivot(self.file_path, self.df2)
+            self.format_excel(self.file_path)
+            self.add_charts(self.file_path)
+            self.finished.emit(self.file_path)
+        except Exception as e:
+            self.error.emit(str(e))
 class MainWindow(QMainWindow):
     def __init__(self, user_right: int) -> None:
         super().__init__()
@@ -1154,20 +1191,19 @@ class MainWindow(QMainWindow):
                 progress_dialog = ReportProgressDialog(self)
                 progress_dialog.show()
                 QApplication.processEvents()
-                with pd.ExcelWriter(file_path, engine='openpyxl') as writer:
-                    if not df1.empty:
-                        df1.to_excel(writer, sheet_name='Wykładowcy', index=False, header=True)
-                    if not df2.empty:
-                        df2.to_excel(writer, sheet_name='Grupy', index=False, header=True)
-                    if not df3.empty:
-                        df3.to_excel(writer, sheet_name='Podsumowanie', index=False, header=True)
-                self.add_footer_to_excel(file_path)
-                self.add_pivot_table_to_excel(file_path, df2)
-                self.format_excel(file_path)
-                self.add_charts_to_excel(file_path)
-                progress_dialog.set_finished(file_path)
+
+                # Utwórz worker w osobnym wątku
+                self.report_worker = ReportWorker(
+                    file_path, df1, df2, df3,
+                    self.add_footer_to_excel,
+                    self.add_pivot_table_to_excel,
+                    self.format_excel,
+                    self.add_charts_to_excel
+                )
+                self.report_worker.finished.connect(lambda path: self._report_finished(progress_dialog, path))
+                self.report_worker.error.connect(lambda err: self._report_error(progress_dialog, err))
+                self.report_worker.start()
                 progress_dialog.exec_()
-                self.status_label.setText(f"Status: Raport zapisany do {file_path}")
             else:
                 self.status_label.setText("Status: Anulowano zapis raportu")
         except Exception as e:
@@ -1697,27 +1733,35 @@ class MainWindow(QMainWindow):
                 progress_dialog = ReportProgressDialog(self)
                 progress_dialog.show()
                 QApplication.processEvents()
-                # --- generowanie raportu ---
-                with pd.ExcelWriter(file_path, engine='openpyxl') as writer:
-                    if not df1.empty:
-                        df1.to_excel(writer, sheet_name='Wykładowcy', index=False)
-                    if not df2.empty:
-                        df2.to_excel(writer, sheet_name='Grupy', index=False)
-                    if not df3.empty:
-                        df3.to_excel(writer, sheet_name='Podsumowanie', index=False)
-                self.add_footer_to_excel(file_path)
-                self.add_pivot_table_to_excel(file_path, df2)
-                self.format_excel(file_path)
-                self.add_charts_to_excel(file_path)
-                # --- koniec generowania raportu ---
-                progress_dialog.set_finished(file_path)
+
+                # Utwórz worker w osobnym wątku
+                self.report_worker = ReportWorker(
+                    file_path, df1, df2, df3,
+                    self.add_footer_to_excel,
+                    self.add_pivot_table_to_excel,
+                    self.format_excel,
+                    self.add_charts_to_excel
+                )
+                self.report_worker.finished.connect(lambda path: self._report_finished(progress_dialog, path))
+                self.report_worker.error.connect(lambda err: self._report_error(progress_dialog, err))
+                self.report_worker.start()
                 progress_dialog.exec_()
-                self.status_label.setText(f"Status: Raport zapisany do {file_path}")
             else:
                 self.status_label.setText("Status: Anulowano zapis raportu")
         except Exception as e:
             print(e)
             self.status_label.setText(f"Status: Błąd podczas generowania raportu: {str(e)}")
+
+    def _report_finished(self, progress_dialog, file_path):
+        progress_dialog.set_finished(file_path)
+        self.status_label.setText(f"Status: Raport zapisany do {file_path}")
+
+    def _report_error(self, progress_dialog, error_msg):
+        progress_dialog.label.setText(f"Błąd: {error_msg}")
+        progress_dialog.spinner_label.setVisible(False)
+        progress_dialog.close_btn.setVisible(True)
+        progress_dialog.open_btn.setVisible(False)
+        self.status_label.setText(f"Status: Błąd podczas generowania raportu: {error_msg}")
 
     def add_charts_to_excel(self, file_path: str) -> None:
         """Generuje wszystkie wykresy i dodaje je do nowego arkusza w pliku Excel."""
