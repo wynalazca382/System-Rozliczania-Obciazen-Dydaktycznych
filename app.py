@@ -1978,7 +1978,7 @@ class MainWindow(QMainWindow):
             # Sprawdź czy wymagane kolumny istnieją w danych
             required_columns = ['Prowadzący', 'Przedmiot', 'Semestr', 'Kierunek', 'Specjalność', 'Tryb', 'Stopień', 'Rok', 
                             'Instytut w którym jest rozliczany przedmiot', 
-                            'Typ zajęć', 'Liczba godzin', 'Kod przedmiotu']
+                            'Typ zajęć', 'Liczba godzin', 'Kod przedmiotu', 'Liczba grup']
             
             # Sprawdź które kolumny są dostępne
             available_columns = [col for col in required_columns if col in group_data_df.columns]
@@ -1988,7 +1988,8 @@ class MainWindow(QMainWindow):
                 return
             
             # Utwórz kolumnę z liczbą grup (domyślnie 1)
-            group_data_df['Liczba grup'] = 1
+            if 'Liczba grup' not in group_data_df.columns:
+                group_data_df['Liczba grup'] = 1
             
             # Utwórz tabele przestawne
             pivot_hours = group_data_df.pivot_table(
