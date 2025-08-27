@@ -31,6 +31,47 @@ from openpyxl import load_workbook
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
+from PyQt5.QtCore import QTimer
+import os
+from PyQt5.QtGui import QMovie
+
+class ReportProgressDialog(QDialog):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("Generowanie raportu")
+        self.setModal(True)
+        self.layout = QVBoxLayout(self)
+        self.label = QLabel("Trwa generowanie raportu, proszę czekać...")
+        self.layout.addWidget(self.label)
+
+        self.spinner_label = QLabel()
+        self.spinner_movie = QMovie("spinner.gif")
+        self.spinner_label.setMovie(self.spinner_movie)
+        self.layout.addWidget(self.spinner_label)
+        self.spinner_movie.start()
+
+        self.close_btn = QPushButton("Zamknij")
+        self.open_btn = QPushButton("Otwórz raport")
+        self.close_btn.setVisible(False)
+        self.open_btn.setVisible(False)
+        btn_layout = QHBoxLayout()
+        btn_layout.addWidget(self.open_btn)
+        btn_layout.addWidget(self.close_btn)
+        self.layout.addLayout(btn_layout)
+        self.close_btn.clicked.connect(self.accept)
+        self.open_btn.clicked.connect(self.open_report)
+        self.report_path = None
+
+    def set_finished(self, report_path):
+        self.label.setText("Raport został wygenerowany.")
+        self.close_btn.setVisible(True)
+        self.open_btn.setVisible(True)
+        self.spinner_label.setVisible(False)
+        self.report_path = report_path
+
+    def open_report(self):
+        if self.report_path and os.path.exists(self.report_path):
+            os.startfile(self.report_path)
 class MainWindow(QMainWindow):
     def __init__(self, user_right: int) -> None:
         super().__init__()
@@ -1110,19 +1151,22 @@ class MainWindow(QMainWindow):
             file_path: str
             file_path, _ = QFileDialog.getSaveFileName(self, "Save File", default_name, "Excel Files (*.xlsx)")
             if file_path:
+                progress_dialog = ReportProgressDialog(self)
+                progress_dialog.show()
+                QApplication.processEvents()
                 with pd.ExcelWriter(file_path, engine='openpyxl') as writer:
-                    # Eksport bez nagłówków tekstowych i bez nagłówków kolumn
                     if not df1.empty:
                         df1.to_excel(writer, sheet_name='Wykładowcy', index=False, header=True)
                     if not df2.empty:
                         df2.to_excel(writer, sheet_name='Grupy', index=False, header=True)
                     if not df3.empty:
                         df3.to_excel(writer, sheet_name='Podsumowanie', index=False, header=True)
-                # Dodaj stopkę z datą do arkuszy
                 self.add_footer_to_excel(file_path)
                 self.add_pivot_table_to_excel(file_path, df2)
                 self.format_excel(file_path)
                 self.add_charts_to_excel(file_path)
+                progress_dialog.set_finished(file_path)
+                progress_dialog.exec_()
                 self.status_label.setText(f"Status: Raport zapisany do {file_path}")
             else:
                 self.status_label.setText("Status: Anulowano zapis raportu")
@@ -1650,8 +1694,11 @@ class MainWindow(QMainWindow):
             file_path: str
             file_path, _ = QFileDialog.getSaveFileName(self, "Save File", default_name, "Excel Files (*.xlsx)")
             if file_path:
+                progress_dialog = ReportProgressDialog(self)
+                progress_dialog.show()
+                QApplication.processEvents()
+                # --- generowanie raportu ---
                 with pd.ExcelWriter(file_path, engine='openpyxl') as writer:
-                    # Eksport bez nagłówków tekstowych
                     if not df1.empty:
                         df1.to_excel(writer, sheet_name='Wykładowcy', index=False)
                     if not df2.empty:
@@ -1662,6 +1709,9 @@ class MainWindow(QMainWindow):
                 self.add_pivot_table_to_excel(file_path, df2)
                 self.format_excel(file_path)
                 self.add_charts_to_excel(file_path)
+                # --- koniec generowania raportu ---
+                progress_dialog.set_finished(file_path)
+                progress_dialog.exec_()
                 self.status_label.setText(f"Status: Raport zapisany do {file_path}")
             else:
                 self.status_label.setText("Status: Anulowano zapis raportu")
