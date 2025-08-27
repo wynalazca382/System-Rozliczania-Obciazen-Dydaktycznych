@@ -1027,6 +1027,9 @@ class MainWindow(QMainWindow):
         buttons.rejected.connect(dialog.reject)
         if dialog.exec_() == QDialog.Accepted:
             selected: List[str] = [cb.text() for cb in checkboxes if cb.isChecked()]
+            if not selected:
+                QMessageBox.warning(self, "Brak kolumn", "Musisz wybrać przynajmniej jedną kolumnę do eksportu!")
+                return None
             return selected
         else:
             return None
@@ -1183,6 +1186,11 @@ class MainWindow(QMainWindow):
                     df3 = pd.DataFrame(summary_data)[selected_columns3]
             else:
                 df3 = pd.DataFrame()
+            if not employees and not data2 and not summary_data:
+                QMessageBox.warning(self, "Brak danych", "Brak danych do wygenerowania raportu!")
+                self.status_label.setText("Status: Brak danych do raportu.")
+                db.close()
+                return
             now: datetime = datetime.now()
             default_name: str = f"raport_{now.strftime('%Y-%m-%d_%H-%M')}.xlsx"
             file_path: str
@@ -1691,7 +1699,11 @@ class MainWindow(QMainWindow):
             group_data: List[Dict[str, Any]] = self.get_visible_table_data(self.group_proxy, group_headers)
             instructor_data: List[Dict[str, Any]] = self.get_visible_table_data(self.instructor_proxy, instructor_headers)
             summary_data: List[Dict[str, Any]] = self.get_visible_table_data(self.summary_proxy, summary_headers)
-            
+
+            if not group_data and not instructor_data and not summary_data:
+                QMessageBox.warning(self, "Brak danych", "Brak danych do wygenerowania raportu!")
+                self.status_label.setText("Status: Brak danych do raportu.")
+                return
             df1: pd.DataFrame
             if instructor_data:
                 all_columns: List[str] = list(instructor_data[0].keys())
@@ -1753,8 +1765,14 @@ class MainWindow(QMainWindow):
             self.status_label.setText(f"Status: Błąd podczas generowania raportu: {str(e)}")
 
     def _report_finished(self, progress_dialog, file_path):
-        progress_dialog.set_finished(file_path)
-        self.status_label.setText(f"Status: Raport zapisany do {file_path}")
+        try:
+            if not os.path.exists(file_path):
+                raise Exception("Plik nie został zapisany. Sprawdź uprawnienia lub czy plik nie jest otwarty w innym programie.")
+            progress_dialog.set_finished(file_path)
+            self.status_label.setText(f"Status: Raport zapisany do {file_path}")
+        except Exception as e:
+            QMessageBox.critical(self, "Błąd zapisu", str(e))
+            self.status_label.setText(f"Status: Błąd zapisu raportu: {str(e)}")
 
     def _report_error(self, progress_dialog, error_msg):
         progress_dialog.label.setText(f"Błąd: {error_msg}")
@@ -1833,6 +1851,7 @@ class MainWindow(QMainWindow):
         return data
     
     def generate_report(self) -> None:
+        self.report_button.setEnabled(False)  # Blokuj przycisk
         msg = QMessageBox()
         msg.setWindowTitle("Wybór źródła danych")
         msg.setText("Wybierz źródło danych, z którego chcesz wygenerować raport:")
@@ -1844,6 +1863,7 @@ class MainWindow(QMainWindow):
             self.generate_report_from_view()
         elif msg.clickedButton() == baza_btn:
             self.generate_report_from_db()
+        self.report_button.setEnabled(True)  # Odblokuj po zakończeniu
 
     def toggle_theme(self) -> None:
         if self.is_dark_mode:
