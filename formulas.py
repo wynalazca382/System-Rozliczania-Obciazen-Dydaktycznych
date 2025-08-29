@@ -60,10 +60,10 @@ def calculate_workload_for_employee(employee_id: int, selected_year: str, select
         if filtered_groups:
             # Filtruj filtered_groups po pracowniku
             employee_filtered_groups: List[Dict[str, Any]] = [g for g in filtered_groups if g.get("Prowadzący") == employee_name]
-            allowed_group_keys: set[Tuple[str, Any, str]] = {(g["Kod przedmiotu"], g["Nr grupy"], g["Typ zajęć"]) for g in employee_filtered_groups}
+            allowed_group_keys: set[Tuple[str, Any, str]] = {(g["Kod przedmiotu"], g["Typ zajęć"]) for g in employee_filtered_groups}
             results = [
                 r for r in results
-                if (r[3].KOD, r[1].NR, r[5].OPIS) in allowed_group_keys
+                if (r[3].KOD, r[5].OPIS) in allowed_group_keys
             ]
 
         total_workload: float = 0.0

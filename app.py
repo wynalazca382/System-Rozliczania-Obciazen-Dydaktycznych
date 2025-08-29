@@ -30,7 +30,7 @@ from openpyxl.utils import get_column_letter
 from openpyxl import load_workbook
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-
+MAX_PATH_LENGTH = 255
 from PyQt5.QtCore import QTimer
 import os
 from PyQt5.QtGui import QMovie
@@ -1741,6 +1741,19 @@ class MainWindow(QMainWindow):
             default_name: str = f"raport_{now.strftime('%Y-%m-%d_%H-%M')}.xlsx"
             file_path: str
             file_path, _ = QFileDialog.getSaveFileName(self, "Save File", default_name, "Excel Files (*.xlsx)")
+            if not file_path:
+                self.status_label.setText("Status: Anulowano zapis raportu")
+                return
+
+            if len(file_path) > MAX_PATH_LENGTH:
+                QMessageBox.warning(self, "Zbyt długa ścieżka", "Ścieżka pliku jest zbyt długa. Skróć nazwę lub wybierz inną lokalizację.")
+                self.status_label.setText("Status: Zbyt długa ścieżka pliku.")
+                return
+
+            if not file_path.lower().endswith('.xlsx'):
+                QMessageBox.warning(self, "Błąd pliku", "Podaj nazwę pliku z rozszerzeniem .xlsx.")
+                self.status_label.setText("Status: Niepoprawna nazwa pliku.")
+                return
             if file_path:
                 progress_dialog = ReportProgressDialog(self)
                 progress_dialog.show()
