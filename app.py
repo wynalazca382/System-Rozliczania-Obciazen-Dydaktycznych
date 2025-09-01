@@ -419,9 +419,11 @@ class MainWindow(QMainWindow):
             self.status_label.setText("Dane odświeżone.")
 
     def on_tab_changed(self, index: int) -> None:
-        """Handle tab change events."""
-        if self.tab_widget.tabText(index) == "Wykładowcy":
-            self.populate_employees()
+        if self.changeFlag:
+        # tymczasowo wyłącz checkbox
+            self.chceckbox.setChecked(False)
+            self.chceckbox.setChecked(True)
+            self.changeFlag = False
 
     def populate_years(self) -> None:
         """Populate the year filter with distinct academic years from DidacticCycles."""
@@ -557,8 +559,8 @@ class MainWindow(QMainWindow):
                 group_data = get_group_data(selected_year, selected_unit, selected_employee_id, None)
             
             filtered_groups: Optional[List[Dict[str, Any]]] = self.current_filtered_groups if self.chceckbox.isChecked() else None
-            if filtered_groups:
-                group_data = [group for group in group_data if group in filtered_groups]
+            #if filtered_groups:
+                #group_data = [group for group in group_data if group in filtered_groups]
             
             workload_data: Dict[str, Any] = calculate_workload_for_employee(employee.ID, selected_year, selected_unit, filtered_groups)
 
