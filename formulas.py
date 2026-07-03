@@ -1,5 +1,6 @@
 from models import Employee, GroupInstructor, ThesisSupervisors, Reviewer, IndividualRates, OrganizationalUnits, CommitteeFunctionPensum, DidacticCycles, Group, Person, Position, Employment, EmployeePensum, Discount, Position, DidacticCycleClasses , Subject, ClassType, DiscountType, StanowiskaZatrPensum, PensumSettlement
 from sqlalchemy import and_
+from sqlalchemy.orm import aliased
 from database import SessionLocal
 from typing import Dict, Any, List, Optional, Tuple
 from datetime import date
@@ -34,6 +35,28 @@ def calculate_workload_for_employee(employee_id: int, selected_year: str, select
             }
         
         employee_name: str = f"{employee.person.IMIE} {employee.person.NAZWISKO}"
+
+        if selected_unit and employee.person.JED_ORG_KOD != selected_unit:
+            return {
+                "total_workload": 0.0,
+                "godziny_dydaktyczne_z_stacjonarne": 0.0,
+                "godziny_dydaktyczne_z_niestacjonarne": 0.0,
+                "godziny_dydaktyczne_l_stacjonarne": 0.0,
+                "godziny_dydaktyczne_l_niestacjonarne": 0.0,
+                "pensum": 0.0,
+                "etat": 1.0,
+                "nadgodziny": 0.0,
+                "stawka": 0.0,
+                "kwota_nadgodzin": 0.0,
+                "zniżka": 0.0,
+                "godziny_znizek": ["Brak zniżek"],
+                "typy_znizek": ["Brak zniżek"],
+                "CZY_PODSTAWOWE": "Brak danych",
+                "stanowisko": "Brak stanowiska",
+                "pensum_uczelniane": "Brak pensum uczelnianego",
+                "umowa_pocz": "Brak daty rozpoczęcia umowy",
+                "umowa_kon": "Brak daty zakończenia umowy"
+            }
         
         # Pobierz zajęcia dydaktyczne dla pracownika z filtrowaniem po roku akademickim i jednostce organizacyjnej
         query = (
@@ -50,10 +73,6 @@ def calculate_workload_for_employee(employee_id: int, selected_year: str, select
             .filter(DidacticCycles.OPIS.like(f"%{selected_year}%"))
             .filter(ClassType.OPIS != "Praktyka zawodowa").filter(~Subject.NAZWA.like("Praktyka zawodowa%"))
         )
-
-        # Dodaj filtrację po jednostce organizacyjnej, jeśli wybrano
-        if selected_unit:
-            query = query.filter(GroupInstructor.JEDN_KOD == selected_unit)
 
         results: List[Tuple[GroupInstructor, Any, DidacticCycleClasses, Subject, DidacticCycles, ClassType]] = query.all()
         
@@ -201,9 +220,10 @@ def calculate_workload_for_employee(employee_id: int, selected_year: str, select
 def get_group_data(selected_year: Optional[str] = None, selected_unit: Optional[str] = None, selected_employee: Optional[int] = None, current_filtered_groups: Optional[List[Dict[str, Any]]] = None, filtered_employee_ids: Optional[List[int]] = None) -> List[Dict[str, Any]]:
     db = SessionLocal()
     try:
+        person_organizational_unit = aliased(OrganizationalUnits)
         # Pobierz dane grup z powiązanymi informacjami
         query = (
-            db.query(GroupInstructor, Group, DidacticCycleClasses, Subject, DidacticCycles, ClassType, OrganizationalUnits, Person)
+            db.query(GroupInstructor, Group, DidacticCycleClasses, Subject, DidacticCycles, ClassType, OrganizationalUnits, person_organizational_unit, Person)
             .join(Group, and_(
                 GroupInstructor.ZAJ_CYK_ID == Group.ZAJ_CYK_ID,
                 GroupInstructor.GR_NR == Group.NR
@@ -215,6 +235,7 @@ def get_group_data(selected_year: Optional[str] = None, selected_unit: Optional[
             .join(OrganizationalUnits, GroupInstructor.JEDN_KOD == OrganizationalUnits.KOD, isouter=True)
             .join(Employee, GroupInstructor.PRAC_ID == Employee.ID)  # Połączenie z Employee
             .join(Person, Employee.OS_ID == Person.ID)  # Połączenie z Person
+            .join(person_organizational_unit, Person.JED_ORG_KOD == person_organizational_unit.KOD, isouter=True)
             .filter(ClassType.OPIS != "Praktyka zawodowa").filter(~Subject.NAZWA.like("Praktyka zawodowa%"))
         )
 
@@ -224,7 +245,7 @@ def get_group_data(selected_year: Optional[str] = None, selected_unit: Optional[
 
         # Filtruj po jednostce organizacyjnej
         if selected_unit:
-            query = query.filter(GroupInstructor.JEDN_KOD == selected_unit)
+            query = query.filter(Person.JED_ORG_KOD == selected_unit)
 
         if selected_employee:
             query = query.filter(GroupInstructor.PRAC_ID == selected_employee)
@@ -234,7 +255,7 @@ def get_group_data(selected_year: Optional[str] = None, selected_unit: Optional[
         elif filtered_employee_ids is not None and len(filtered_employee_ids) == 0:
             query = query.filter(False)
 
-        results: List[Tuple[GroupInstructor, Any, DidacticCycleClasses, Subject, DidacticCycles, ClassType, Optional[OrganizationalUnits], Person]] = query.all()
+        results: List[Tuple[GroupInstructor, Any, DidacticCycleClasses, Subject, DidacticCycles, ClassType, Optional[OrganizationalUnits], Optional[OrganizationalUnits], Person]] = query.all()
 
         if current_filtered_groups:
             allowed_group_keys: set[Tuple[str, Any, str]] = {(g["Kod przedmiotu"], g["Typ zajęć"]) for g in current_filtered_groups}
@@ -255,7 +276,7 @@ def get_group_data(selected_year: Optional[str] = None, selected_unit: Optional[
         # Słownik do grupowania danych
         grouped_data = {}
         
-        for group_instructor, group, didactic_class, subject, didactic_cycle, class_type, organizational_unit, person in results:
+        for group_instructor, group, didactic_class, subject, didactic_cycle, class_type, organizational_unit, person_organizational_unit, person in results:
             godziny: float = float(didactic_class.LICZBA_GODZ or 0)
             subject_code: str = subject.KOD if subject else "N/A"
             parsed_code: Optional[Dict[str, str]] = parse_subject_code(subject_code)
@@ -267,7 +288,7 @@ def get_group_data(selected_year: Optional[str] = None, selected_unit: Optional[
                 class_type.OPIS,
                 godziny,
                 subject_code,
-                organizational_unit.OPIS if organizational_unit else "Brak jednostki",
+                person_organizational_unit.OPIS if person_organizational_unit else "Brak jednostki",
                 subject.NAZWA
             )
             
@@ -290,7 +311,7 @@ def get_group_data(selected_year: Optional[str] = None, selected_unit: Optional[
                 "Liczba grup": value["count"],
                 "Łączne godziny": godziny * value["count"],
                 "Kod przedmiotu": kod_przedmiotu,
-                "Instytut w którym jest rozliczany przedmiot": instytut,
+                "Jednostka organizacyjna pracownika": instytut,
             }
             
             # Dodaj dane z parsowanego kodu jeśli istnieją
