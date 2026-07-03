@@ -465,6 +465,8 @@ class MainWindow(QMainWindow):
                 units = db.query(OrganizationalUnits).filter(OrganizationalUnits.OPIS == "Instytut Politechniczny").all()
             elif self.user_right == 2:  # Dostęp tylko do Instytutu Pedagogiczno-Językowego
                 units = db.query(OrganizationalUnits).filter(OrganizationalUnits.OPIS == "Instytut Pedagogiczno- Językowy").all()
+            elif self.user_right == 6:  # Dostęp tylko do Instytutu Nauk o Zdrowiu
+                units = db.query(OrganizationalUnits).filter(OrganizationalUnits.OPIS == "Instytut Nauk o Zdrowiu").all()
             else:
                 units = []  # Brak dostępu do żadnych jednostek
                 self.status_label.setText("Błąd: Nieprawidłowa rola użytkownika. Skontaktuj się z administratorem.")

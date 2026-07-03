@@ -1,6 +1,6 @@
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, declarative_base  # Użycie sqlalchemy.orm.declarative_base
-from sqlalchemy.engine import Engine
+from sqlalchemy.engine import Engine, URL
 from sqlalchemy.orm import Session
 import os
 from dotenv import load_dotenv
@@ -34,7 +34,15 @@ if database is None:
     raise ValueError("DB_NAME is not set in the environment variables")
 
 password: str = f.decrypt(password_encrypted.encode()).decode()
-engine: Engine = create_engine(f"oracle+cx_oracle://{username}:{password}@{host}:{port}/{database}")
+database_url = URL.create(
+    "oracle+cx_oracle",
+    username=username,
+    password=password,
+    host=host,
+    port=int(port),
+    database=database,
+)
+engine: Engine = create_engine(database_url)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()  # Użycie nowej wersji declarative_base
 

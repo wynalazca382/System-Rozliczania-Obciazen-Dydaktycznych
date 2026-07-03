@@ -5,8 +5,8 @@ from PyQt5.QtWidgets import (
 )
 from PyQt5.QtGui import QFont
 from PyQt5.QtCore import Qt
-from sqlalchemy import create_engine
-from sqlalchemy.engine import Connection
+from sqlalchemy import create_engine, func
+from sqlalchemy.engine import Connection, URL
 import os
 from models import PensumRight
 from database import SessionLocal
@@ -125,12 +125,33 @@ class LoginWindow(QWidget):
             return
 
         try:
-            user_engine = create_engine(f"oracle+cx_oracle://{username_input}:{password_input}@{host}:{port}/{database}")
+            user_url = URL.create(
+                "oracle+cx_oracle",
+                username=username_input,
+                password=password_input,
+                host=host,
+                port=int(port),
+                database=database,
+            )
+            user_engine = create_engine(user_url)
             user_connection: Connection = user_engine.connect()
             user_connection.close()
 
+            normalized_username: str = username_input.strip()
+            username_variants = {
+                normalized_username,
+                normalized_username.split("\\")[-1],
+                normalized_username.split("@")[0],
+                normalized_username.replace(".", ""),
+            }
+            username_variants = {value for value in username_variants if value}
+
             db = SessionLocal()
-            user_right: Optional[PensumRight] = db.query(PensumRight).filter_by(LOGIN=username_input).first()
+            user_right: Optional[PensumRight] = (
+                db.query(PensumRight)
+                .filter(func.upper(func.trim(PensumRight.LOGIN)).in_([value.upper() for value in username_variants]))
+                .first()
+            )
             print(user_right)
             db.close()
             if not user_right:
@@ -147,7 +168,15 @@ class LoginWindow(QWidget):
 
             f_decrypt: Fernet = Fernet(db_key)
             db_password: str = f_decrypt.decrypt(db_password_encrypted.encode()).decode()
-            pensum_engine = create_engine(f"oracle+cx_oracle://{db_user}:{db_password}@{host}:{port}/{database}")
+            pensum_url = URL.create(
+                "oracle+cx_oracle",
+                username=db_user,
+                password=db_password,
+                host=host,
+                port=int(port),
+                database=database,
+            )
+            pensum_engine = create_engine(pensum_url)
             pensum_connection: Connection = pensum_engine.connect()
             pensum_connection.close()
 

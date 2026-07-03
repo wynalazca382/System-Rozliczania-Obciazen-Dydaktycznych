@@ -248,7 +248,8 @@ def get_group_data(selected_year: Optional[str] = None, selected_unit: Optional[
             "1": "Instytut Informatyki Stosowanej im. Krzysztofa Brzeskiego",
             "4": "Instytut Ekonomiczny",
             "3": "Instytut Politechniczny",
-            "2": "Instytut Pedagogiczno-Językowy"
+            "2": "Instytut Pedagogiczno-Językowy",
+            "6": "Instytut Nauk o Zdrowiu"
         }
 
         # Słownik do grupowania danych

@@ -7,3 +7,6 @@ PyQt5
 pandas
 openpyxl
 python-dotenv
+cryptography
+matplotlib
+numpy
